@@ -57,6 +57,23 @@ export async function requireApiAccess(
   }
 }
 
+/**
+ * Guards the hidden platform API (operations reserved for the app's owners,
+ * such as enabling activities for a club). Accepts only a bearer token matching
+ * PLATFORM_API_KEY — never a session — and fails with a 404 so the endpoints
+ * don't reveal that they exist. With no key configured the API is off.
+ */
+export function requirePlatformKey(request: Request): void {
+  const expected = process.env.PLATFORM_API_KEY
+  const header = request.headers.get("authorization")
+  const token = header?.startsWith("Bearer ")
+    ? header.slice("Bearer ".length).trim()
+    : ""
+  if (!expected || !token || !safeEqual(token, expected)) {
+    throw new ApiError(404, "Not found.")
+  }
+}
+
 /** Parses a JSON request body, returning a 400 ApiError on malformed input. */
 export async function readJsonBody(request: Request): Promise<unknown> {
   try {

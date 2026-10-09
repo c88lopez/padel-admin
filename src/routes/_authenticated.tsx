@@ -57,7 +57,7 @@ function AuthenticatedLayout() {
             <header className="z-10 flex h-12 shrink-0 items-center gap-3 border-b bg-background px-4">
               <SidebarTrigger />
               <Separator orientation="vertical" />
-              <CommandPalette />
+              <CommandPalette activities={clubContext.activities} />
               <div className="ml-auto flex items-center gap-3">
                 <AssistantTrigger />
                 <NotificationsDrawer stockItems={stockItems} />

@@ -39,6 +39,9 @@ export const es: DeepString<typeof en> = {
     forbidden: "Acceso denegado",
     noClub: "No hay ningún club disponible para esta cuenta.",
     clubContextRequired: "Esta acción requiere un club activo.",
+    activity: {
+      notFound: "Actividad no encontrada.",
+    },
     club: {
       notFound: "Club no encontrado.",
       noAccess: "No tienes acceso a ese club.",
@@ -144,6 +147,7 @@ export const es: DeepString<typeof en> = {
       notificationSettings: "Configuración de notificaciones",
       users: "Usuarios",
       appearance: "Apariencia",
+      activitySettings: "Actividades",
     },
   },
   assistant: {
@@ -176,6 +180,17 @@ export const es: DeepString<typeof en> = {
         "El acceso al micrófono está bloqueado. Permítelo en la configuración del navegador para usar la voz.",
       noSpeech: "No se detectó voz. Inténtalo de nuevo.",
       failed: "No se pudo transcribir la grabación. Inténtalo de nuevo.",
+    },
+  },
+  activities: {
+    padel: {
+      name: "Pádel",
+      description:
+        "Reservas de pistas, clases, torneos y niveles de jugadores.",
+    },
+    pilates: {
+      name: "Pilates",
+      description: "Clases grupales con plazas limitadas.",
     },
   },
   notifications: {
@@ -433,11 +448,25 @@ export const es: DeepString<typeof en> = {
       "Administra tu club, reservas, notificaciones, usuarios y apariencia.",
     nav: {
       general: "General",
+      activities: "Actividades",
       reservations: "Reservas",
       notifications: "Notificaciones",
       users: "Usuarios",
       clubs: "Clubes",
       ui: "Interfaz",
+    },
+    activities: {
+      title: "Actividades",
+      description:
+        "Elige lo que ofrece tu club. Cada actividad añade sus propias secciones a la aplicación.",
+      statusEnabled: "Activada",
+      statusDisabled: "Desactivada",
+      managedNote:
+        "Las actividades las activan los responsables de la aplicación. Contacta con soporte para añadir una.",
+      nameLabel: "Nombre visible",
+      nameHint: "Déjalo vacío para usar el nombre predeterminado.",
+      renamedToast: "Actividad renombrada",
+      updateError: "No se pudo actualizar la actividad",
     },
     ui: {
       title: "Interfaz",

@@ -9,7 +9,9 @@ import {
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
-import { COMMAND_ITEMS } from "@/lib/navigation"
+import { commandItems } from "@/lib/navigation"
+import { enabledBlocks } from "@/lib/activities/templates"
+import type { ActivitySummary } from "@/lib/activities/templates"
 import type { TranslationKey } from "@/lib/i18n"
 import { useAssistant } from "@/components/assistant-panel"
 
@@ -22,7 +24,11 @@ interface Command {
   run: () => void
 }
 
-export function CommandPalette() {
+export function CommandPalette({
+  activities,
+}: {
+  activities: ActivitySummary[]
+}) {
   const router = useRouter()
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -46,13 +52,13 @@ export function CommandPalette() {
           assistant.setOpen(true)
         },
       },
-      ...COMMAND_ITEMS.map((item) => ({
+      ...commandItems(enabledBlocks(activities)).map((item) => ({
         ...item,
         id: item.to,
         run: () => void router.navigate({ to: item.to }),
       })),
     ],
-    [assistant, router]
+    [activities, assistant, router]
   )
 
   useEffect(() => {

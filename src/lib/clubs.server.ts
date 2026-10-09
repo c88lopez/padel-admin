@@ -2,6 +2,7 @@ import { asc, eq, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { club, user } from "@/db/schema"
 import { seedDefaultCourts } from "@/lib/courts.server"
+import { ensureDefaultActivities } from "@/lib/activities.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
 
 // Pure data-access helpers for clubs (no auth). Kept in a server-only module so
@@ -94,7 +95,9 @@ export async function createClubRecord(data: ClubInput): Promise<ClubRecord> {
     .insert(club)
     .values({ name: data.name, slug, status: data.status })
     .returning({ id: club.id })
-  // Give every new club a default set of bookable courts and reservation rules.
+  // Give every new club its default activity, bookable courts and reservation
+  // rules.
+  await ensureDefaultActivities(created.id)
   await seedDefaultCourts(created.id)
   await seedDefaultReservationSettings(created.id)
   const record = await getClubRecord(created.id)

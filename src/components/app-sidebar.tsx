@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react"
+import { useEffect, useMemo, useReducer, useState } from "react"
 import type { CSSProperties } from "react"
 import {
   IconSettings,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/ui-settings"
 import type { TranslationKey } from "@/lib/i18n"
 import { SIDEBAR_GROUPS, sidebarItemsForGroup } from "@/lib/navigation"
+import { enabledBlocks } from "@/lib/activities/templates"
 import type { SidebarNavItem } from "@/lib/navigation"
 import { translateError } from "@/lib/errors"
 
@@ -245,6 +246,15 @@ export function AppSidebar({
 }) {
   const router = useRouter()
   const { t } = useTranslation()
+  const blocks = useMemo(
+    () => enabledBlocks(clubContext.activities),
+    [clubContext.activities]
+  )
+  const groups = SIDEBAR_GROUPS.map(({ group, labelKey }) => ({
+    group,
+    labelKey,
+    items: sidebarItemsForGroup(group, blocks),
+  })).filter(({ items }) => items.length > 0)
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -275,12 +285,8 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        {SIDEBAR_GROUPS.map(({ group, labelKey }) => (
-          <NavGroup
-            key={group}
-            label={t(labelKey)}
-            items={sidebarItemsForGroup(group)}
-          />
+        {groups.map(({ group, labelKey, items }) => (
+          <NavGroup key={group} label={t(labelKey)} items={items} />
         ))}
       </SidebarContent>
 

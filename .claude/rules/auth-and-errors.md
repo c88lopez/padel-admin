@@ -6,6 +6,8 @@
 - Route guards (`route-guards.ts` `ensurePermission`) are UX-only redirects; server functions are the real authority.
 - REST routes under `src/routes/api/*` use `api-auth.ts` (`requireApiAccess`): accepts either a `Bearer ADMIN_API_KEY` token or a permitted session, plus `apiErrorResponse` for consistent JSON errors. Use constant-time comparison for secrets; never log or expose them.
 
+- The hidden **platform API** (`src/routes/api/platform/*`) is for the app's owners only. It uses `requirePlatformKey` (`api-auth.ts`): only a `Bearer PLATFORM_API_KEY` token, never a session, and it answers 404 on a missing/wrong key (or when the key is unset) so the endpoints stay hidden. Don't link it from the UI.
+
 # Error handling
 
 - Server functions throw `AppError(code, params)` from `src/lib/errors.ts`. The `code` maps to an `errors.*` i18n key, is serialized across the server→client boundary, and is localized on the client with `translateError(err, t)`.

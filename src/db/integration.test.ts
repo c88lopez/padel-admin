@@ -7,6 +7,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import * as schema from "@/db/schema"
 import {
+  activity,
   club,
   clubReservationSettings,
   coach,
@@ -488,6 +489,169 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await expect(
         courts.assertCourtBookable(CLUB_ID, COURT1_ID)
       ).resolves.toBeUndefined()
+    })
+  })
+
+  describe("activities (activities.server)", () => {
+    const loadActivities = () => import("@/lib/activities.server")
+    let activities: Awaited<ReturnType<typeof loadActivities>>
+
+    beforeAll(async () => {
+      activities = await loadActivities()
+    })
+
+    // A throwaway club per test; deleting it cascades to its activities.
+    async function freshClub(): Promise<string> {
+      const id = randomUUID()
+      await db
+        .insert(club)
+        .values({ id, name: `Club ${id}`, slug: `club-${id}` })
+      return id
+    }
+
+    async function activitiesOf(clubId: string) {
+      return db.select().from(activity).where(eq(activity.clubId, clubId))
+    }
+
+    it("backfills padel for clubs that existed before migration 0011", async () => {
+      const rows = await activitiesOf(CLUB_ID)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ templateKey: "padel", active: true })
+      // Carried over from the club's default booking length (90 by default).
+      expect(rows[0].config).toEqual({ bookings: { defaultDuration: 90 } })
+    })
+
+    it("gives a club without activities padel, idempotently", async () => {
+      const clubId = await freshClub()
+      await activities.ensureDefaultActivities(clubId)
+      await activities.ensureDefaultActivities(clubId)
+      const rows = await activitiesOf(clubId)
+      expect(rows.map((r) => r.templateKey)).toEqual(["padel"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("does not add padel to a club that already has an activity", async () => {
+      const clubId = await freshClub()
+      await db.insert(activity).values({ clubId, templateKey: "pilates" })
+      await activities.ensureDefaultActivities(clubId)
+      const rows = await activitiesOf(clubId)
+      expect(rows.map((r) => r.templateKey)).toEqual(["pilates"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("provisions padel when a club is created", async () => {
+      const { createClubRecord } = await import("@/lib/clubs.server")
+      const created = await createClubRecord({
+        name: `Provisioned ${randomUUID()}`,
+        status: "active",
+      })
+      const list = await activities.listActivityRecords(created.id)
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ templateKey: "padel", active: true })
+      expect(list[0].config.bookings?.defaultDuration).toBe(90)
+      await db.delete(club).where(eq(club.id, created.id))
+    })
+
+    it("skips rows for templates this build doesn't know", async () => {
+      const clubId = await freshClub()
+      await db.insert(activity).values([
+        { clubId, templateKey: "padel" },
+        { clubId, templateKey: "quidditch" },
+      ])
+      const list = await activities.listActivityRecords(clubId)
+      expect(list.map((a) => a.templateKey)).toEqual(["padel"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("renames an activity and clears the name back to the default", async () => {
+      const clubId = await freshClub()
+      const [row] = await db
+        .insert(activity)
+        .values({ clubId, templateKey: "padel" })
+        .returning()
+      const renamed = await activities.renameActivityRecord(clubId, {
+        id: row.id,
+        name: "  Pádel Pro  ",
+      })
+      expect(renamed.name).toBe("Pádel Pro")
+      const cleared = await activities.renameActivityRecord(clubId, {
+        id: row.id,
+        name: "   ",
+      })
+      expect(cleared.name).toBeNull()
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("refuses to rename another club's activity", async () => {
+      const [own] = await activitiesOf(CLUB_ID)
+      await expect(
+        activities.renameActivityRecord(CLUB_B_ID, { id: own.id, name: "x" })
+      ).rejects.toThrow(/errors\.activity\.notFound/)
+      const [after] = await activitiesOf(CLUB_ID)
+      expect(after.name).toBeNull()
+    })
+
+    describe("setActivityEnabled (platform API)", () => {
+      it("creates the activity on first enable, after existing ones", async () => {
+        const clubId = await freshClub()
+        await db
+          .insert(activity)
+          .values({ clubId, templateKey: "pilates", sortOrder: 4 })
+        const result = await activities.setActivityEnabled(
+          clubId,
+          "padel",
+          true
+        )
+        expect(result).toMatchObject({
+          ok: true,
+          activity: { templateKey: "padel", active: true, sortOrder: 5 },
+        })
+        // Enabling again is a no-op.
+        await activities.setActivityEnabled(clubId, "padel", true)
+        const rows = await activitiesOf(clubId)
+        expect(rows.filter((r) => r.templateKey === "padel")).toHaveLength(1)
+        await db.delete(club).where(eq(club.id, clubId))
+      })
+
+      it("rejects unknown and unfinished templates", async () => {
+        const clubId = await freshClub()
+        expect(
+          await activities.setActivityEnabled(clubId, "quidditch", true)
+        ).toEqual({ ok: false, reason: "unknownTemplate" })
+        expect(
+          await activities.setActivityEnabled(clubId, "pilates", true)
+        ).toEqual({ ok: false, reason: "unavailable" })
+        await db.delete(club).where(eq(club.id, clubId))
+      })
+
+      it("keeps at least one activity enabled", async () => {
+        const clubId = await freshClub()
+        expect(
+          await activities.setActivityEnabled(clubId, "padel", false)
+        ).toEqual({ ok: false, reason: "lastActive" })
+
+        // With another active activity, disabling padel is allowed.
+        await db.insert(activity).values({ clubId, templateKey: "pilates" })
+        const disabled = await activities.setActivityEnabled(
+          clubId,
+          "padel",
+          false
+        )
+        expect(disabled).toMatchObject({
+          ok: true,
+          activity: { active: false },
+        })
+        await db.delete(club).where(eq(club.id, clubId))
+      })
+
+      it("reports disabling an activity the club doesn't have", async () => {
+        const clubId = await freshClub()
+        // pilates is unfinished, but disabling is still checked and allowed.
+        expect(
+          await activities.setActivityEnabled(clubId, "pilates", false)
+        ).toEqual({ ok: false, reason: "notFound" })
+        await db.delete(club).where(eq(club.id, clubId))
+      })
     })
   })
 

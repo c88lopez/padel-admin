@@ -49,3 +49,12 @@ src/
   locales/        # en.ts / es.ts
   styles.css      # Tailwind v4 theme tokens (OKLCH)
 ```
+
+## Activities (multi-activity clubs)
+
+Clubs offer one or more **activities** (padel today; pilates, football and swim planned). Each activity is a row in the `activity` table pointing at a code-defined **template** in `src/lib/activities/templates.ts`. A template combines generic building blocks (`bookings`, `sessions`, `competitions`, `levels`) with defaults; the row stores the club's name override, enabled flag and config overrides (resolved by `resolveActivityConfig` in `src/lib/activities/config.ts`).
+
+- Navigation entries declare the `block` they need (`src/lib/navigation.ts`); the sidebar and command palette only show entries whose block an active activity provides.
+- `ensureDefaultActivities(clubId)` (`src/lib/activities.server.ts`) gives a club padel when it has no activities. It runs on club creation and lazily on reads, so it also covers databases baselined without running migration backfills.
+- Only the app's owners enable/disable activities, through the hidden platform API (`PUT /api/platform/clubs/:clubId/activities/:templateKey` with `{ "active": bool }`, `GET …/activities` to inspect). Templates marked `available: false` can't be enabled, and a club must keep at least one enabled activity. Club admins can only rename activities in Settings → Activities.
+- New sport = new template. Add DB columns/tables only for genuinely new building blocks, as additive migrations.
