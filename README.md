@@ -14,24 +14,37 @@ The app is currently a functional admin prototype with real Postgres persistence
 - **Data & forms**: TanStack server functions, `@tanstack/react-table`, `react-hook-form` + `zod`, `recharts`, `date-fns`
 - **Runtime/tooling**: React 19, TypeScript, Vite, Bun, Vitest, Playwright
 
+## Running
+
+It runs in the home Kubernetes cluster (the `vandelay-labs` workspace), deployed like the other services there:
+
+- **App**: http://192.168.68.61:30084 (LAN only). `make admin-password` prints the Owner's login.
+- **Deploys**: every merge to `main` that changes code is released by CI (`v0.x.y`, image `ghcr.io/c88lopez/padel-admin`). Argo CD Image Updater commits the tag to `k8s/kustomization.yaml`, and Argo CD rolls it out, running pending migrations first (`k8s/jobs/migrate.yaml`). Merge with the `release:minor` label for a minor version.
+- **Database**: `padel_admin` on the cluster's shared Postgres (platform repo, `manifests/data/postgres.yaml`), through PgBouncer.
+- **Secrets**: `make secrets` creates `padel-admin-deps` (database URLs, Better Auth and API secrets, the AI Gateway key from `.env`). Generated values are kept on re-runs.
+- **Metrics**: Prometheus scrapes port 9464 (not exposed outside the cluster); `/api/metrics` only serves them in local dev.
+
 ## Getting started
+
+There's no local database: development uses the cluster's Postgres through a port-forward. You need `kubectl` access to the cluster (context `docker-desktop`) and `jq`.
 
 ```bash
 bun install
-cp .env.example .env
-bun run db:up
-bun run db:push
-bun run db:seed
-bun run dev   # http://localhost:3003
+cp .env.example .env   # add AI_GATEWAY_API_KEY for the assistant
+make dev-setup         # once: the test and e2e databases
+make tunnel            # in its own terminal: Postgres on localhost:5433
+make run               # dev server on http://localhost:3003, against the real database
 ```
 
-The default local database is a Dockerized Postgres instance on port `5544`.
+`make run` uses the **real** `padel_admin` database. `make test` runs the unit and integration tests (the latter on `padel_admin_test`), and `make test-e2e` runs Playwright on `padel_admin_e2e`, which it wipes and reseeds with demo data first. Schema changes go through migrations: `bun run db:generate`, commit the SQL in `drizzle/`, and the deploy applies it. Don't `db:push` to the cluster.
 
 ### Authentication
 
 Authentication is handled by Better Auth. Sessions, users, accounts, and password hashes are stored in Postgres.
 
-The seed script creates these local accounts by default:
+`make seed` (once, on a fresh database) creates the clubs and the Owner account, `admin@club.test`, with a generated password kept in the cluster (`make admin-password`).
+
+The demo seed (`bun run db:seed:demo`, which the E2E database gets) adds a super admin, team members and sample data, with these logins:
 
 - **Club owner**: `admin@club.test` / `admin1234`
 - **Platform super admin**: `super@club.test` / `super1234`
@@ -61,13 +74,10 @@ bun run lint       # ESLint
 bun run typecheck  # TypeScript type checking (tsc --noEmit)
 bun run format     # Prettier (write)
 bun run check      # Prettier (check only)
-bun run db:up      # Start local Postgres
-bun run db:down    # Stop local Postgres
-bun run db:push    # Push schema to local database
-bun run db:migrate # Apply generated migrations
-bun run db:seed    # Seed local demo data
-bun run test:e2e   # Run Playwright tests
+bun run db:generate # Generate a SQL migration from src/db/schema.ts
 ```
+
+Database and cluster tasks are Makefile targets, each described next to its definition (`tunnel`, `dev-setup`, `run`, `test`, `test-e2e`, `migrate-local`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
 
 ## Routes
 

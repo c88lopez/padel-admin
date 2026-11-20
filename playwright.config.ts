@@ -7,11 +7,18 @@ import { ENGLISH_STATE } from "./e2e/helpers"
 const PORT = 3100
 const baseURL = `http://localhost:${PORT}`
 
-// CI sets DATABASE_URL to its throwaway Postgres service; locally we default to a
-// dedicated `padel_e2e` database that `pretest:e2e*` recreates from scratch.
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:5544/padel_e2e"
+// CI sets DATABASE_URL to its throwaway Postgres service. Locally it's only
+// E2E_DATABASE_URL (`make test-e2e` sets it to the cluster's padel_admin_e2e,
+// which `pretest:e2e*` wipes): never DATABASE_URL, which `bun run` loads from
+// `.env` and points at the real database.
+const DATABASE_URL = process.env.CI
+  ? process.env.DATABASE_URL
+  : process.env.E2E_DATABASE_URL
+if (!DATABASE_URL) {
+  throw new Error(
+    "E2E needs E2E_DATABASE_URL (run `make test-e2e`, with `make tunnel` up)"
+  )
+}
 
 // A fixed secret keeps E2E sessions self-consistent and independent of `.env`
 // (password hashing doesn't depend on it, so the seeded admin still logs in).

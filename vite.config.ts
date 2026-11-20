@@ -15,10 +15,6 @@ const config = defineConfig({
   server: {
     port: 3003,
     strictPort: true,
-    // Allow the Prometheus container to scrape /api/metrics via the host
-    // gateway. Vite blocks unknown Host headers (DNS-rebinding protection) with
-    // a 403, which otherwise makes the scrape target fail in dev.
-    allowedHosts: ["host.docker.internal"],
   },
   resolve: {
     tsconfigPaths: true,
@@ -34,9 +30,8 @@ const config = defineConfig({
       },
     ],
   },
-  // Nitro builds the server output and auto-applies the correct host preset
-  // (e.g. `vercel` during a Vercel build), which produces a deployable
-  // serverless output instead of a plain Node bundle.
+  // Nitro builds the server output. The Dockerfile sets NITRO_PRESET=node-server
+  // for a self-contained Node bundle in .output/.
   plugins: [devtools(), tailwindcss(), tanstackStart(), nitro(), viteReact()],
 })
 
