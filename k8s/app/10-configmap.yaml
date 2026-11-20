@@ -1,0 +1,15 @@
+# Non-secret config, injected into the pods as env vars. Pods read it at
+# start: `make restart` after a change (or let the next rollout pick it up).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: padel-admin-config
+  namespace: padel-admin
+data:
+  APP_ENV: "k8s-local"
+  # Where browsers reach the app: Better Auth builds its callbacks and checks
+  # request origins against it. The node's address and the Service's NodePort.
+  BETTER_AUTH_URL: "http://192.168.68.61:30084"
+  # Postgres connections per pod, through PgBouncer (max_db_connections 30
+  # per database): 5 x the HPA's maxReplicas stays well under it.
+  DB_POOL_MAX: "5"

@@ -1,0 +1,19 @@
+# Tells Prometheus to scrape every padel-admin pod's "metrics" port. A
+# PodMonitor, because that port is deliberately not part of the Service.
+#
+# Check it's picked up: Prometheus UI > Status > Targets > podMonitor/padel-admin/padel-admin
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: padel-admin
+  namespace: padel-admin
+  labels:
+    app: padel-admin
+spec:
+  selector:
+    matchLabels:
+      app: padel-admin
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,17 @@
+# The app on port 30084 of the node: http://192.168.68.61:30084 (30080 is
+# importer-api, 30081 Argo CD, 30082 importer-graphql, 30083 deny-list).
+# Inside the cluster: http://padel-admin.padel-admin.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: padel-admin
+  namespace: padel-admin
+spec:
+  type: NodePort
+  selector:
+    app: padel-admin
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30084

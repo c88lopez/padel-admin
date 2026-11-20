@@ -1,3 +1,4 @@
+import { createServer } from "node:http"
 import client from "prom-client"
 
 // Server-only Prometheus instrumentation. Exposes a registry with Node process
@@ -53,4 +54,23 @@ export function getMetrics(): Promise<string> {
 
 export function getMetricsContentType(): string {
   return register.contentType
+}
+
+/**
+ * Serves the registry on its own port (any path), for when the app's own port
+ * is exposed: see src/server.ts. Started once per process.
+ */
+export function startMetricsServer(port: number): void {
+  createServer((_req, res) => {
+    register.metrics().then(
+      (body) => {
+        res.writeHead(200, { "content-type": register.contentType })
+        res.end(body)
+      },
+      () => {
+        res.writeHead(500)
+        res.end()
+      }
+    )
+  }).listen(port)
 }

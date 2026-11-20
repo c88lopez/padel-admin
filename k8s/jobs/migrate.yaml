@@ -1,0 +1,56 @@
+# Applies pending database migrations (drizzle/) before a deploy.
+#
+# An Argo CD PreSync hook: every sync runs it (recreating the previous one
+# first) before applying anything else, and stops the sync if it fails, so the
+# pods of a version always find the schema they expect. Its image tag comes
+# from k8s/kustomization.yaml, like the Deployment's.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: padel-admin-migrate
+  namespace: padel-admin
+  labels:
+    app: padel-admin
+    component: migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0 # a failed migration needs a human, not a retry
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: padel-admin
+        component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: migrate
+          image: ghcr.io/c88lopez/padel-admin # tag: newTag in k8s/kustomization.yaml
+          # The image's entrypoint is node: src/db/migrate.ts, bundled.
+          args: ["dist/migrate.mjs"]
+          env:
+            # migrate.ts reads DATABASE_URL. It gets the direct connection to
+            # postgres-rw, not the pooler the app uses: migrations need
+            # session state that PgBouncer's transaction mode doesn't keep.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: padel-admin-deps
+                  key: MIGRATE_DATABASE_URL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true

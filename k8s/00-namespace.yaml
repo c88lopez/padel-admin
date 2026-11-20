@@ -1,0 +1,6 @@
+# padel-admin's namespace. Argo CD manages it with the rest of k8s/; the
+# Secret in it comes from make secrets.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: padel-admin

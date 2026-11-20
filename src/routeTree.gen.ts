@@ -17,7 +17,9 @@ import { Route as AuthenticatedReservationsRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiHealthzRouteImport } from './routes/api/healthz'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
+import { Route as ApiReadyzRouteImport } from './routes/api/readyz'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as AuthenticatedCoachesIndexRouteImport } from './routes/_authenticated/coaches/index'
 import { Route as AuthenticatedCoachesClassesRouteImport } from './routes/_authenticated/coaches/classes'
@@ -78,9 +80,19 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthzRoute = ApiHealthzRouteImport.update({
+  id: '/api/healthz',
+  path: '/api/healthz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMetricsRoute = ApiMetricsRouteImport.update({
   id: '/api/metrics',
   path: '/api/metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReadyzRoute = ApiReadyzRouteImport.update({
+  id: '/api/readyz',
+  path: '/api/readyz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
@@ -193,7 +205,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/healthz': typeof ApiHealthzRoute
   '/api/metrics': typeof ApiMetricsRoute
+  '/api/readyz': typeof ApiReadyzRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/coaches/classes': typeof AuthenticatedCoachesClassesRoute
   '/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
@@ -219,7 +233,9 @@ export interface FileRoutesByTo {
   '/reservations': typeof AuthenticatedReservationsRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/healthz': typeof ApiHealthzRoute
   '/api/metrics': typeof ApiMetricsRoute
+  '/api/readyz': typeof ApiReadyzRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/': typeof AuthenticatedIndexRoute
   '/coaches/classes': typeof AuthenticatedCoachesClassesRoute
@@ -249,7 +265,9 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/healthz': typeof ApiHealthzRoute
   '/api/metrics': typeof ApiMetricsRoute
+  '/api/readyz': typeof ApiReadyzRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/coaches/classes': typeof AuthenticatedCoachesClassesRoute
@@ -280,7 +298,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tournaments'
     | '/api/chat'
+    | '/api/healthz'
     | '/api/metrics'
+    | '/api/readyz'
     | '/api/transcribe'
     | '/coaches/classes'
     | '/inventory/dashboard'
@@ -306,7 +326,9 @@ export interface FileRouteTypes {
     | '/reservations'
     | '/tournaments'
     | '/api/chat'
+    | '/api/healthz'
     | '/api/metrics'
+    | '/api/readyz'
     | '/api/transcribe'
     | '/'
     | '/coaches/classes'
@@ -335,7 +357,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/tournaments'
     | '/api/chat'
+    | '/api/healthz'
     | '/api/metrics'
+    | '/api/readyz'
     | '/api/transcribe'
     | '/_authenticated/'
     | '/_authenticated/coaches/classes'
@@ -361,7 +385,9 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiHealthzRoute: typeof ApiHealthzRoute
   ApiMetricsRoute: typeof ApiMetricsRoute
+  ApiReadyzRoute: typeof ApiReadyzRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiClubsIdRoute: typeof ApiClubsIdRoute
@@ -428,11 +454,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/healthz': {
+      id: '/api/healthz'
+      path: '/api/healthz'
+      fullPath: '/api/healthz'
+      preLoaderRoute: typeof ApiHealthzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/metrics': {
       id: '/api/metrics'
       path: '/api/metrics'
       fullPath: '/api/metrics'
       preLoaderRoute: typeof ApiMetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/readyz': {
+      id: '/api/readyz'
+      path: '/api/readyz'
+      fullPath: '/api/readyz'
+      preLoaderRoute: typeof ApiReadyzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/transcribe': {
@@ -625,7 +665,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiHealthzRoute: ApiHealthzRoute,
   ApiMetricsRoute: ApiMetricsRoute,
+  ApiReadyzRoute: ApiReadyzRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiClubsIdRoute: ApiClubsIdRoute,
