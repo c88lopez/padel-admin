@@ -6,35 +6,49 @@ NAMESPACE := padel-admin
 # Where Postgres runs (the platform repo's manifests/data/).
 DATA_NS   := data
 
-.PHONY: tunnel dev-setup run test test-integration test-e2e migrate-local seed admin-password image secrets status logs restart
+.PHONY: tunnel dev-setup dev-reset run test test-integration test-e2e seed admin-password image secrets status logs restart
 
 ## --- local ---
-# Local runs use the cluster's Postgres through `make tunnel`, with the
-# password read from padel-admin-postgres-role (fetched once, and only by
-# targets that use it). Override with the LOCAL_* variables.
+# Local runs use the cluster's Postgres through `make tunnel`, as
+# padel_admin_dev: a user that owns only these three databases, and that
+# Postgres refuses on any other (platform repo, manifests/data/postgres.yaml).
+# Development never touches the deployed app's padel_admin database or holds
+# its user's password. Override with the LOCAL_* variables.
 #
-#   run, migrate-local, seed   the real padel_admin database
-#   test-integration           padel_admin_test
-#   test-e2e                   padel_admin_e2e, wiped and reseeded every run
+#   run, dev-reset     padel_admin_dev
+#   test-integration   padel_admin_test
+#   test-e2e           padel_admin_e2e, wiped and reseeded every run
 secret = $(shell kubectl -n $(DATA_NS) get secret $(1) -o jsonpath='{.data.$(2)}' | base64 -d)
 # Percent-encoded: a password with @, / or : would otherwise break the URL.
 uri    = $(shell jq -rn --arg v '$(1)' '$$v|@uri')
-PG_PASS = $(eval PG_PASS := $(call uri,$(call secret,padel-admin-postgres-role,password)))$(PG_PASS)
+# Each password is fetched once, and only by targets that use it.
+DEV_PASS = $(eval DEV_PASS := $(call uri,$(call secret,padel-admin-dev-postgres-role,password)))$(DEV_PASS)
+# The deployed app's user: only `secrets` and `seed`, which act on the cluster.
+PG_PASS  = $(eval PG_PASS := $(call uri,$(call secret,padel-admin-postgres-role,password)))$(PG_PASS)
 
-LOCAL_DATABASE_URL      ?= postgres://padel_admin:$(PG_PASS)@localhost:5433/padel_admin
-LOCAL_TEST_DATABASE_URL ?= postgres://padel_admin:$(PG_PASS)@localhost:5433/padel_admin_test
-LOCAL_E2E_DATABASE_URL  ?= postgres://padel_admin:$(PG_PASS)@localhost:5433/padel_admin_e2e
+LOCAL_DATABASE_URL      ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_dev
+LOCAL_TEST_DATABASE_URL ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_test
+LOCAL_E2E_DATABASE_URL  ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_e2e
 
 # Leave it running in its own terminal. The same port as importer's and
 # deny-list's tunnels, so any one of them serves all three.
 tunnel: ## forward the cluster's Postgres to localhost:5433
 	kubectl -n $(DATA_NS) port-forward svc/postgres-rw 5433:5432
 
-dev-setup: ## once: create the test and e2e databases in the cluster (needs the padel_admin role from the platform repo)
+dev-setup: ## once: create the dev, test and e2e databases in the cluster (needs the padel_admin_dev role from the platform repo)
 	kubectl apply -f k8s/dev/
 
+# reset-e2e.ts empties whatever database E2E_DATABASE_URL names, then migrates
+# and seeds the demo data (logins in the README).
+dev-reset: export E2E_DATABASE_URL = $(LOCAL_DATABASE_URL)
+dev-reset: ## empty padel_admin_dev and reseed it with demo data; also the first-time setup (needs make tunnel)
+	bun run db:e2e:reset
+
+# Migrates first, so a branch's new migrations are in place before its code
+# runs. Only on padel_admin_dev: the deployed database gets them on deploy.
 run: export DATABASE_URL = $(LOCAL_DATABASE_URL)
-run: ## the dev server on :3003 against the real database (needs make tunnel)
+run: ## the dev server on :3003 against padel_admin_dev, after applying pending migrations (needs make tunnel)
+	bun run db:migrate
 	bun run dev
 
 test: test-integration ## unit tests, then the integration tests (needs make tunnel)
@@ -47,16 +61,13 @@ test-e2e: export E2E_DATABASE_URL = $(LOCAL_E2E_DATABASE_URL)
 test-e2e: ## Playwright against padel_admin_e2e, which it wipes first (needs make tunnel)
 	bun run test:e2e
 
-migrate-local: export DATABASE_URL = $(LOCAL_DATABASE_URL)
-migrate-local: ## apply pending migrations to the real padel_admin database (needs make tunnel)
-	bun run db:migrate
-
 # The clubs and the Owner account (admin@club.test) the app starts with, on a
 # fresh database. The password goes into the padel-admin-seed-accounts Secret
 # (`make admin-password` prints it), not into the terminal: the seed prints it.
-# Idempotent: an existing admin is kept, password included.
-seed: export DATABASE_URL = $(LOCAL_DATABASE_URL)
-seed: ## once: seed the real padel_admin database (needs make tunnel)
+# Idempotent: an existing admin is kept, password included. A cluster task, not
+# development: it runs as the deployed app's user, on its database.
+seed: export DATABASE_URL = postgres://padel_admin:$(PG_PASS)@localhost:5433/padel_admin
+seed: ## once, on a new cluster: seed the deployed padel_admin database (needs make tunnel)
 	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts >/dev/null 2>&1 \
 	  || kubectl -n $(NAMESPACE) create secret generic padel-admin-seed-accounts \
 	       --from-literal=email=admin@club.test --from-literal=password="$$(openssl rand -base64 18 | tr -d '/+=')"
