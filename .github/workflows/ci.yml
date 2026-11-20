@@ -155,7 +155,9 @@ jobs:
     name: E2E (Playwright)
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' }}
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright 1.60 can't install Chromium's dependencies
+    # on Ubuntu 26.04. Move back once Playwright supports it.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
