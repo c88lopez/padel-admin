@@ -24,12 +24,13 @@ bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
 bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)
 make tunnel        # cluster Postgres on localhost:5433 (keep it running)
-make run           # dev server against the REAL padel_admin database
+make dev-reset     # empty padel_admin_dev and load demo data (first time too)
+make run           # migrate padel_admin_dev, then the dev server on it
 make test          # unit + integration (padel_admin_test)
 make test-e2e      # Playwright (wipes and reseeds padel_admin_e2e)
 ```
 
-Single unit test: `bun run test -- path/to/file.test.tsx`. No local database: everything uses the cluster's Postgres through `make tunnel` (first time: `make dev-setup`). Never `db:push` to the cluster; schema changes are migrations, applied on deploy.
+Single unit test: `bun run test -- path/to/file.test.tsx`. No local database: development uses its own databases on the cluster's Postgres through `make tunnel` (first time: `make dev-setup`, then `make dev-reset`), as `padel_admin_dev`, a user that can't reach the deployed app's `padel_admin`. Never `db:push` to the cluster; schema changes are migrations, applied on deploy.
 
 ## Deployment
 

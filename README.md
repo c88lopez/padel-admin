@@ -26,25 +26,32 @@ It runs in the home Kubernetes cluster (the `vandelay-labs` workspace), deployed
 
 ## Getting started
 
-There's no local database: development uses the cluster's Postgres through a port-forward. You need `kubectl` access to the cluster (context `docker-desktop`) and `jq`.
+There's no local database: development uses its own databases on the cluster's Postgres, through a port-forward. You need `kubectl` access to the cluster (context `docker-desktop`) and `jq`.
 
 ```bash
 bun install
 cp .env.example .env   # add AI_GATEWAY_API_KEY for the assistant
-make dev-setup         # once: the test and e2e databases
+make dev-setup         # once: the dev, test and e2e databases
 make tunnel            # in its own terminal: Postgres on localhost:5433
-make run               # dev server on http://localhost:3003, against the real database
+make dev-reset         # once (and whenever you want a clean slate): demo data in padel_admin_dev
+make run               # dev server on http://localhost:3003, on padel_admin_dev
 ```
 
-`make run` uses the **real** `padel_admin` database. `make test` runs the unit and integration tests (the latter on `padel_admin_test`), and `make test-e2e` runs Playwright on `padel_admin_e2e`, which it wipes and reseeds with demo data first. Schema changes go through migrations: `bun run db:generate`, commit the SQL in `drizzle/`, and the deploy applies it. Don't `db:push` to the cluster.
+Development connects as `padel_admin_dev`, a database user that owns only `padel_admin_dev`, `padel_admin_test` and `padel_admin_e2e`, and that Postgres refuses on every other database. Local work never touches the deployed app's data, and your machine never holds its database password.
+
+- `make run` applies pending migrations to `padel_admin_dev` before starting, so a branch's new migrations are in place. Log in with the demo logins below.
+- `make test` runs the unit and integration tests (the latter on `padel_admin_test`).
+- `make test-e2e` runs Playwright on `padel_admin_e2e`, which it wipes and reseeds with demo data first.
+
+Schema changes go through migrations: `bun run db:generate`, commit the SQL in `drizzle/`, and the deploy applies it to `padel_admin`. Don't `db:push`.
 
 ### Authentication
 
 Authentication is handled by Better Auth. Sessions, users, accounts, and password hashes are stored in Postgres.
 
-`make seed` (once, on a fresh database) creates the clubs and the Owner account, `admin@club.test`, with a generated password kept in the cluster (`make admin-password`).
+`make seed` (once, on a new cluster; it's the one local target that uses the deployed app's database user) creates the deployed app's clubs and its Owner account, `admin@club.test`, with a generated password kept in the cluster (`make admin-password`).
 
-The demo seed (`bun run db:seed:demo`, which the E2E database gets) adds a super admin, team members and sample data, with these logins:
+The demo seed (`bun run db:seed:demo`, which `make dev-reset` and the E2E runs use) adds a super admin, team members and sample data, with these logins:
 
 - **Club owner**: `admin@club.test` / `admin1234`
 - **Platform super admin**: `super@club.test` / `super1234`
@@ -77,7 +84,7 @@ bun run check      # Prettier (check only)
 bun run db:generate # Generate a SQL migration from src/db/schema.ts
 ```
 
-Database and cluster tasks are Makefile targets, each described next to its definition (`tunnel`, `dev-setup`, `run`, `test`, `test-e2e`, `migrate-local`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
+Database and cluster tasks are Makefile targets, each described next to its definition (`tunnel`, `dev-setup`, `dev-reset`, `run`, `test`, `test-e2e`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
 
 ## Routes
 

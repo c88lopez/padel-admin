@@ -1,10 +1,24 @@
-# Databases for local development, next to the real one on the cluster's
-# Postgres, owned by the app's own user so the same credentials work.
-#   padel_admin_test  integration tests (make test-integration)
+# Databases for local development, on the cluster's Postgres next to the real
+# one. Owned by padel_admin_dev (platform repo, manifests/data/postgres.yaml),
+# which can't connect anywhere else: the laptop never holds the credentials of
+# the deployed app's padel_admin.
+#   padel_admin_dev   make run (migrated on every run; make dev-reset reseeds it)
+#   padel_admin_test  integration tests (make test)
 #   padel_admin_e2e   Playwright (make test-e2e), wiped and reseeded each run
 #
 # In k8s/dev/, not k8s/: Argo CD doesn't apply these; `make dev-setup` does.
 # CloudNativePG keeps a database if its resource is deleted.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: padel-admin-dev
+  namespace: data
+spec:
+  cluster:
+    name: postgres
+  name: padel_admin_dev
+  owner: padel_admin_dev
+---
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
@@ -14,7 +28,7 @@ spec:
   cluster:
     name: postgres
   name: padel_admin_test
-  owner: padel_admin
+  owner: padel_admin_dev
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
@@ -25,4 +39,4 @@ spec:
   cluster:
     name: postgres
   name: padel_admin_e2e
-  owner: padel_admin
+  owner: padel_admin_dev
