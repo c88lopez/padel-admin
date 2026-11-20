@@ -22,13 +22,18 @@ bun run test       # Unit/component tests (vitest)
 bun run lint       # ESLint
 bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
-bun run db:up      # Start local Postgres (Docker, port 5544)
-bun run db:push    # Push schema to DB (dev)
-bun run db:seed    # Seed local data (:demo for richer data)
-bun run test:e2e   # Playwright e2e (resets e2e DB first)
+bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)
+make tunnel        # cluster Postgres on localhost:5433 (keep it running)
+make run           # dev server against the REAL padel_admin database
+make test          # unit + integration (padel_admin_test)
+make test-e2e      # Playwright (wipes and reseeds padel_admin_e2e)
 ```
 
-Single unit test: `bun run test -- path/to/file.test.tsx`. First-time setup: `bun install && cp .env.example .env && bun run db:up && bun run db:push && bun run db:seed && bun run dev`.
+Single unit test: `bun run test -- path/to/file.test.tsx`. No local database: everything uses the cluster's Postgres through `make tunnel` (first time: `make dev-setup`). Never `db:push` to the cluster; schema changes are migrations, applied on deploy.
+
+## Deployment
+
+Runs in the home Kubernetes cluster at http://192.168.68.61:30084, like the workspace's other services: a merge to `main` releases `v0.x.y` (CI), Argo CD Image Updater commits the tag to `k8s/kustomization.yaml`, and Argo CD deploys it after the PreSync migrate Job. `k8s/` is the deployment; the `Makefile` has the cluster tasks (`secrets`, `status`, `logs`, `restart`).
 
 ## Layout
 
