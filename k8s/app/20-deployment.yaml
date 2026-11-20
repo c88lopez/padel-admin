@@ -1,0 +1,81 @@
+# The admin app: Nitro's Node server rendering pages, server functions and
+# the /api routes. Like deny-list's Deployment; see that repo for the basics.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: padel-admin
+  namespace: padel-admin
+  labels:
+    app: padel-admin
+spec:
+  # No replicas: the HPA sets the count (50-hpa.yaml).
+  selector:
+    matchLabels:
+      app: padel-admin
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: padel-admin
+    spec:
+      # Nitro closes the server gracefully within 5s of SIGTERM.
+      terminationGracePeriodSeconds: 15
+      automountServiceAccountToken: false
+      containers:
+        - name: padel-admin
+          # Built and pushed by .github/workflows/ci.yml. Argo CD deploys it
+          # through k8s/kustomization.yaml, which sets the tag.
+          image: ghcr.io/c88lopez/padel-admin # tag: newTag in k8s/kustomization.yaml
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+            # Prometheus metrics (src/server.ts), scraped via 40-podmonitor.yaml.
+            # Not in the Service, so not reachable through the NodePort.
+            - name: metrics
+              containerPort: 9464
+          envFrom:
+            - configMapRef:
+                name: padel-admin-config
+            # DATABASE_URL, MIGRATE_DATABASE_URL (only the migrate Job uses it),
+            # BETTER_AUTH_SECRET, the API keys and AI_GATEWAY_API_KEY: make
+            # secrets creates it. optional: pods start without it, and
+            # /api/readyz keeps them out of the Service until the database works.
+            - secretRef:
+                name: padel-admin-deps
+                optional: true
+          env:
+            - name: PORT
+              value: "3000"
+            - name: METRICS_PORT
+              value: "9464"
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3 # /api/readyz pings Postgres with a 2s budget
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              cpu: 500m # server-side rendering is the heavy part
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true

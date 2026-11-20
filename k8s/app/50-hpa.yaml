@@ -1,0 +1,24 @@
+# One pod normally, a second one under load. An admin app with few users:
+# the second pod is for a rollout or a burst, not for steady traffic.
+#
+# 300m is an absolute value rather than a percentage of the 50m request, which
+# would scale at almost no load; it's 60% of the 500m limit.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: padel-admin
+  namespace: padel-admin
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: padel-admin
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue
+          averageValue: 300m

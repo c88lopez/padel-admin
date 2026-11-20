@@ -1,0 +1,16 @@
+node_modules
+.output
+dist
+coverage
+test-results
+playwright-report
+e2e
+.vercel
+.tanstack
+.idea
+.cursor
+.claude
+.git
+.env*
+!.env.example
+k8s

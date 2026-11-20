@@ -155,7 +155,9 @@ jobs:
     name: E2E (Playwright)
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' }}
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright 1.60 can't install Chromium's dependencies
+    # on Ubuntu 26.04. Move back once Playwright supports it.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -212,6 +214,146 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Builds the image, smoke-tests it, and pushes it to GitHub Container
+  # Registry, once everything above passed:
+  #   push to main   -> :main, :sha-<short>, then the release job's version tags
+  #   pull request   -> :pr-<number>, :sha-<short>, to try a branch in the
+  #                     cluster (a fork's PR only builds: its token can't push)
+  # Image Updater deploys only x.y.z tags, so none of these deploy on their own.
+  image:
+    name: Image
+    needs: [changes, quality, build, integration, e2e]
+    if: ${{ needs.changes.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/padel-admin
+      PUSH: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Starts the amd64 image the way the Deployment runs it (non-root,
+      # read-only root filesystem) and waits for /api/healthz, before anything
+      # is pushed. No database: the liveness route doesn't need one.
+      - name: Build the amd64 image for the smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: padel-admin:smoke
+          cache-from: type=gha
+
+      - name: Smoke test
+        run: |
+          docker run -d --name smoke --read-only --user 65532:65532 -p 3000:3000 padel-admin:smoke
+          for i in $(seq 1 30); do
+            if curl -sf localhost:3000/api/healthz; then echo; exit 0; fi
+            [ "$(docker inspect -f '{{.State.Running}}' smoke)" = true ] || break
+            sleep 1
+          done
+          docker logs smoke
+          exit 1
+
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          # The cluster node is amd64; arm64 runs the same image on a Mac.
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Every push to main whose code changed is released: the patch goes up, or
+  # the minor when the merged PR has the release:minor label (the first
+  # release is 0.1.0). The image pushed above gets the version's tags without
+  # a rebuild, and Image Updater deploys it. The git tag is pushed with
+  # GITHUB_TOKEN, which doesn't start workflows.
+  release:
+    name: Release
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # One release at a time, so two merges can't take the same version.
+    concurrency:
+      group: release
+    permissions:
+      contents: write # pushes the git tag
+      packages: write
+      pull-requests: read # the merged PR's labels
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/padel-admin
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the tags
+
+      - id: version
+        run: |
+          if git tag --points-at HEAD | grep -q '^v'; then
+            echo "HEAD is already released: $(git tag --points-at HEAD)"
+            exit 0
+          fi
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$last" ]; then
+            version=0.1.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[].labels[].name')
+            if grep -qx 'release:minor' <<< "$labels"; then
+              minor=$((minor + 1)) patch=0
+            else
+              patch=$((patch + 1))
+            fi
+            version=$major.$minor.$patch
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "${last:-none} -> $version" >> "$GITHUB_STEP_SUMMARY"
+
+      - if: steps.version.outputs.version
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: steps.version.outputs.version
+        uses: docker/setup-buildx-action@v3
+
+      - if: steps.version.outputs.version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:${VERSION%.*}" -t "$IMAGE:latest" \
+            "$IMAGE:sha-${GITHUB_SHA::7}"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
 
   deploy:
     name: Deploy to Vercel (production)
