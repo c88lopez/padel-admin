@@ -34,14 +34,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { createCoach, updateCoach } from "@/lib/coaches.functions"
+import type { ActivityRecord } from "@/lib/activities.functions"
+import {
+  activityDisplayName,
+  activityProvides,
+} from "@/lib/activities/templates"
+import { translateError } from "@/lib/errors"
 
-function makeSchema(t: TFunction) {
+// `pickActivities`: the club has several activities with classes, so the
+// coach's must be chosen (with one, it's given automatically).
+function makeSchema(t: TFunction, pickActivities: boolean) {
   return z.object({
     name: z.string().min(1, t("validation.nameRequired")),
     phone: z.string().min(1, t("validation.phoneRequired")),
     birthday: z.date().optional(),
+    activityIds: pickActivities
+      ? z.array(z.string()).min(1, t("errors.coach.activityRequired"))
+      : z.array(z.string()),
   })
 }
 
@@ -51,11 +63,13 @@ export interface CoachData {
   name: string
   phone: string
   birthday?: Date
+  activityIds: string[]
 }
 
 interface Props {
   trigger?: React.ReactNode
   coach?: CoachData & { id?: string }
+  activities: ActivityRecord[]
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSaved?: () => void
@@ -64,6 +78,7 @@ interface Props {
 export function NewCoachDrawer({
   trigger,
   coach,
+  activities,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   onSaved,
@@ -74,26 +89,44 @@ export function NewCoachDrawer({
   const setOpen = controlledOnOpenChange ?? setInternalOpen
   const isEditing = !!coach
 
-  const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  // Activities with classes, the ones a coach can be given.
+  const teachable = activities.filter((a) => activityProvides(a, "sessions"))
+  const pickActivities = teachable.length > 1
 
+  const { status, progress, run, reset, schedule } = useSubmitLifecycle()
+  const schema = useMemo(
+    () => makeSchema(t, pickActivities),
+    [t, pickActivities]
+  )
+
+  const initialValues = useMemo<FormInput>(
+    () => coach ?? { name: "", phone: "", activityIds: [] },
+    [coach]
+  )
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
-    defaultValues: coach ?? { name: "", phone: "" },
+    defaultValues: initialValues,
   })
 
   useEffect(() => {
     if (open) {
-      form.reset(coach ?? { name: "", phone: "" })
+      form.reset(initialValues)
       reset()
     }
-  }, [open, coach, form, reset])
+  }, [open, initialValues, form, reset])
 
   function onSubmit(values: FormInput) {
     const payload = {
       name: values.name,
       phone: values.phone,
       birthday: values.birthday ? format(values.birthday, "yyyy-MM-dd") : null,
+      // Only sent when chosen; otherwise the server gives a new coach the
+      // club's only activity with classes and leaves an edited one's alone.
+      ...(pickActivities && {
+        activityIds: values.activityIds.filter((id) =>
+          teachable.some((a) => a.id === id)
+        ),
+      }),
     }
     run({
       action: () =>
@@ -110,9 +143,13 @@ export function NewCoachDrawer({
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
-      onError: () => {
+      onError: (err) => {
         toast.error(t("common.genericError"), {
-          description: t("forms.coach.errorDescription"),
+          description: translateError(
+            err,
+            t,
+            t("forms.coach.errorDescription")
+          ),
         })
       },
     })
@@ -166,6 +203,44 @@ export function NewCoachDrawer({
                 </FormItem>
               )}
             />
+
+            {pickActivities && (
+              <FormField
+                control={form.control}
+                name="activityIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("forms.coach.activitiesLabel")}</FormLabel>
+                    <div className="flex flex-col gap-2 rounded-md border p-3">
+                      {teachable.map((a) => {
+                        const checked = field.value.includes(a.id)
+                        const name = activityDisplayName(a, t)
+                        return (
+                          <label
+                            key={a.id}
+                            className="flex items-center justify-between gap-3 text-sm"
+                          >
+                            {name}
+                            <Switch
+                              checked={checked}
+                              aria-label={name}
+                              onCheckedChange={(on) =>
+                                field.onChange(
+                                  on
+                                    ? [...field.value, a.id]
+                                    : field.value.filter((id) => id !== a.id)
+                                )
+                              }
+                            />
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

@@ -54,6 +54,11 @@ export const en = {
       cannotArchiveSelf: "You cannot archive your own account.",
       cannotDeleteSelf: "You cannot delete your own account.",
     },
+    coach: {
+      activityRequired: "Pick at least one activity this coach teaches.",
+      wrongActivity:
+        "That coach doesn't teach this activity. Pick another coach.",
+    },
     space: {
       gone: "That space no longer exists. Pick another one.",
       inactive: "That space is inactive. Pick another one.",
@@ -322,6 +327,7 @@ export const en = {
       namePlaceholder: "e.g. Marcos Delgado",
       phonePlaceholder: "+34 600 000 000",
       birthdayLabel: "Birthday (optional)",
+      activitiesLabel: "Teaches",
       submitNew: "Add Coach",
       created: "Coach created",
       updated: "Coach updated",

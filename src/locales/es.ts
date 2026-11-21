@@ -59,6 +59,11 @@ export const es: DeepString<typeof en> = {
       cannotArchiveSelf: "No puedes archivar tu propia cuenta.",
       cannotDeleteSelf: "No puedes eliminar tu propia cuenta.",
     },
+    coach: {
+      activityRequired:
+        "Elige al menos una actividad que enseñe este entrenador.",
+      wrongActivity: "Ese entrenador no enseña esta actividad. Elige otro.",
+    },
     space: {
       gone: "Ese espacio ya no existe. Elige otro.",
       inactive: "Ese espacio está inactivo. Elige otro.",
@@ -331,6 +336,7 @@ export const es: DeepString<typeof en> = {
       namePlaceholder: "p. ej. Marcos Delgado",
       phonePlaceholder: "+34 600 000 000",
       birthdayLabel: "Cumpleaños (opcional)",
+      activitiesLabel: "Enseña",
       submitNew: "Agregar entrenador",
       created: "Entrenador creado",
       updated: "Entrenador actualizado",

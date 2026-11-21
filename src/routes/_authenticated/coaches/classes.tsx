@@ -20,6 +20,7 @@ import { RowActions } from "@/components/row-actions"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
 import type { ClassRecord } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
+import type { CoachRecord } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { listActivities } from "@/lib/activities.functions"
@@ -33,7 +34,6 @@ import { spaceNounKey, spaceNumberLabel } from "@/lib/activities/spaces"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
 import { useCan } from "@/hooks/use-permissions"
-import type { Coach } from "@/db/schema"
 
 export const Route = createFileRoute("/_authenticated/coaches/classes")({
   loader: async () => {
@@ -58,7 +58,7 @@ const statusVariant: Record<ClassStatus, "default" | "secondary" | "outline"> =
 
 // What the class drawers need to offer choices.
 interface ClassOptions {
-  coaches: Coach[]
+  coaches: CoachRecord[]
   courts: SpaceRecord[]
   activities: ActivityRecord[]
 }

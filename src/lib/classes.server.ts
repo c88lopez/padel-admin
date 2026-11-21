@@ -3,6 +3,7 @@ import { db } from "@/db"
 import { coachClass } from "@/db/schema"
 import type { CoachClass } from "@/db/schema"
 import { assertSpaceBookable } from "@/lib/spaces.server"
+import { assertCoachTeaches } from "@/lib/coaches.server"
 
 // Data access for classes (no auth). Server-only so the Postgres driver stays
 // out of the client bundle; wrapped by classes.functions.ts.
@@ -22,8 +23,9 @@ export async function createClassRecord(
   clubId: string,
   data: ClassInput
 ): Promise<CoachClass> {
-  // The class is for its space's activity.
+  // The class is for its space's activity, which its coach must teach.
   const activity = await assertSpaceBookable(clubId, data.spaceId, "sessions")
+  await assertCoachTeaches(clubId, data.coachId, activity.id)
   const [created] = await db
     .insert(coachClass)
     .values({
@@ -46,6 +48,7 @@ export async function updateClassRecord(
   const { id, ...values } = data
   // Moving a class to another activity's space moves it to that activity.
   const activity = await assertSpaceBookable(clubId, values.spaceId, "sessions")
+  await assertCoachTeaches(clubId, values.coachId, activity.id)
   const [updated] = await db
     .update(coachClass)
     .set({ ...values, activityId: activity.id })

@@ -120,6 +120,13 @@
       "when": 1795236974696,
       "tag": "0016_class_activity_and_capacity",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795238375478,
+      "tag": "0017_coach_activity",
+      "breakpoints": true
     }
   ]
 }
