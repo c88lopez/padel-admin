@@ -381,9 +381,18 @@ export const coachClass = pgTable("coach_class", {
   spaceId: text("space_id")
     .notNull()
     .references(() => space.id, { onDelete: "restrict" }),
+  // The activity the class is for (padel lesson, pilates class). Its space
+  // must belong to the same activity.
+  // NO ACTION rather than RESTRICT, so a club delete can cascade to its
+  // classes and activities in any order.
+  activityId: text("activity_id")
+    .notNull()
+    .references(() => activity.id),
   date: date("date").notNull(),
   startTime: text("start_time").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
+  // Most attendees allowed; null = no limit.
+  capacity: integer("capacity"),
   clubId: text("club_id")
     .notNull()
     .references(() => club.id, { onDelete: "cascade" }),

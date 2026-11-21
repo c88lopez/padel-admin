@@ -4,7 +4,7 @@ import { z } from "zod"
 import { db } from "@/db"
 import { coach, coachClass, space } from "@/db/schema"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
-import { assertSpaceBookable } from "@/lib/spaces.server"
+import { createClassRecord, updateClassRecord } from "@/lib/classes.server"
 
 const classInput = z.object({
   coachId: z.string().min(1),
@@ -12,12 +12,15 @@ const classInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   durationMinutes: z.coerce.number().int().min(15).max(360),
+  // See ClassInput (classes.server.ts).
+  capacity: z.coerce.number().int().min(1).max(500).nullable().optional(),
 })
 
 export interface ClassRecord {
   id: string
   coachId: string | null
   coachName: string
+  activityId: string
   spaceId: string
   spaceName: string
   spaceType: string
@@ -25,6 +28,7 @@ export interface ClassRecord {
   date: string
   startTime: string
   durationMinutes: number
+  capacity: number | null
 }
 
 export const listClasses = createServerFn({ method: "GET" }).handler(
@@ -35,6 +39,7 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
         id: coachClass.id,
         coachId: coachClass.coachId,
         coachName: coach.name,
+        activityId: coachClass.activityId,
         spaceId: coachClass.spaceId,
         spaceName: space.name,
         spaceType: space.type,
@@ -42,6 +47,7 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
         date: coachClass.date,
         startTime: coachClass.startTime,
         durationMinutes: coachClass.durationMinutes,
+        capacity: coachClass.capacity,
       })
       .from(coachClass)
       .innerJoin(space, eq(coachClass.spaceId, space.id))
@@ -58,31 +64,17 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
 
 export const createClass = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => classInput.parse(data))
-  .handler(async ({ data }) => {
-    const clubId = await requireClubId("coaches:manage")
-    await assertSpaceBookable(clubId, data.spaceId, "sessions")
-    const [created] = await db
-      .insert(coachClass)
-      .values({ ...data, clubId })
-      .returning()
-    return created
-  })
+  .handler(async ({ data }) =>
+    createClassRecord(await requireClubId("coaches:manage"), data)
+  )
 
 export const updateClass = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     classInput.extend({ id: z.string().min(1) }).parse(data)
   )
-  .handler(async ({ data }) => {
-    const clubId = await requireClubId("coaches:manage")
-    const { id, ...values } = data
-    await assertSpaceBookable(clubId, values.spaceId, "sessions")
-    const [updated] = await db
-      .update(coachClass)
-      .set(values)
-      .where(and(eq(coachClass.id, id), eq(coachClass.clubId, clubId)))
-      .returning()
-    return updated
-  })
+  .handler(async ({ data }) =>
+    updateClassRecord(await requireClubId("coaches:manage"), data)
+  )
 
 export const deleteClass = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>

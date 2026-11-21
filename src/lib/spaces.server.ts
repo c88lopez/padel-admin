@@ -233,14 +233,14 @@ export async function deleteSpaceRecord(
 /**
  * Ensures a space exists in this club, is active, and belongs to an active
  * activity that provides the block it's used for (a reservation needs
- * "bookings", a class "sessions"). Throws otherwise. Used by reservation and
- * class writes before persisting.
+ * "bookings", a class "sessions"). Throws otherwise, else returns that
+ * activity. Used by reservation and class writes before persisting.
  */
 export async function assertSpaceBookable(
   clubId: string,
   spaceId: string,
   block: BlockKey
-): Promise<void> {
+): Promise<ActivityRecord> {
   const rows = await db
     .select({ active: space.active, activityId: space.activityId })
     .from(space)
@@ -255,9 +255,10 @@ export async function assertSpaceBookable(
   const activity = (await listActivityRecords(clubId)).find(
     (a) => a.id === activityId
   )
-  if (!activityProvides(activity, block)) {
+  if (!activity || !activityProvides(activity, block)) {
     throw new AppError("errors.space.wrongActivity")
   }
+  return activity
 }
 
 /**

@@ -18,7 +18,10 @@ import {
   user,
 } from "@/db/schema"
 import { seedDefaultSpaces } from "@/lib/spaces.server"
-import { ensureDefaultActivities } from "@/lib/activities.server"
+import {
+  ensureDefaultActivities,
+  primaryActivityFor,
+} from "@/lib/activities.server"
 import { createPlayerRecord } from "@/lib/players.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
@@ -279,6 +282,9 @@ async function seedCoaching() {
   console.log(`✓ Seeded ${inserted.length} coaches`)
 
   const courts = await courtIdByNumber(DEFAULT_CLUB_ID)
+  // The demo classes are padel lessons on the padel courts.
+  const padel = await primaryActivityFor(DEFAULT_CLUB_ID, "sessions")
+  if (!padel) throw new Error("No padel activity to seed classes for.")
   await db.insert(coachClass).values(
     classSeeds.map((seed) => {
       const spaceId = courts.get(seed.court)
@@ -286,6 +292,7 @@ async function seedCoaching() {
       return {
         coachId: idByName.get(seed.coach) ?? null,
         spaceId,
+        activityId: padel.id,
         date: new Date(Date.now() + seed.offsetDays * 86_400_000)
           .toISOString()
           .slice(0, 10),

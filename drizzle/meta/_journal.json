@@ -113,6 +113,13 @@
       "when": 1795234072360,
       "tag": "0015_space_type_and_indoor",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795236974696,
+      "tag": "0016_class_activity_and_capacity",
+      "breakpoints": true
     }
   ]
 }
