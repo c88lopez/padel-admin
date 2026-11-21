@@ -230,6 +230,9 @@ export const es: DeepString<typeof en> = {
     paymentStatusRequired: "El estado de pago es obligatorio",
     playerRequired: "El jugador es obligatorio",
     coachRequired: "El entrenador es obligatorio",
+    activityRequired: "La actividad es obligatoria",
+    capacityRange:
+      "Ingresa un número del 1 al 500, o déjalo vacío para no poner límite",
     roleRequired: "El rol es obligatorio",
     pricePositive: "El precio debe ser mayor que 0",
     stockNonNegative: "El stock no puede ser negativo",
@@ -248,6 +251,8 @@ export const es: DeepString<typeof en> = {
     email: "Correo electrónico",
     phone: "Teléfono",
     coach: "Entrenador",
+    activity: "Actividad",
+    capacity: "Capacidad",
     player: "Jugador",
     age: "Edad",
     gender: "Género",
@@ -282,6 +287,8 @@ export const es: DeepString<typeof en> = {
     selectCategoryA: "Selecciona una categoría",
     selectFormat: "Selecciona el formato",
     selectCoach: "Selecciona un entrenador",
+    selectActivity: "Selecciona una actividad",
+    noLimit: "Sin límite",
     selectProduct: "Selecciona un producto",
     duration: "Duración",
   },
@@ -305,9 +312,6 @@ export const es: DeepString<typeof en> = {
     twoHours: "2 horas",
     twoPointFiveHours: "2,5 horas",
     threeHours: "3 horas",
-    min60: "60 min",
-    min90: "90 min",
-    min120: "120 min",
   },
   forms: {
     player: {
@@ -793,8 +797,7 @@ export const es: DeepString<typeof en> = {
     },
     classes: {
       title: "Clases",
-      description:
-        "Sesiones dirigidas por entrenadores y vinculadas a pistas reservadas.",
+      description: "Clases dirigidas por entrenadores.",
       searchPlaceholder: "Buscar clases...",
       newButton: "Nueva clase",
       time: "Hora",
@@ -803,6 +806,8 @@ export const es: DeepString<typeof en> = {
       statusUpcoming: "Próxima",
       statusOngoing: "En curso",
       statusCompleted: "Completada",
+      allActivities: "Todas las actividades",
+      noLimit: "Sin límite",
     },
     stock: {
       title: "Stock",

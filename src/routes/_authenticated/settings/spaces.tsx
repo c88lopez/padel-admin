@@ -38,7 +38,7 @@ import {
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { listActivities } from "@/lib/activities.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
-import { getTemplate } from "@/lib/activities/templates"
+import { activityDisplayName, getTemplate } from "@/lib/activities/templates"
 import { getSpaceType, spaceDisplayName } from "@/lib/activities/spaces"
 import { translateError } from "@/lib/errors"
 
@@ -156,7 +156,7 @@ function SpaceSettingsPage() {
             return (
               <SettingsSection
                 key={activity.id}
-                title={activity.name ?? (template ? t(template.nameKey) : "")}
+                title={activityDisplayName(activity, t)}
                 description={t(
                   activitySpaces.length === 1
                     ? "settings.spaces.countOne"

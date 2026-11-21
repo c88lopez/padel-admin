@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { bookingDurations, resolveActivityConfig } from "./config"
+import {
+  bookingDurations,
+  resolveActivityConfig,
+  sessionDurations,
+} from "./config"
 import { getTemplate } from "./templates"
 import type { ActivityTemplate } from "./templates"
 
@@ -102,5 +106,38 @@ describe("bookingDurations", () => {
 
   it("offers nothing when no activity has bookings", () => {
     expect(bookingDurations([pilatesActivity], null)).toEqual([])
+  })
+})
+
+describe("sessionDurations", () => {
+  const padelActivity = {
+    id: "padel-1",
+    templateKey: "padel",
+    name: null,
+    active: true,
+    config: resolveActivityConfig(padel, {}),
+  }
+  const pilatesActivity = {
+    id: "pilates-1",
+    templateKey: "pilates",
+    name: null,
+    active: true,
+    config: resolveActivityConfig(pilates, {
+      sessions: { durationOptions: [55, 45] },
+    }),
+  }
+  const both = [padelActivity, pilatesActivity]
+
+  it("uses the chosen activity's class lengths", () => {
+    expect(sessionDurations(both, "pilates-1")).toEqual([45, 55])
+    expect(sessionDurations(both, "padel-1")).toEqual([60, 90, 120])
+  })
+
+  it("falls back to the primary sessions activity before one is chosen", () => {
+    expect(sessionDurations(both, "")).toEqual([60, 90, 120])
+  })
+
+  it("keeps an existing class's length selectable", () => {
+    expect(sessionDurations(both, "pilates-1", 60)).toEqual([45, 55, 60])
   })
 })

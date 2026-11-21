@@ -44,16 +44,32 @@ import {
 import { cn } from "@/lib/utils"
 import { createClass, updateClass } from "@/lib/classes.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
+import type { ActivityRecord } from "@/lib/activities.functions"
 import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
+import {
+  activityDisplayName,
+  activityProvides,
+} from "@/lib/activities/templates"
+import { sessionDurations } from "@/lib/activities/config"
+import { durationLabel } from "@/lib/duration-label"
 import type { Coach } from "@/db/schema"
+
+// "" = no limit; otherwise a whole number of places.
+function isCapacity(value: string): boolean {
+  if (value === "") return true
+  const n = Number(value)
+  return Number.isInteger(n) && n >= 1 && n <= 500
+}
 
 function makeSchema(t: TFunction) {
   return z.object({
+    activityId: z.string().min(1, t("validation.activityRequired")),
     coachId: z.string().min(1, t("validation.coachRequired")),
     spaceId: z.string().min(1, t("validation.spaceRequired")),
     date: z.date({ error: t("validation.dateRequired") }),
     time: z.string().min(1, t("validation.timeRequired")),
     duration: z.string().min(1, t("validation.durationRequired")),
+    capacity: z.string().refine(isCapacity, t("validation.capacityRange")),
   })
 }
 
@@ -62,32 +78,51 @@ type FormInput = Omit<FormValues, "date"> & { date?: Date }
 
 export interface ClassData {
   id?: string
+  activityId: string
   coachId: string | null
   spaceId: string
   date: string
   startTime: string
   durationMinutes: number
+  capacity: number | null
 }
 
 interface Props {
   trigger?: React.ReactNode
   coaches: Coach[]
   courts: SpaceRecord[]
+  activities: ActivityRecord[]
   coachClass?: ClassData
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSaved?: () => void
 }
 
-const EMPTY: FormInput = { coachId: "", spaceId: "", time: "", duration: "" }
+function capacityValue(capacity: number | null | undefined): string {
+  return capacity == null ? "" : String(capacity)
+}
+
+// A new class: the activity is preset when there's only one to choose.
+function emptyValues(activity: ActivityRecord | undefined): FormInput {
+  return {
+    activityId: activity?.id ?? "",
+    coachId: "",
+    spaceId: "",
+    time: "",
+    duration: "",
+    capacity: capacityValue(activity?.config.sessions?.defaultCapacity),
+  }
+}
 
 function toFormValues(c: ClassData): FormInput {
   return {
+    activityId: c.activityId,
     coachId: c.coachId ?? "",
     spaceId: c.spaceId,
     date: parseISO(c.date),
     time: c.startTime,
     duration: String(c.durationMinutes),
+    capacity: capacityValue(c.capacity),
   }
 }
 
@@ -95,6 +130,7 @@ export function NewClassDrawer({
   trigger,
   coaches,
   courts: allCourts,
+  activities,
   coachClass,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
@@ -106,25 +142,69 @@ export function NewClassDrawer({
   const setOpen = controlledOnOpenChange ?? setInternalOpen
   const isEditing = !!coachClass
 
-  // Active courts, plus this class's current court even if since deactivated.
-  const courts = allCourts.filter(
-    (c) => c.active || c.id === coachClass?.spaceId
+  // Activities that run classes, plus this class's own even if since disabled.
+  const sessionActivities = activities.filter(
+    (a) => activityProvides(a, "sessions") || a.id === coachClass?.activityId
   )
+  const onlyActivity =
+    sessionActivities.length === 1 ? sessionActivities[0] : undefined
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
   const schema = useMemo(() => makeSchema(t), [t])
 
+  const initialValues = useMemo(
+    () => (coachClass ? toFormValues(coachClass) : emptyValues(onlyActivity)),
+    [coachClass, onlyActivity]
+  )
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
-    defaultValues: coachClass ? toFormValues(coachClass) : EMPTY,
+    defaultValues: initialValues,
   })
 
   useEffect(() => {
     if (open) {
-      form.reset(coachClass ? toFormValues(coachClass) : EMPTY)
+      form.reset(initialValues)
       reset()
     }
-  }, [open, coachClass, form, reset])
+  }, [open, initialValues, form, reset])
+
+  const activityId = form.watch("activityId")
+  // The chosen activity's active spaces, plus this class's current space even
+  // if since deactivated.
+  const courts = allCourts.filter(
+    (c) =>
+      c.activityId === activityId && (c.active || c.id === coachClass?.spaceId)
+  )
+  const durations = useMemo(
+    () =>
+      sessionDurations(
+        activities,
+        activityId,
+        coachClass?.activityId === activityId
+          ? coachClass.durationMinutes
+          : undefined
+      ),
+    [activities, activityId, coachClass]
+  )
+
+  // Switching activity clears what belongs to the old one and takes the new
+  // one's default capacity.
+  function changeActivity(id: string) {
+    const next = activities.find((a) => a.id === id)
+    form.setValue("activityId", id, { shouldValidate: true })
+    form.setValue("spaceId", "")
+    if (
+      !sessionDurations(activities, id).includes(
+        Number(form.getValues("duration"))
+      )
+    ) {
+      form.setValue("duration", "")
+    }
+    form.setValue(
+      "capacity",
+      capacityValue(next?.config.sessions?.defaultCapacity)
+    )
+  }
 
   function onSubmit(values: FormInput) {
     const payload = {
@@ -133,6 +213,7 @@ export function NewClassDrawer({
       date: format(values.date as Date, "yyyy-MM-dd"),
       startTime: values.time,
       durationMinutes: Number(values.duration),
+      capacity: values.capacity === "" ? null : Number(values.capacity),
     }
     run({
       action: () =>
@@ -176,6 +257,36 @@ export function NewClassDrawer({
             onSubmit={form.handleSubmit(onSubmit)}
             className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-2"
           >
+            {/* Only clubs with several activities that run classes pick one. */}
+            {!onlyActivity && (
+              <FormField
+                control={form.control}
+                name="activityId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("fields.activity")}</FormLabel>
+                    <Select onValueChange={changeActivity} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t("placeholders.selectActivity")}
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {sessionActivities.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {activityDisplayName(a, t)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="coachId"
@@ -209,7 +320,11 @@ export function NewClassDrawer({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t(spaceNounKey(courts))}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!activityId}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue
@@ -296,11 +411,11 @@ export function NewClassDrawer({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="60">{t("options.min60")}</SelectItem>
-                        <SelectItem value="90">{t("options.min90")}</SelectItem>
-                        <SelectItem value="120">
-                          {t("options.min120")}
-                        </SelectItem>
+                        {durations.map((minutes) => (
+                          <SelectItem key={minutes} value={String(minutes)}>
+                            {durationLabel(minutes, t)}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -308,6 +423,25 @@ export function NewClassDrawer({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="capacity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("fields.capacity")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder={t("placeholders.noLimit")}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DrawerFooter className="px-0 pt-4">
               <DrawerSubmitButton
