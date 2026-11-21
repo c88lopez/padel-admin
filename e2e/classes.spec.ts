@@ -44,8 +44,17 @@ async function createClass(
   return court
 }
 
-// A class has no unique name, so locate its row by court + start time.
-function classRow(page: Page, court: string, time: string): Locator {
+// Opens the classes list narrowed to a start time (so the class isn't on a
+// later page) and returns its row. A class has no unique name, so the row
+// is located by court + start time.
+async function findClassRow(
+  page: Page,
+  court: string,
+  time: string
+): Promise<Locator> {
+  await page.goto("/coaches/classes")
+  await waitForHydration(page)
+  await page.getByPlaceholder("Search classes...").fill(time)
   return page
     .getByRole("row", { name: new RegExp(court) })
     .filter({ hasText: time })
@@ -59,9 +68,7 @@ test("schedules a class with a capacity", async ({ page }) => {
   const time = uniqueTime()
   const court = await createClass(page, time, "4")
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  const row = classRow(page, court, time)
+  const row = await findClassRow(page, court, time)
   await expect(
     row.getByRole("cell", { name: "0 / 4", exact: true })
   ).toBeVisible()
@@ -71,9 +78,7 @@ test("signs a customer up until the class is full", async ({ page }) => {
   const time = uniqueTime()
   const court = await createClass(page, time, "1")
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  const row = classRow(page, court, time)
+  const row = await findClassRow(page, court, time)
   await row.getByRole("button").last().click()
   await page.getByRole("menuitem", { name: "Attendees" }).click()
 
@@ -95,9 +100,7 @@ test("edits a scheduled class", async ({ page }) => {
   const time = uniqueTime()
   const court = await createClass(page, time)
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  const row = classRow(page, court, time)
+  const row = await findClassRow(page, court, time)
   await row.getByRole("button").last().click()
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
@@ -107,18 +110,14 @@ test("edits a scheduled class", async ({ page }) => {
   await dialog.getByRole("button", { name: "Save Changes" }).click()
   await expect(page.getByText("Class updated")).toBeVisible()
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  await expect(classRow(page, court, newTime).first()).toBeVisible()
+  await expect((await findClassRow(page, court, newTime)).first()).toBeVisible()
 })
 
 test("cancels a scheduled class", async ({ page }) => {
   const time = uniqueTime()
   const court = await createClass(page, time)
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  const row = classRow(page, court, time)
+  const row = await findClassRow(page, court, time)
   await row.getByRole("button").last().click()
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
@@ -127,7 +126,5 @@ test("cancels a scheduled class", async ({ page }) => {
     .click()
   await expect(page.getByText("Class deleted")).toBeVisible()
 
-  await page.goto("/coaches/classes")
-  await waitForHydration(page)
-  await expect(classRow(page, court, time)).toHaveCount(0)
+  await expect(await findClassRow(page, court, time)).toHaveCount(0)
 })

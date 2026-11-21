@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { IconTrash } from "@tabler/icons-react"
@@ -33,7 +33,9 @@ interface Props {
   capacity: number | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  // After a sign-up or removal, so the list's counts refresh.
+  // On close, when anyone was added or removed, so the list's counts
+  // refresh. Not while open: reloading the page can remount the row that
+  // owns this drawer and close it mid-use.
   onChanged?: () => void
 }
 
@@ -47,9 +49,22 @@ export function ClassAttendeesDrawer({
 }: Props) {
   const { t } = useTranslation()
   const [attendees, setAttendees] = useState<AttendeeRecord[]>([])
-  const [players, setPlayers] = useState<{ id: string; fullName: string }[]>([])
+  // null until loaded: the picker waits for them, so its options don't
+  // appear (and shift) under a click.
+  const [players, setPlayers] = useState<
+    { id: string; fullName: string }[] | null
+  >(null)
   const [selected, setSelected] = useState("")
   const [busy, setBusy] = useState(false)
+  const changed = useRef(false)
+
+  function handleOpenChange(next: boolean) {
+    if (!next && changed.current) {
+      changed.current = false
+      onChanged?.()
+    }
+    onOpenChange(next)
+  }
 
   const load = useCallback(async () => {
     setAttendees(await listClassAttendees({ data: { classId } }))
@@ -58,6 +73,7 @@ export function ClassAttendeesDrawer({
   useEffect(() => {
     if (!open) return
     setSelected("")
+    setPlayers(null)
     void load()
     void listPlayers().then((rows) =>
       setPlayers(rows.map((p) => ({ id: p.id, fullName: p.fullName })))
@@ -65,7 +81,7 @@ export function ClassAttendeesDrawer({
   }, [open, load])
 
   const full = capacity !== null && attendees.length >= capacity
-  const choices = players.filter(
+  const choices = (players ?? []).filter(
     (p) => !attendees.some((a) => a.playerId === p.id)
   )
 
@@ -74,8 +90,8 @@ export function ClassAttendeesDrawer({
     try {
       await action()
       toast.success(success)
+      changed.current = true
       await load()
-      onChanged?.()
     } catch (err) {
       toast.error(translateError(err, t, t("common.genericError")))
       await load()
@@ -85,7 +101,7 @@ export function ClassAttendeesDrawer({
   }
 
   function add() {
-    const name = players.find((p) => p.id === selected)?.fullName ?? ""
+    const name = choices.find((p) => p.id === selected)?.fullName ?? ""
     void change(
       () => addClassAttendee({ data: { classId, playerId: selected } }),
       t("forms.attendees.added", { name })
@@ -103,7 +119,7 @@ export function ClassAttendeesDrawer({
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
+    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{t("forms.attendees.title")}</DrawerTitle>
@@ -151,7 +167,7 @@ export function ClassAttendeesDrawer({
             <p className="text-sm text-muted-foreground">
               {t("errors.class.full")}
             </p>
-          ) : (
+          ) : players === null ? null : (
             <div className="flex gap-2">
               <Select value={selected} onValueChange={setSelected}>
                 <SelectTrigger
