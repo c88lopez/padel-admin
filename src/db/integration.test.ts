@@ -13,7 +13,7 @@ import {
   customerActivityProfile,
   coach,
   coachClass,
-  court,
+  space,
   player,
   reservation,
   sale,
@@ -60,12 +60,13 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       .values({ id: CLUB_ID, name: "Default Club", slug: "default" })
       .onConflictDoNothing()
     await db
-      .insert(court)
+      .insert(space)
       .values([
         {
           id: COURT1_ID,
           name: "Court 1",
-          type: "indoor",
+          type: "court",
+          indoor: true,
           active: true,
           sortOrder: 1,
           clubId: CLUB_ID,
@@ -73,7 +74,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         {
           id: COURT2_ID,
           name: "Court 2",
-          type: "indoor",
+          type: "court",
+          indoor: true,
           active: true,
           sortOrder: 2,
           clubId: CLUB_ID,
@@ -91,11 +93,12 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       .values({ id: CLUB_B_ID, name: "Second Club", slug: "second-club" })
       .onConflictDoNothing()
     await db
-      .insert(court)
+      .insert(space)
       .values({
         id: COURT_B_ID,
         name: "B Court",
-        type: "indoor",
+        type: "court",
+        indoor: true,
         active: true,
         sortOrder: 1,
         clubId: CLUB_B_ID,
@@ -179,9 +182,9 @@ describe.skipIf(!TEST_URL)("database integration", () => {
   describe("reservation conflicts", () => {
     const day = "2026-01-15"
 
-    async function book(courtId: string, startTime: string, duration: number) {
+    async function book(spaceId: string, startTime: string, duration: number) {
       await db.insert(reservation).values({
-        courtId,
+        spaceId,
         player: "Booked Player",
         bookedBy: "Front Desk",
         date: day,
@@ -192,11 +195,11 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       })
     }
 
-    async function sameCourtSlots(courtId: string) {
+    async function sameCourtSlots(spaceId: string) {
       return db
         .select()
         .from(reservation)
-        .where(and(eq(reservation.courtId, courtId), eq(reservation.date, day)))
+        .where(and(eq(reservation.spaceId, spaceId), eq(reservation.date, day)))
     }
 
     it("flags an overlapping booking on the same court", async () => {
@@ -400,7 +403,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(coachClass)
         .values({
           coachId: c.id,
-          courtId: COURT1_ID,
+          spaceId: COURT1_ID,
           date: "2026-03-01",
           startTime: "10:00",
           durationMinutes: 90,
@@ -436,55 +439,55 @@ describe.skipIf(!TEST_URL)("database integration", () => {
     })
   })
 
-  // Exercises the real club-scoping in courts.server.ts: every query is filtered
+  // Exercises the real club-scoping in spaces.server.ts: every query is filtered
   // by clubId, so one club must never read or mutate another club's rows.
-  describe("tenant isolation (courts.server)", () => {
+  describe("tenant isolation (spaces.server)", () => {
     // Loaded dynamically (not a static import) so the app's `@/db` connects only
     // after DATABASE_URL is pointed at the test database above.
-    const loadCourts = () => import("@/lib/courts.server")
-    let courts: Awaited<ReturnType<typeof loadCourts>>
+    const loadSpaces = () => import("@/lib/spaces.server")
+    let spaces: Awaited<ReturnType<typeof loadSpaces>>
 
     beforeAll(async () => {
-      courts = await loadCourts()
+      spaces = await loadSpaces()
     })
 
     it("lists only the requested club's courts", async () => {
-      const a = await courts.listCourtRecords(CLUB_ID)
+      const a = await spaces.listSpaceRecords(CLUB_ID)
       const aIds = a.map((c) => c.id)
       expect(aIds).toEqual(expect.arrayContaining([COURT1_ID, COURT2_ID]))
       // Club A must never see the other club's court.
       expect(aIds).not.toContain(COURT_B_ID)
 
       // Club B sees exactly its own court — none of club A's leak through.
-      const b = await courts.listCourtRecords(CLUB_B_ID)
+      const b = await spaces.listSpaceRecords(CLUB_B_ID)
       expect(b.map((c) => c.id)).toEqual([COURT_B_ID])
     })
 
     it("refuses to update another club's court", async () => {
       await expect(
-        courts.updateCourtRecord(CLUB_B_ID, {
+        spaces.updateSpaceRecord(CLUB_B_ID, {
           id: COURT1_ID,
           name: "Hijacked",
         })
-      ).rejects.toThrow("Court not found.")
+      ).rejects.toThrow("Space not found.")
 
-      const [row] = await db.select().from(court).where(eq(court.id, COURT1_ID))
+      const [row] = await db.select().from(space).where(eq(space.id, COURT1_ID))
       expect(row.name).toBe("Court 1")
     })
 
     it("does not delete another club's court", async () => {
-      await courts.deleteCourtRecord(CLUB_B_ID, COURT1_ID)
-      const rows = await db.select().from(court).where(eq(court.id, COURT1_ID))
+      await spaces.deleteSpaceRecord(CLUB_B_ID, COURT1_ID)
+      const rows = await db.select().from(space).where(eq(space.id, COURT1_ID))
       expect(rows).toHaveLength(1)
     })
 
     it("treats another club's court as not bookable", async () => {
       await expect(
-        courts.assertCourtBookable(CLUB_B_ID, COURT1_ID)
+        spaces.assertSpaceBookable(CLUB_B_ID, COURT1_ID)
       ).rejects.toThrow()
       // Sanity: the court is bookable within its own club.
       await expect(
-        courts.assertCourtBookable(CLUB_ID, COURT1_ID)
+        spaces.assertSpaceBookable(CLUB_ID, COURT1_ID)
       ).resolves.toBeUndefined()
     })
   })
@@ -654,9 +657,9 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
   describe("customers, profiles and spaces (P1)", () => {
     const loadPlayers = () => import("@/lib/players.server")
-    const loadCourts = () => import("@/lib/courts.server")
+    const loadSpaces = () => import("@/lib/spaces.server")
     let players: Awaited<ReturnType<typeof loadPlayers>>
-    let courts: Awaited<ReturnType<typeof loadCourts>>
+    let spaces: Awaited<ReturnType<typeof loadSpaces>>
     let padelId: string
 
     const base = {
@@ -668,7 +671,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
     beforeAll(async () => {
       players = await loadPlayers()
-      courts = await loadCourts()
+      spaces = await loadSpaces()
       const [padel] = await db
         .select()
         .from(activity)
@@ -680,10 +683,10 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
     it("links courts without an activity to the club's padel activity", async () => {
       await db
-        .update(court)
+        .update(space)
         .set({ activityId: null })
-        .where(eq(court.id, COURT1_ID))
-      const list = await courts.listCourtRecords(CLUB_ID)
+        .where(eq(space.id, COURT1_ID))
+      const list = await spaces.listSpaceRecords(CLUB_ID)
       expect(list.find((c) => c.id === COURT1_ID)?.activityId).toBe(padelId)
     })
 
@@ -763,7 +766,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       const [booking] = await db
         .insert(reservation)
         .values({
-          courtId: COURT1_ID,
+          spaceId: COURT1_ID,
           player: "Leaving Player",
           customerId: gone.id,
           bookedBy: "Front Desk",
@@ -804,13 +807,13 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .where(eq(activity.clubId, created.id))
       const rows = await db
         .select()
-        .from(court)
-        .where(eq(court.clubId, created.id))
+        .from(space)
+        .where(eq(space.clubId, created.id))
       expect(rows).toHaveLength(6)
       expect(new Set(rows.map((r) => r.activityId))).toEqual(
         new Set([clubPadel.id])
       )
-      await db.delete(court).where(eq(court.clubId, created.id))
+      await db.delete(space).where(eq(space.clubId, created.id))
       await db.delete(club).where(eq(club.id, created.id))
     })
 
@@ -825,8 +828,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       expect(await activitiesOfClub(created.id)).toHaveLength(0)
       const rows = await db
         .select()
-        .from(court)
-        .where(eq(court.clubId, created.id))
+        .from(space)
+        .where(eq(space.clubId, created.id))
       expect(rows).toHaveLength(0)
     })
 
@@ -868,7 +871,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(reservation)
         .values([
           {
-            courtId: COURT1_ID,
+            spaceId: COURT1_ID,
             player: PLAYER,
             bookedBy: "Front Desk",
             date,
@@ -878,7 +881,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
             clubId: CLUB_ID,
           },
           {
-            courtId: COURT2_ID,
+            spaceId: COURT2_ID,
             player: PLAYER,
             bookedBy: "Front Desk",
             date,

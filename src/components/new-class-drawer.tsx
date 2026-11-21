@@ -43,13 +43,13 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { createClass, updateClass } from "@/lib/classes.functions"
-import type { CourtRecord } from "@/lib/courts.functions"
+import type { SpaceRecord } from "@/lib/spaces.functions"
 import type { Coach } from "@/db/schema"
 
 function makeSchema(t: TFunction) {
   return z.object({
     coachId: z.string().min(1, t("validation.coachRequired")),
-    courtId: z.string().min(1, t("validation.courtRequired")),
+    spaceId: z.string().min(1, t("validation.courtRequired")),
     date: z.date({ error: t("validation.dateRequired") }),
     time: z.string().min(1, t("validation.timeRequired")),
     duration: z.string().min(1, t("validation.durationRequired")),
@@ -62,7 +62,7 @@ type FormInput = Omit<FormValues, "date"> & { date?: Date }
 export interface ClassData {
   id?: string
   coachId: string | null
-  courtId: string
+  spaceId: string
   date: string
   startTime: string
   durationMinutes: number
@@ -71,19 +71,19 @@ export interface ClassData {
 interface Props {
   trigger?: React.ReactNode
   coaches: Coach[]
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
   coachClass?: ClassData
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSaved?: () => void
 }
 
-const EMPTY: FormInput = { coachId: "", courtId: "", time: "", duration: "" }
+const EMPTY: FormInput = { coachId: "", spaceId: "", time: "", duration: "" }
 
 function toFormValues(c: ClassData): FormInput {
   return {
     coachId: c.coachId ?? "",
-    courtId: c.courtId,
+    spaceId: c.spaceId,
     date: parseISO(c.date),
     time: c.startTime,
     duration: String(c.durationMinutes),
@@ -107,7 +107,7 @@ export function NewClassDrawer({
 
   // Active courts, plus this class's current court even if since deactivated.
   const courts = allCourts.filter(
-    (c) => c.active || c.id === coachClass?.courtId
+    (c) => c.active || c.id === coachClass?.spaceId
   )
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
@@ -128,7 +128,7 @@ export function NewClassDrawer({
   function onSubmit(values: FormInput) {
     const payload = {
       coachId: values.coachId,
-      courtId: values.courtId,
+      spaceId: values.spaceId,
       date: format(values.date as Date, "yyyy-MM-dd"),
       startTime: values.time,
       durationMinutes: Number(values.duration),
@@ -204,7 +204,7 @@ export function NewClassDrawer({
 
             <FormField
               control={form.control}
-              name="courtId"
+              name="spaceId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("fields.court")}</FormLabel>

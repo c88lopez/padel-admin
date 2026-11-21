@@ -54,7 +54,7 @@ export const en = {
       cannotArchiveSelf: "You cannot archive your own account.",
       cannotDeleteSelf: "You cannot delete your own account.",
     },
-    court: {
+    space: {
       gone: "That court no longer exists. Pick another court.",
       inactive: "That court is inactive. Pick another court.",
     },

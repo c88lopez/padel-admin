@@ -13,8 +13,8 @@ import { RowActions } from "@/components/row-actions"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
 import type { ClassRecord } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
-import { listCourts } from "@/lib/courts.functions"
-import type { CourtRecord } from "@/lib/courts.functions"
+import { listSpaces } from "@/lib/spaces.functions"
+import type { SpaceRecord } from "@/lib/spaces.functions"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
 import { useCan } from "@/hooks/use-permissions"
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/coaches/classes")({
   loader: async () => ({
     classes: await listClasses(),
     coaches: await listCoaches(),
-    courts: await listCourts(),
+    courts: await listSpaces(),
   }),
   component: ClassesPage,
 })
@@ -43,7 +43,7 @@ function ClassActions({
 }: {
   coachClass: ClassRecord
   coaches: Coach[]
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
 }) {
   const { t } = useTranslation()
   const router = useRouter()
@@ -83,7 +83,7 @@ function buildColumns(
   t: TFunction,
   canManage: boolean,
   coaches: Coach[],
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
 ): ColumnDef<ClassRecord>[] {
   const statusLabel: Record<ClassStatus, string> = {
     Upcoming: t("pages.classes.statusUpcoming"),
@@ -97,10 +97,10 @@ function buildColumns(
       header: t("fields.coach"),
     },
     {
-      accessorKey: "courtNumber",
+      accessorKey: "spaceNumber",
       header: t("fields.court"),
       cell: ({ row }) =>
-        t("stats.court", { court: row.getValue<number>("courtNumber") }),
+        t("stats.court", { court: row.getValue<number>("spaceNumber") }),
     },
     {
       accessorKey: "date",
