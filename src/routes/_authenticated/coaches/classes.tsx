@@ -7,6 +7,13 @@ import { IconPlus } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { DataTable } from "@/components/data-table"
 import { NewClassDrawer } from "@/components/new-class-drawer"
 import { RowActions } from "@/components/row-actions"
@@ -16,7 +23,12 @@ import { listCoaches } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { listActivities } from "@/lib/activities.functions"
-import { spacesForBlock } from "@/lib/activities/templates"
+import type { ActivityRecord } from "@/lib/activities.functions"
+import {
+  activityDisplayName,
+  activityProvides,
+  spacesForBlock,
+} from "@/lib/activities/templates"
 import { spaceNounKey, spaceNumberLabel } from "@/lib/activities/spaces"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
@@ -24,16 +36,16 @@ import { useCan } from "@/hooks/use-permissions"
 import type { Coach } from "@/db/schema"
 
 export const Route = createFileRoute("/_authenticated/coaches/classes")({
-  loader: async () => ({
-    classes: await listClasses(),
-    coaches: await listCoaches(),
-    // Only spaces whose activity runs classes.
-    courts: spacesForBlock(
-      await listSpaces(),
-      await listActivities(),
-      "sessions"
-    ),
-  }),
+  loader: async () => {
+    const activities = await listActivities()
+    return {
+      classes: await listClasses(),
+      coaches: await listCoaches(),
+      // Only spaces whose activity runs classes.
+      courts: spacesForBlock(await listSpaces(), activities, "sessions"),
+      activities,
+    }
+  },
   component: ClassesPage,
 })
 
@@ -44,14 +56,19 @@ const statusVariant: Record<ClassStatus, "default" | "secondary" | "outline"> =
     Completed: "outline",
   }
 
-function ClassActions({
-  coachClass,
-  coaches,
-  courts,
-}: {
-  coachClass: ClassRecord
+// What the class drawers need to offer choices.
+interface ClassOptions {
   coaches: Coach[]
   courts: SpaceRecord[]
+  activities: ActivityRecord[]
+}
+
+function ClassActions({
+  coachClass,
+  options,
+}: {
+  coachClass: ClassRecord
+  options: ClassOptions
 }) {
   const { t } = useTranslation()
   const router = useRouter()
@@ -75,8 +92,7 @@ function ClassActions({
   return (
     <>
       <NewClassDrawer
-        coaches={coaches}
-        courts={courts}
+        {...options}
         coachClass={coachClass}
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -90,9 +106,12 @@ function ClassActions({
 function buildColumns(
   t: TFunction,
   canManage: boolean,
-  coaches: Coach[],
-  courts: SpaceRecord[]
+  options: ClassOptions,
+  showActivity: boolean
 ): ColumnDef<ClassRecord>[] {
+  const activityName = new Map(
+    options.activities.map((a) => [a.id, activityDisplayName(a, t)])
+  )
   const statusLabel: Record<ClassStatus, string> = {
     Upcoming: t("pages.classes.statusUpcoming"),
     Ongoing: t("pages.classes.statusOngoing"),
@@ -104,9 +123,18 @@ function buildColumns(
       accessorKey: "coachName",
       header: t("fields.coach"),
     },
+    ...(showActivity
+      ? [
+          {
+            id: "activity",
+            header: t("fields.activity"),
+            accessorFn: (c: ClassRecord) => activityName.get(c.activityId),
+          },
+        ]
+      : []),
     {
       accessorKey: "spaceNumber",
-      header: t(spaceNounKey(courts)),
+      header: t(spaceNounKey(options.courts)),
       cell: ({ row }) =>
         spaceNumberLabel(
           row.original.spaceType,
@@ -126,6 +154,11 @@ function buildColumns(
       id: "duration",
       header: t("fields.duration"),
       cell: ({ row }) => formatDuration(row.original.durationMinutes),
+    },
+    {
+      id: "capacity",
+      header: t("fields.capacity"),
+      accessorFn: (c) => c.capacity ?? t("pages.classes.noLimit"),
     },
     {
       id: "status",
@@ -149,11 +182,7 @@ function buildColumns(
       enableSorting: false,
       meta: { className: "text-right" },
       cell: ({ row }) => (
-        <ClassActions
-          coachClass={row.original}
-          coaches={coaches}
-          courts={courts}
-        />
+        <ClassActions coachClass={row.original} options={options} />
       ),
     })
   }
@@ -165,11 +194,25 @@ function ClassesPage() {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
-  const { classes, coaches, courts } = Route.useLoaderData()
-  const columns = useMemo(
-    () => buildColumns(t, canManage, coaches, courts),
-    [t, canManage, coaches, courts]
+  const { classes, coaches, courts, activities } = Route.useLoaderData()
+  const options = useMemo(
+    () => ({ coaches, courts, activities }),
+    [coaches, courts, activities]
   )
+  // With several activities that run classes, show and filter by activity.
+  const sessionActivities = activities.filter((a) =>
+    activityProvides(a, "sessions")
+  )
+  const showActivity = sessionActivities.length > 1
+  const [activityFilter, setActivityFilter] = useState("all")
+  const columns = useMemo(
+    () => buildColumns(t, canManage, options, showActivity),
+    [t, canManage, options, showActivity]
+  )
+  const visible =
+    activityFilter === "all"
+      ? classes
+      : classes.filter((c) => c.activityId === activityFilter)
 
   return (
     <div className="flex flex-col gap-6">
@@ -182,23 +225,45 @@ function ClassesPage() {
 
       <DataTable
         columns={columns}
-        data={classes}
+        data={visible}
         searchPlaceholder={t("pages.classes.searchPlaceholder")}
         exportFileName="classes"
         action={
-          canManage ? (
-            <NewClassDrawer
-              coaches={coaches}
-              courts={courts}
-              onSaved={() => router.invalidate()}
-              trigger={
-                <Button size="sm">
-                  <IconPlus className="size-4" />
-                  {t("pages.classes.newButton")}
-                </Button>
-              }
-            />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {showActivity && (
+              <Select value={activityFilter} onValueChange={setActivityFilter}>
+                <SelectTrigger
+                  size="sm"
+                  className="w-44"
+                  aria-label={t("fields.activity")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("pages.classes.allActivities")}
+                  </SelectItem>
+                  {sessionActivities.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {activityDisplayName(a, t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {canManage && (
+              <NewClassDrawer
+                {...options}
+                onSaved={() => router.invalidate()}
+                trigger={
+                  <Button size="sm">
+                    <IconPlus className="size-4" />
+                    {t("pages.classes.newButton")}
+                  </Button>
+                }
+              />
+            )}
+          </div>
         }
       />
     </div>

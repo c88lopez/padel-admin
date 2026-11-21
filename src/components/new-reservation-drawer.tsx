@@ -19,8 +19,7 @@ import type { SpaceRecord } from "@/lib/spaces.functions"
 import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { bookingDurations } from "@/lib/activities/config"
-import { formatDuration } from "@/lib/classes"
-import type { TranslationKey } from "@/lib/i18n"
+import { durationLabel } from "@/lib/duration-label"
 import {
   Drawer,
   DrawerClose,
@@ -53,19 +52,6 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { translateError } from "@/lib/errors"
-
-const DURATION_LABELS: Partial<Record<number, TranslationKey>> = {
-  60: "options.oneHour",
-  90: "options.onePointFiveHours",
-  120: "options.twoHours",
-  150: "options.twoPointFiveHours",
-  180: "options.threeHours",
-}
-
-function durationLabel(minutes: number, t: TFunction): string {
-  const key = DURATION_LABELS[minutes]
-  return key ? t(key) : formatDuration(minutes)
-}
 
 function makeSchema(t: TFunction) {
   return z.object({

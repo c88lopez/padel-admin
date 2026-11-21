@@ -89,6 +89,20 @@ interface ActivityWithConfig extends ActivitySummary {
   config: ActivityConfig
 }
 
+function durationsFor(
+  activities: readonly ActivityWithConfig[],
+  activityId: string | null | undefined,
+  block: "bookings" | "sessions",
+  current: number | undefined
+): number[] {
+  const activity =
+    activities.find((a) => a.id === activityId) ??
+    primaryActivity(activities, block)
+  const options = [...(activity?.config[block]?.durationOptions ?? [])]
+  if (current !== undefined && !options.includes(current)) options.push(current)
+  return options.sort((a, b) => a - b)
+}
+
 /**
  * Booking lengths to offer for a space: its activity's configured options (or
  * the club's primary bookings activity when the space has none yet). An
@@ -100,10 +114,18 @@ export function bookingDurations(
   activityId: string | null | undefined,
   current?: number
 ): number[] {
-  const activity =
-    activities.find((a) => a.id === activityId) ??
-    primaryActivity(activities, "bookings")
-  const options = [...(activity?.config.bookings?.durationOptions ?? [])]
-  if (current !== undefined && !options.includes(current)) options.push(current)
-  return options.sort((a, b) => a - b)
+  return durationsFor(activities, activityId, "bookings", current)
+}
+
+/**
+ * Class lengths to offer for an activity (or the club's primary sessions
+ * activity when none is picked yet). An existing class's length is always
+ * kept selectable.
+ */
+export function sessionDurations(
+  activities: readonly ActivityWithConfig[],
+  activityId: string | null | undefined,
+  current?: number
+): number[] {
+  return durationsFor(activities, activityId, "sessions", current)
 }

@@ -20,7 +20,11 @@ function uniqueTime(): string {
 }
 
 // Schedules a class on a worker-specific court at a given start time.
-async function createClass(page: Page, startTime: string): Promise<string> {
+async function createClass(
+  page: Page,
+  startTime: string,
+  capacity?: string
+): Promise<string> {
   await page.goto("/coaches/classes")
   await waitForHydration(page)
 
@@ -30,7 +34,11 @@ async function createClass(page: Page, startTime: string): Promise<string> {
   await selectOption(page, dialog, "Court", court)
   await pickCalendarDay(page, dialog, await dateKeyAhead(page, 2))
   await dialog.getByLabel("Start Time").fill(startTime)
-  await selectOption(page, dialog, "Duration", "60 min")
+  await selectOption(page, dialog, "Duration", "1 hour")
+  // Padel lessons have no capacity limit unless one is set.
+  const capacityField = dialog.getByLabel("Capacity")
+  await expect(capacityField).toHaveValue("")
+  if (capacity) await capacityField.fill(capacity)
   await dialog.getByRole("button", { name: "Schedule Class" }).click()
   await expect(page.getByText("Class scheduled")).toBeVisible()
   return court
@@ -45,6 +53,16 @@ function classRow(page: Page, court: string, time: string): Locator {
 
 test("schedules a class", async ({ page }) => {
   await createClass(page, "20:00")
+})
+
+test("schedules a class with a capacity", async ({ page }) => {
+  const time = uniqueTime()
+  const court = await createClass(page, time, "4")
+
+  await page.goto("/coaches/classes")
+  await waitForHydration(page)
+  const row = classRow(page, court, time)
+  await expect(row.getByRole("cell", { name: "4", exact: true })).toBeVisible()
 })
 
 test("edits a scheduled class", async ({ page }) => {

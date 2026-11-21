@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { en } from "@/locales/en"
 import { es } from "@/locales/es"
+import i18n from "@/lib/i18n"
 import {
   ACTIVITY_TEMPLATES,
+  activityDisplayName,
   BLOCK_KEYS,
   DEFAULT_TEMPLATE_KEY,
   enabledBlocks,
@@ -134,5 +136,16 @@ describe("spacesForBlock", () => {
     expect(
       spacesForBlock(spaces, [summary("padel", false)], "bookings")
     ).toEqual([])
+  })
+})
+
+describe("activityDisplayName", () => {
+  const t = i18n.getFixedT("es")
+
+  it("prefers the club's name, else the template's", () => {
+    expect(
+      activityDisplayName({ ...summary("padel"), name: "Pádel Pro" }, t)
+    ).toBe("Pádel Pro")
+    expect(activityDisplayName(summary("padel"), t)).toBe("Pádel")
   })
 })

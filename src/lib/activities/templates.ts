@@ -6,6 +6,7 @@
 
 import { IconBallTennis, IconStretching } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
+import type { TFunction } from "i18next"
 import type { TranslationKey } from "@/lib/i18n"
 import { PADEL_LEVELS } from "./levels"
 import type { LevelScale } from "./levels"
@@ -135,6 +136,16 @@ export function enabledBlocks(
     }
   }
   return blocks
+}
+
+/** The club's name for an activity, else its template's translated name. */
+export function activityDisplayName(
+  activity: ActivitySummary,
+  t: TFunction
+): string {
+  if (activity.name) return activity.name
+  const template = getTemplate(activity.templateKey)
+  return template ? t(template.nameKey) : activity.templateKey
 }
 
 /** Whether an activity is active and its template provides the block. */

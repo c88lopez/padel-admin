@@ -221,6 +221,9 @@ export const en = {
     paymentStatusRequired: "Payment status is required",
     playerRequired: "Player is required",
     coachRequired: "Coach is required",
+    activityRequired: "Activity is required",
+    capacityRange:
+      "Enter a number from 1 to 500, or leave it empty for no limit",
     roleRequired: "Role is required",
     pricePositive: "Price must be greater than 0",
     stockNonNegative: "Stock cannot be negative",
@@ -239,6 +242,8 @@ export const en = {
     email: "Email",
     phone: "Phone",
     coach: "Coach",
+    activity: "Activity",
+    capacity: "Capacity",
     player: "Player",
     age: "Age",
     gender: "Gender",
@@ -273,6 +278,8 @@ export const en = {
     selectCategoryA: "Select a category",
     selectFormat: "Select format",
     selectCoach: "Select a coach",
+    selectActivity: "Select an activity",
+    noLimit: "No limit",
     selectProduct: "Select a product",
     duration: "Duration",
   },
@@ -296,9 +303,6 @@ export const en = {
     twoHours: "2 hours",
     twoPointFiveHours: "2.5 hours",
     threeHours: "3 hours",
-    min60: "60 min",
-    min90: "90 min",
-    min120: "120 min",
   },
   forms: {
     player: {
@@ -774,7 +778,7 @@ export const en = {
     },
     classes: {
       title: "Classes",
-      description: "Coach-led sessions linked to reserved courts.",
+      description: "Coach-led classes and lessons.",
       searchPlaceholder: "Search classes...",
       newButton: "New Class",
       time: "Time",
@@ -783,6 +787,8 @@ export const en = {
       statusUpcoming: "Upcoming",
       statusOngoing: "In progress",
       statusCompleted: "Completed",
+      allActivities: "All activities",
+      noLimit: "No limit",
     },
     stock: {
       title: "Stock",
