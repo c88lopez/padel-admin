@@ -3,7 +3,7 @@ import { db } from "@/db"
 import { coachClass, coachClassAttendee, player } from "@/db/schema"
 import type { CoachClass } from "@/db/schema"
 import { AppError } from "@/lib/errors"
-import { assertSpaceBookable } from "@/lib/spaces.server"
+import { assertSpaceBookable, assertSpaceFree } from "@/lib/spaces.server"
 import { assertCoachTeaches } from "@/lib/coaches.server"
 
 // Data access for classes (no auth). Server-only so the Postgres driver stays
@@ -27,6 +27,7 @@ export async function createClassRecord(
   // The class is for its space's activity, which its coach must teach.
   const activity = await assertSpaceBookable(clubId, data.spaceId, "sessions")
   await assertCoachTeaches(clubId, data.coachId, activity.id)
+  await assertSpaceFree(clubId, data)
   const [created] = await db
     .insert(coachClass)
     .values({
@@ -50,6 +51,7 @@ export async function updateClassRecord(
   // Moving a class to another activity's space moves it to that activity.
   const activity = await assertSpaceBookable(clubId, values.spaceId, "sessions")
   await assertCoachTeaches(clubId, values.coachId, activity.id)
+  await assertSpaceFree(clubId, values, { classId: id })
   return db.transaction(async (tx) => {
     // Locked so a sign-up can't slip in while the capacity is lowered.
     const locked = await lockClass(tx, clubId, id)

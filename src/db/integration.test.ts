@@ -585,6 +585,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       const open = await classes.createClassRecord(clubId, {
         ...base,
         spaceId: studio.id,
+        startTime: "12:00",
         capacity: null,
       })
       expect(open.capacity).toBeNull()
@@ -751,6 +752,73 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       expect(await classes.listAttendeeRecords(clubId, cls.id)).toHaveLength(1)
       await db.delete(club).where(eq(club.id, clubId))
       await db.delete(club).where(eq(club.id, other.clubId))
+    })
+
+    it("can't overlap a reservation or another class on its space", async () => {
+      const { clubId, court, base } = await clubWithClasses()
+      await db.insert(reservation).values({
+        spaceId: court.id,
+        player: "Ana",
+        bookedBy: "Admin",
+        date: base.date,
+        startTime: "10:00",
+        durationMinutes: 60,
+        paymentStatus: "paid",
+        clubId,
+      })
+      const at = (startTime: string) => ({
+        ...base,
+        spaceId: court.id,
+        startTime,
+      })
+
+      await expect(
+        classes.createClassRecord(clubId, at("10:30"))
+      ).rejects.toThrow("errors.reservation.conflict")
+      // Back to back is fine.
+      const lesson = await classes.createClassRecord(clubId, at("11:00"))
+      await expect(
+        classes.createClassRecord(clubId, at("11:30"))
+      ).rejects.toThrow("errors.space.classConflict")
+      // Editing a class doesn't conflict with itself.
+      await expect(
+        classes.updateClassRecord(clubId, { ...at("11:00"), id: lesson.id })
+      ).resolves.toMatchObject({ id: lesson.id })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("keeps reservations off a space while a class is on", async () => {
+      const { clubId, court, base } = await clubWithClasses()
+      await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: court.id,
+        startTime: "12:00",
+      })
+      const slot = {
+        spaceId: court.id,
+        date: base.date,
+        startTime: "12:30",
+        durationMinutes: 90,
+      }
+      expect(await spaces.findSpaceConflict(clubId, slot)).toMatchObject({
+        kind: "class",
+        startTime: "12:00",
+        who: "Class Coach",
+      })
+      await expect(spaces.assertSpaceFree(clubId, slot)).rejects.toThrow(
+        "errors.space.classConflict"
+      )
+      // Another space, or another day, is free.
+      const [otherCourt] = (await spaces.listSpaceRecords(clubId)).filter(
+        (s) => s.activityId === court.activityId && s.id !== court.id
+      )
+      await expect(
+        spaces.assertSpaceFree(clubId, { ...slot, spaceId: otherCourt.id })
+      ).resolves.toBeUndefined()
+      await expect(
+        spaces.assertSpaceFree(clubId, { ...slot, date: "2026-03-03" })
+      ).resolves.toBeUndefined()
+      await db.delete(club).where(eq(club.id, clubId))
     })
 
     it("rejects a coach who doesn't teach the activity", async () => {

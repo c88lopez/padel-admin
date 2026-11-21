@@ -1,6 +1,6 @@
 import { and, asc, count, eq, isNull, sql } from "drizzle-orm"
 import { db } from "@/db"
-import { coachClass, reservation, space } from "@/db/schema"
+import { coach, coachClass, reservation, space } from "@/db/schema"
 import { AppError } from "@/lib/errors"
 import {
   listActivityRecords,
@@ -10,6 +10,8 @@ import type { ActivityRecord } from "@/lib/activities.server"
 import { activityProvides, getTemplate } from "@/lib/activities/templates"
 import type { BlockKey } from "@/lib/activities/templates"
 import { defaultSpaceName } from "@/lib/activities/spaces"
+import { findOverlap } from "@/lib/reservation-overlap"
+import { endTime } from "@/lib/classes"
 
 // Pure data-access helpers for spaces (no auth). Kept in a server-only module so
 // the Postgres driver (`pg`) never leaks into the client bundle. Shared by the
@@ -259,6 +261,91 @@ export async function assertSpaceBookable(
     throw new AppError("errors.space.wrongActivity")
   }
   return activity
+}
+
+export interface SpaceSlot {
+  spaceId: string
+  date: string // "YYYY-MM-DD"
+  startTime: string // "HH:MM"
+  durationMinutes: number
+}
+
+export interface SpaceConflict {
+  kind: "reservation" | "class"
+  startTime: string
+  durationMinutes: number
+  // Who has it: the reservation's player, or the class's coach (if any).
+  who: string | null
+}
+
+/**
+ * What already occupies a space at that time, if anything: a reservation or
+ * a class. A space holds one thing at a time, whichever kind. `ignore` is the
+ * row being edited.
+ */
+export async function findSpaceConflict(
+  clubId: string,
+  slot: SpaceSlot,
+  ignore: { reservationId?: string; classId?: string } = {}
+): Promise<SpaceConflict | undefined> {
+  const reservations = await db
+    .select({
+      id: reservation.id,
+      startTime: reservation.startTime,
+      durationMinutes: reservation.durationMinutes,
+      who: reservation.player,
+    })
+    .from(reservation)
+    .where(
+      and(
+        eq(reservation.clubId, clubId),
+        eq(reservation.spaceId, slot.spaceId),
+        eq(reservation.date, slot.date)
+      )
+    )
+  const booked = findOverlap(slot, reservations, ignore.reservationId)
+  if (booked) return { kind: "reservation", ...booked }
+
+  const classes = await db
+    .select({
+      id: coachClass.id,
+      startTime: coachClass.startTime,
+      durationMinutes: coachClass.durationMinutes,
+      who: coach.name,
+    })
+    .from(coachClass)
+    .leftJoin(coach, eq(coach.id, coachClass.coachId))
+    .where(
+      and(
+        eq(coachClass.clubId, clubId),
+        eq(coachClass.spaceId, slot.spaceId),
+        eq(coachClass.date, slot.date)
+      )
+    )
+  const taught = findOverlap(slot, classes, ignore.classId)
+  if (taught) return { kind: "class", ...taught }
+  return undefined
+}
+
+/** Throws when the space is taken at that time (see findSpaceConflict). */
+export async function assertSpaceFree(
+  clubId: string,
+  slot: SpaceSlot,
+  ignore: { reservationId?: string; classId?: string } = {}
+): Promise<void> {
+  const conflict = await findSpaceConflict(clubId, slot, ignore)
+  if (!conflict) return
+  const params = {
+    start: conflict.startTime,
+    end: endTime(conflict.startTime, conflict.durationMinutes),
+  }
+  if (conflict.kind === "reservation") {
+    throw new AppError("errors.reservation.conflict", {
+      ...params,
+      player: conflict.who ?? "",
+    })
+  }
+  throw new AppError("errors.space.classConflict", params)
 }
 
 /**
