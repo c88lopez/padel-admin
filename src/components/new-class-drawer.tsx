@@ -52,7 +52,7 @@ import {
 } from "@/lib/activities/templates"
 import { sessionDurations } from "@/lib/activities/config"
 import { durationLabel } from "@/lib/duration-label"
-import type { Coach } from "@/db/schema"
+import type { CoachRecord } from "@/lib/coaches.functions"
 
 // "" = no limit; otherwise a whole number of places.
 function isCapacity(value: string): boolean {
@@ -89,7 +89,7 @@ export interface ClassData {
 
 interface Props {
   trigger?: React.ReactNode
-  coaches: Coach[]
+  coaches: CoachRecord[]
   courts: SpaceRecord[]
   activities: ActivityRecord[]
   coachClass?: ClassData
@@ -175,6 +175,10 @@ export function NewClassDrawer({
     (c) =>
       c.activityId === activityId && (c.active || c.id === coachClass?.spaceId)
   )
+  // Coaches who teach the chosen activity, plus this class's current coach.
+  const activityCoaches = coaches.filter(
+    (c) => c.activityIds.includes(activityId) || c.id === coachClass?.coachId
+  )
   const durations = useMemo(
     () =>
       sessionDurations(
@@ -193,6 +197,13 @@ export function NewClassDrawer({
     const next = activities.find((a) => a.id === id)
     form.setValue("activityId", id, { shouldValidate: true })
     form.setValue("spaceId", "")
+    if (
+      !coaches
+        .find((c) => c.id === form.getValues("coachId"))
+        ?.activityIds.includes(id)
+    ) {
+      form.setValue("coachId", "")
+    }
     if (
       !sessionDurations(activities, id).includes(
         Number(form.getValues("duration"))
@@ -293,7 +304,11 @@ export function NewClassDrawer({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("fields.coach")}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!activityId}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue
@@ -302,7 +317,7 @@ export function NewClassDrawer({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {coaches.map((c) => (
+                      {activityCoaches.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>

@@ -10,16 +10,38 @@ import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
 import { NewCoachDrawer } from "@/components/new-coach-drawer"
 import { RowActions } from "@/components/row-actions"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { deleteCoach, listCoaches } from "@/lib/coaches.functions"
+import type { CoachRecord } from "@/lib/coaches.functions"
+import { listActivities } from "@/lib/activities.functions"
+import type { ActivityRecord } from "@/lib/activities.functions"
+import {
+  activityDisplayName,
+  activityProvides,
+} from "@/lib/activities/templates"
 import { useCan } from "@/hooks/use-permissions"
-import type { Coach } from "@/db/schema"
 
 export const Route = createFileRoute("/_authenticated/coaches/")({
-  loader: async () => ({ coaches: await listCoaches() }),
+  loader: async () => ({
+    coaches: await listCoaches(),
+    activities: await listActivities(),
+  }),
   component: CoachesPage,
 })
 
-function CoachActions({ coach }: { coach: Coach }) {
+function CoachActions({
+  coach,
+  activities,
+}: {
+  coach: CoachRecord
+  activities: ActivityRecord[]
+}) {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
@@ -47,7 +69,9 @@ function CoachActions({ coach }: { coach: Coach }) {
           name: coach.name,
           phone: coach.phone,
           birthday: coach.birthday ? parseISO(coach.birthday) : undefined,
+          activityIds: coach.activityIds,
         }}
+        activities={activities}
         open={editOpen}
         onOpenChange={setEditOpen}
         onSaved={() => router.invalidate()}
@@ -57,12 +81,36 @@ function CoachActions({ coach }: { coach: Coach }) {
   )
 }
 
-function buildColumns(t: TFunction, canManage: boolean): ColumnDef<Coach>[] {
-  const columns: ColumnDef<Coach>[] = [
+function buildColumns(
+  t: TFunction,
+  canManage: boolean,
+  activities: ActivityRecord[],
+  showActivities: boolean
+): ColumnDef<CoachRecord>[] {
+  // Only active activities are listed; disabled ones stay linked but hidden.
+  const activeName = new Map(
+    activities
+      .filter((a) => activityProvides(a, "sessions"))
+      .map((a) => [a.id, activityDisplayName(a, t)])
+  )
+  const columns: ColumnDef<CoachRecord>[] = [
     {
       accessorKey: "name",
       header: t("fields.fullName"),
     },
+    ...(showActivities
+      ? [
+          {
+            id: "activities",
+            header: t("forms.coach.activitiesLabel"),
+            enableSorting: false,
+            accessorFn: (c: CoachRecord) =>
+              c.activityIds
+                .flatMap((id) => activeName.get(id) ?? [])
+                .join(", "),
+          },
+        ]
+      : []),
     {
       accessorKey: "phone",
       header: t("fields.phone"),
@@ -102,7 +150,9 @@ function buildColumns(t: TFunction, canManage: boolean): ColumnDef<Coach>[] {
       id: "actions",
       enableSorting: false,
       meta: { className: "text-right" },
-      cell: ({ row }) => <CoachActions coach={row.original} />,
+      cell: ({ row }) => (
+        <CoachActions coach={row.original} activities={activities} />
+      ),
     })
   }
 
@@ -113,8 +163,19 @@ function CoachesPage() {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
-  const { coaches } = Route.useLoaderData()
-  const columns = useMemo(() => buildColumns(t, canManage), [t, canManage])
+  const { coaches, activities } = Route.useLoaderData()
+  // With several activities that run classes, show and filter by activity.
+  const teachable = activities.filter((a) => activityProvides(a, "sessions"))
+  const showActivities = teachable.length > 1
+  const [activityFilter, setActivityFilter] = useState("all")
+  const columns = useMemo(
+    () => buildColumns(t, canManage, activities, showActivities),
+    [t, canManage, activities, showActivities]
+  )
+  const visible =
+    activityFilter === "all"
+      ? coaches
+      : coaches.filter((c) => c.activityIds.includes(activityFilter))
 
   return (
     <div className="flex flex-col gap-6">
@@ -127,21 +188,45 @@ function CoachesPage() {
 
       <DataTable
         columns={columns}
-        data={coaches}
+        data={visible}
         searchPlaceholder={t("pages.coaches.searchPlaceholder")}
         exportFileName="coaches"
         action={
-          canManage ? (
-            <NewCoachDrawer
-              onSaved={() => router.invalidate()}
-              trigger={
-                <Button size="sm">
-                  <IconPlus className="size-4" />
-                  {t("pages.coaches.newButton")}
-                </Button>
-              }
-            />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {showActivities && (
+              <Select value={activityFilter} onValueChange={setActivityFilter}>
+                <SelectTrigger
+                  size="sm"
+                  className="w-44"
+                  aria-label={t("fields.activity")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("pages.classes.allActivities")}
+                  </SelectItem>
+                  {teachable.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {activityDisplayName(a, t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {canManage && (
+              <NewCoachDrawer
+                activities={activities}
+                onSaved={() => router.invalidate()}
+                trigger={
+                  <Button size="sm">
+                    <IconPlus className="size-4" />
+                    {t("pages.coaches.newButton")}
+                  </Button>
+                }
+              />
+            )}
+          </div>
         }
       />
     </div>

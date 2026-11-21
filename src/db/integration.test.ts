@@ -12,6 +12,7 @@ import {
   clubReservationSettings,
   customerActivityProfile,
   coach,
+  coachActivity,
   coachClass,
   space,
   player,
@@ -539,6 +540,10 @@ describe.skipIf(!TEST_URL)("database integration", () => {
           clubId,
         })
         .returning()
+      await db.insert(coachActivity).values([
+        { coachId: c.id, activityId: padel.id },
+        { coachId: c.id, activityId: pilates.id },
+      ])
       const base = {
         coachId: c.id,
         date: "2026-03-02",
@@ -601,6 +606,17 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await db.delete(club).where(eq(club.id, clubId))
     })
 
+    it("rejects a coach who doesn't teach the activity", async () => {
+      const { clubId, pilates, studio, base } = await clubWithClasses()
+      await db
+        .delete(coachActivity)
+        .where(eq(coachActivity.activityId, pilates.id))
+      await expect(
+        classes.createClassRecord(clubId, { ...base, spaceId: studio.id })
+      ).rejects.toThrow("errors.coach.wrongActivity")
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
     it("rejects a space whose activity has no classes", async () => {
       const { clubId, pilates, studio, base } = await clubWithClasses()
       await db
@@ -611,6 +627,139 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         classes.createClassRecord(clubId, { ...base, spaceId: studio.id })
       ).rejects.toThrow("errors.space.wrongActivity")
       await db.delete(club).where(eq(club.id, clubId))
+    })
+  })
+
+  describe("coach activities (coaches.server)", () => {
+    const loadCoaches = () => import("@/lib/coaches.server")
+    let coaches: Awaited<ReturnType<typeof loadCoaches>>
+
+    beforeAll(async () => {
+      coaches = await loadCoaches()
+    })
+
+    const person = { name: "Coach", phone: "+34 600 000 003" }
+
+    // A throwaway club with the given activities (pilates inserted directly,
+    // as it isn't available yet). Deleting the club cascades.
+    async function clubWith(...templateKeys: string[]) {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      const rows = await db
+        .insert(activity)
+        .values(
+          templateKeys.map((templateKey, sortOrder) => ({
+            clubId,
+            templateKey,
+            sortOrder,
+          }))
+        )
+        .returning()
+      const ids = Object.fromEntries(rows.map((r) => [r.templateKey, r.id]))
+      return { clubId, ids }
+    }
+
+    it("gives a new coach the club's only activity with classes", async () => {
+      const { clubId, ids } = await clubWith("padel")
+      const created = await coaches.createCoachRecord(clubId, person)
+      expect(created.activityIds).toEqual([ids.padel])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("needs the activities when the club has several", async () => {
+      const { clubId, ids } = await clubWith("padel", "pilates")
+      await expect(coaches.createCoachRecord(clubId, person)).rejects.toThrow(
+        "errors.coach.activityRequired"
+      )
+      await expect(
+        coaches.createCoachRecord(clubId, { ...person, activityIds: [] })
+      ).rejects.toThrow("errors.coach.activityRequired")
+      const created = await coaches.createCoachRecord(clubId, {
+        ...person,
+        activityIds: [ids.pilates],
+      })
+      const [listed] = await coaches.listCoachRecords(clubId)
+      expect(listed).toMatchObject({
+        id: created.id,
+        activityIds: [ids.pilates],
+      })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("rejects another club's activity", async () => {
+      const { clubId } = await clubWith("padel")
+      const other = await clubWith("padel")
+      await expect(
+        coaches.createCoachRecord(clubId, {
+          ...person,
+          activityIds: [other.ids.padel],
+        })
+      ).rejects.toThrow("errors.activity.notFound")
+      expect(await coaches.listCoachRecords(clubId)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+      await db.delete(club).where(eq(club.id, other.clubId))
+    })
+
+    it("keeps a disabled activity when the others are edited", async () => {
+      const { clubId, ids } = await clubWith("padel", "pilates")
+      const created = await coaches.createCoachRecord(clubId, {
+        ...person,
+        activityIds: [ids.padel, ids.pilates],
+      })
+      await db
+        .update(activity)
+        .set({ active: false })
+        .where(eq(activity.id, ids.pilates))
+
+      const updated = await coaches.updateCoachRecord(clubId, {
+        ...person,
+        id: created.id,
+        activityIds: [ids.padel],
+      })
+      expect(updated?.activityIds.sort()).toEqual(
+        [ids.padel, ids.pilates].sort()
+      )
+
+      // Leaving activities out keeps them as they are.
+      const renamed = await coaches.updateCoachRecord(clubId, {
+        ...person,
+        name: "Renamed",
+        id: created.id,
+      })
+      expect(renamed?.activityIds).toHaveLength(2)
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("drops activities a coach no longer teaches", async () => {
+      const { clubId, ids } = await clubWith("padel", "pilates")
+      const created = await coaches.createCoachRecord(clubId, {
+        ...person,
+        activityIds: [ids.padel, ids.pilates],
+      })
+      const updated = await coaches.updateCoachRecord(clubId, {
+        ...person,
+        id: created.id,
+        activityIds: [ids.pilates],
+      })
+      expect(updated?.activityIds).toEqual([ids.pilates])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("doesn't update another club's coach", async () => {
+      const { clubId } = await clubWith("padel")
+      const other = await clubWith("padel")
+      const created = await coaches.createCoachRecord(clubId, person)
+      expect(
+        await coaches.updateCoachRecord(other.clubId, {
+          ...person,
+          name: "Hijacked",
+          id: created.id,
+        })
+      ).toBeUndefined()
+      await db.delete(club).where(eq(club.id, clubId))
+      await db.delete(club).where(eq(club.id, other.clubId))
     })
   })
 

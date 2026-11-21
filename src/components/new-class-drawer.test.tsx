@@ -10,7 +10,7 @@ import { getTemplate } from "@/lib/activities/templates"
 import type { ActivityTemplate } from "@/lib/activities/templates"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
-import type { Coach } from "@/db/schema"
+import type { CoachRecord } from "@/lib/coaches.functions"
 
 // `vaul` reads computed transforms on pointer events and crashes under jsdom;
 // swap the drawer shell for passthroughs so we test the form inside it.
@@ -74,15 +74,21 @@ const spaces: SpaceRecord[] = [
   },
 ]
 
-const coaches: Coach[] = [
-  {
-    id: "coach-1",
-    name: "Coach K",
+function coachOf(id: string, name: string, activityIds: string[]): CoachRecord {
+  return {
+    id,
+    name,
     phone: "+34 600 000 000",
     birthday: null,
     clubId: "club-1",
     createdAt: new Date(),
-  },
+    activityIds,
+  }
+}
+
+const coaches: CoachRecord[] = [
+  coachOf("coach-1", "Coach K", ["padel", "pilates"]),
+  coachOf("coach-2", "Padel Only", ["padel"]),
 ]
 
 const pilatesClass: ClassData = {

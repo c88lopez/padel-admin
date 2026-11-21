@@ -7,6 +7,7 @@ import {
   club,
   clubMember,
   coach,
+  coachActivity,
   coachClass,
   space,
   player,
@@ -282,9 +283,13 @@ async function seedCoaching() {
   console.log(`✓ Seeded ${inserted.length} coaches`)
 
   const courts = await courtIdByNumber(DEFAULT_CLUB_ID)
-  // The demo classes are padel lessons on the padel courts.
+  // The demo classes are padel lessons on the padel courts, so every coach
+  // teaches padel.
   const padel = await primaryActivityFor(DEFAULT_CLUB_ID, "sessions")
   if (!padel) throw new Error("No padel activity to seed classes for.")
+  await db
+    .insert(coachActivity)
+    .values(inserted.map((c) => ({ coachId: c.id, activityId: padel.id })))
   await db.insert(coachClass).values(
     classSeeds.map((seed) => {
       const spaceId = courts.get(seed.court)

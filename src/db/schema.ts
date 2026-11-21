@@ -371,6 +371,23 @@ export const coach = pgTable("coach", {
 export type Coach = typeof coach.$inferSelect
 export type NewCoach = typeof coach.$inferInsert
 
+// The activities a coach can teach. A class's coach must have its activity.
+// Rows stay when an activity is disabled, so re-enabling it restores them.
+export const coachActivity = pgTable(
+  "coach_activity",
+  {
+    coachId: text("coach_id")
+      .notNull()
+      .references(() => coach.id, { onDelete: "cascade" }),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.coachId, t.activityId] })]
+)
+
+export type CoachActivity = typeof coachActivity.$inferSelect
+
 export const coachClass = pgTable("coach_class", {
   id: text("id")
     .primaryKey()
