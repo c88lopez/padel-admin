@@ -17,13 +17,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  countCourtUsage,
-  createCourt,
-  deleteCourt,
-  listCourts,
-  updateCourt,
-} from "@/lib/courts.functions"
-import type { CourtRecord } from "@/lib/courts.functions"
+  countSpaceUsage,
+  createSpace,
+  deleteSpace,
+  listSpaces,
+  updateSpace,
+} from "@/lib/spaces.functions"
+import type { SpaceRecord } from "@/lib/spaces.functions"
 import {
   SettingsSection,
   SettingsSectionList,
@@ -51,13 +51,11 @@ import {
 } from "@/lib/reservation-settings.functions"
 import type { ReservationSettingsData } from "@/lib/reservation-settings.functions"
 
-type CourtType = "indoor" | "outdoor"
-
 export const Route = createFileRoute("/_authenticated/settings/reservations")({
   beforeLoad: ({ context }) =>
     ensurePermission(context.user.role, "settings:manage"),
   loader: async () => ({
-    courts: await listCourts(),
+    courts: await listSpaces(),
     settings: await getReservationSettings(),
   }),
   component: ReservationSettingsPage,
@@ -84,12 +82,12 @@ function ReservationSettingsPage() {
     Route.useLoaderData()
   const weekdays = useMemo(() => buildWeekdays(t), [t])
   // Local mirror of the DB courts so name edits stay snappy (saved on blur).
-  const [courts, setCourts] = useState<CourtRecord[]>(loadedCourts)
+  const [courts, setCourts] = useState<SpaceRecord[]>(loadedCourts)
   // Local mirror of the DB reservation settings (hours + rules), saved to the
   // server on change (selects/switches) or on blur (text/number inputs).
   const [reservations, setReservations] =
     useState<ReservationSettingsData>(loadedSettings)
-  const [courtToDelete, setCourtToDelete] = useState<CourtRecord | null>(null)
+  const [courtToDelete, setCourtToDelete] = useState<SpaceRecord | null>(null)
   const [checkingCourt, setCheckingCourt] = useState(false)
 
   useEffect(() => setCourts(loadedCourts), [loadedCourts])
@@ -147,16 +145,16 @@ function ReservationSettingsPage() {
     })
   }
 
-  function updateCourtLocal(id: string, partial: Partial<CourtRecord>) {
+  function updateCourtLocal(id: string, partial: Partial<SpaceRecord>) {
     setCourts((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...partial } : c))
     )
   }
 
   // Persists a single court to the DB. Reverts (via refetch) on failure.
-  async function saveCourt(id: string, partial: Partial<CourtRecord>) {
+  async function saveCourt(id: string, partial: Partial<SpaceRecord>) {
     try {
-      await updateCourt({ data: { id, ...partial } })
+      await updateSpace({ data: { id, ...partial } })
     } catch {
       toast.error(t("common.genericError"), {
         description: t("common.tryAgain"),
@@ -168,8 +166,8 @@ function ReservationSettingsPage() {
   async function addCourt() {
     const nextNumber = Math.max(0, ...courts.map((c) => c.sortOrder)) + 1
     try {
-      await createCourt({
-        data: { name: `Court ${nextNumber}`, type: "indoor", active: true },
+      await createSpace({
+        data: { name: `Court ${nextNumber}`, indoor: true, active: true },
       })
       router.invalidate()
     } catch {
@@ -187,7 +185,7 @@ function ReservationSettingsPage() {
     const courtLabel = localizeCourtName(court.name, t)
     setCheckingCourt(true)
     try {
-      const usage = await countCourtUsage({ data: { id: court.id } })
+      const usage = await countSpaceUsage({ data: { id: court.id } })
       const total = usage.reservations + usage.classes
       if (total > 0) {
         toast.error(t("settings.reservations.deleteCourtBlockedTitle"), {
@@ -200,7 +198,7 @@ function ReservationSettingsPage() {
         })
         return
       }
-      await deleteCourt({ data: { id: court.id } })
+      await deleteSpace({ data: { id: court.id } })
       toast.success(
         t("settings.reservations.courtRemoved", { name: courtLabel })
       )
@@ -343,10 +341,11 @@ function ReservationSettingsPage() {
                   className="h-8 w-40"
                 />
                 <Select
-                  value={court.type}
+                  value={court.indoor ? "indoor" : "outdoor"}
                   onValueChange={(v) => {
-                    updateCourtLocal(court.id, { type: v as CourtType })
-                    saveCourt(court.id, { type: v as CourtType })
+                    const indoor = v === "indoor"
+                    updateCourtLocal(court.id, { indoor })
+                    saveCourt(court.id, { indoor })
                   }}
                 >
                   <SelectTrigger className="h-8 w-32">

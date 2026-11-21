@@ -122,32 +122,34 @@ export const verification = pgTable("verification", {
 
 // --- App domain tables ---
 
-// A bookable space — a padel court today, later a pilates studio, pool lane or
-// pitch. Belongs to exactly one club and one activity. `sortOrder` doubles as
-// the human-facing number (1, 2, 3 …) used in labels like "Court 3".
-export const court = pgTable("court", {
+// A bookable space: a padel court today, later a pilates studio, pool lane or
+// football field (`type`). Belongs to exactly one club and one activity.
+// `sortOrder` doubles as the human-facing number (1, 2, 3 …) used in labels
+// like "Court 3".
+export const space = pgTable("space", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
-  type: text("type").notNull().default("indoor"),
+  type: text("type").notNull().default("court"),
+  indoor: boolean("indoor").notNull().default(true),
   active: boolean("active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   clubId: text("club_id")
     .notNull()
     .references(() => club.id, { onDelete: "cascade" }),
   // Nullable until a later contract migration; null means the club's default
-  // bookings activity (see courts.server.ts).
+  // bookings activity (see spaces.server.ts).
   // NO ACTION (checked at the end of the statement) rather than RESTRICT, so a
-  // club delete can cascade to its courts and activities in any order.
+  // club delete can cascade to its spaces and activities in any order.
   activityId: text("activity_id").references(() => activity.id),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
 })
 
-export type Court = typeof court.$inferSelect
-export type NewCourt = typeof court.$inferInsert
+export type Space = typeof space.$inferSelect
+export type NewSpace = typeof space.$inferInsert
 
 // Per-club reservation configuration: opening hours + booking rules. One row per
 // club (club_id is the PK). Enforced server-side on reservation writes.
@@ -265,9 +267,9 @@ export const reservation = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    courtId: text("court_id")
+    spaceId: text("space_id")
       .notNull()
-      .references(() => court.id, { onDelete: "restrict" }),
+      .references(() => space.id, { onDelete: "restrict" }),
     // Display snapshot of who the booking is for (free text, as typed).
     player: text("player").notNull(),
     // The matching customer, when the name identifies exactly one.
@@ -376,9 +378,9 @@ export const coachClass = pgTable("coach_class", {
   coachId: text("coach_id").references(() => coach.id, {
     onDelete: "set null",
   }),
-  courtId: text("court_id")
+  spaceId: text("space_id")
     .notNull()
-    .references(() => court.id, { onDelete: "restrict" }),
+    .references(() => space.id, { onDelete: "restrict" }),
   date: date("date").notNull(),
   startTime: text("start_time").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),

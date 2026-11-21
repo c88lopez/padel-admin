@@ -3,7 +3,7 @@ import { and, count, eq, inArray } from "drizzle-orm"
 import { addDays, endOfMonth, format, startOfWeek, subMonths } from "date-fns"
 import { db } from "@/db"
 import {
-  court,
+  space,
   player,
   reservation,
   sale,
@@ -44,7 +44,7 @@ export const getOverviewStats = createServerFn({ method: "GET" }).handler(
 
     const weekRes = await db
       .select({
-        court: court.sortOrder,
+        court: space.sortOrder,
         player: reservation.player,
         date: reservation.date,
         startTime: reservation.startTime,
@@ -52,7 +52,7 @@ export const getOverviewStats = createServerFn({ method: "GET" }).handler(
         paymentStatus: reservation.paymentStatus,
       })
       .from(reservation)
-      .innerJoin(court, eq(reservation.courtId, court.id))
+      .innerJoin(space, eq(reservation.spaceId, space.id))
       .where(
         and(
           eq(reservation.clubId, clubId),
@@ -62,8 +62,8 @@ export const getOverviewStats = createServerFn({ method: "GET" }).handler(
 
     const [activeCourtsRow] = await db
       .select({ value: count() })
-      .from(court)
-      .where(and(eq(court.clubId, clubId), eq(court.active, true)))
+      .from(space)
+      .where(and(eq(space.clubId, clubId), eq(space.active, true)))
 
     const months = Array.from({ length: 7 }, (_, i) => {
       const d = subMonths(now, 6 - i)
@@ -144,7 +144,7 @@ export const getPlayerStats = createServerFn({ method: "GET" }).handler(
     const clubId = await currentClubId()
     const rows = await db
       .select({
-        court: court.sortOrder,
+        court: space.sortOrder,
         player: reservation.player,
         date: reservation.date,
         startTime: reservation.startTime,
@@ -152,7 +152,7 @@ export const getPlayerStats = createServerFn({ method: "GET" }).handler(
         paymentStatus: reservation.paymentStatus,
       })
       .from(reservation)
-      .innerJoin(court, eq(reservation.courtId, court.id))
+      .innerJoin(space, eq(reservation.spaceId, space.id))
       .where(eq(reservation.clubId, clubId))
 
     return {

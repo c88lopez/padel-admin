@@ -2,67 +2,65 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
 import {
-  countCourtUsageRecord,
-  createCourtRecord,
-  deleteCourtRecord,
-  listCourtRecords,
-  updateCourtRecord,
-} from "@/lib/courts.server"
+  countSpaceUsageRecord,
+  createSpaceRecord,
+  deleteSpaceRecord,
+  listSpaceRecords,
+  updateSpaceRecord,
+} from "@/lib/spaces.server"
 
 // Type-only re-export so client imports keep working without pulling the server
 // module into the client bundle.
-export type { CourtRecord, CourtUsage } from "@/lib/courts.server"
-
-const courtTypeSchema = z.enum(["indoor", "outdoor"])
+export type { SpaceRecord, SpaceUsage } from "@/lib/spaces.server"
 
 const createInput = z.object({
   name: z.string().min(1),
-  type: courtTypeSchema.default("indoor"),
+  indoor: z.boolean().default(true),
   active: z.boolean().default(true),
 })
 
 const updateInput = z.object({
   id: z.string().min(1),
   name: z.string().min(1).optional(),
-  type: courtTypeSchema.optional(),
+  indoor: z.boolean().optional(),
   active: z.boolean().optional(),
 })
 
 const idInput = z.object({ id: z.string().min(1) })
 
 // Readable by any authenticated user in the club (the reservation timeline and
-// booking drawer both need the court list).
-export const listCourts = createServerFn({ method: "GET" }).handler(
+// booking drawer both need the space list).
+export const listSpaces = createServerFn({ method: "GET" }).handler(
   async () => {
     const clubId = await currentClubId()
-    return listCourtRecords(clubId)
+    return listSpaceRecords(clubId)
   }
 )
 
-export const createCourt = createServerFn({ method: "POST" })
+export const createSpace = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => createInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
-    return createCourtRecord(clubId, data)
+    return createSpaceRecord(clubId, data)
   })
 
-export const updateCourt = createServerFn({ method: "POST" })
+export const updateSpace = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => updateInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
-    return updateCourtRecord(clubId, data)
+    return updateSpaceRecord(clubId, data)
   })
 
-export const countCourtUsage = createServerFn({ method: "GET" })
+export const countSpaceUsage = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => idInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await currentClubId()
-    return countCourtUsageRecord(clubId, data.id)
+    return countSpaceUsageRecord(clubId, data.id)
   })
 
-export const deleteCourt = createServerFn({ method: "POST" })
+export const deleteSpace = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => idInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
-    return deleteCourtRecord(clubId, data.id)
+    return deleteSpaceRecord(clubId, data.id)
   })

@@ -15,7 +15,7 @@ import {
   createReservation,
   updateReservation,
 } from "@/lib/reservations.functions"
-import type { CourtRecord } from "@/lib/courts.functions"
+import type { SpaceRecord } from "@/lib/spaces.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { bookingDurations } from "@/lib/activities/config"
 import { formatDuration } from "@/lib/classes"
@@ -69,7 +69,7 @@ function durationLabel(minutes: number, t: TFunction): string {
 function makeSchema(t: TFunction) {
   return z.object({
     player: z.string().min(1, t("validation.playerRequired")),
-    courtId: z.string().min(1, t("validation.courtRequired")),
+    spaceId: z.string().min(1, t("validation.courtRequired")),
     date: z.date({ error: t("validation.dateRequired") }),
     time: z.string().min(1, t("validation.timeRequired")),
     duration: z.string().min(1, t("validation.durationRequired")),
@@ -82,7 +82,7 @@ type FormInput = Omit<FormValues, "date"> & { date?: Date }
 
 export interface ReservationData {
   player: string
-  courtId: string
+  spaceId: string
   date: Date
   time: string
   duration: string
@@ -92,7 +92,7 @@ export interface ReservationData {
 interface Props {
   trigger?: React.ReactNode
   reservation?: ReservationData & { id?: string }
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
   // The club's activities; booking lengths come from the court's activity.
   activities: ActivityRecord[]
   open?: boolean
@@ -118,7 +118,7 @@ export function NewReservationDrawer({
   // Show active courts, plus the reservation's current court even if it's since
   // been deactivated (so editing an old booking still displays its court).
   const courts = allCourts.filter(
-    (c) => c.active || c.id === reservation?.courtId
+    (c) => c.active || c.id === reservation?.spaceId
   )
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
@@ -128,22 +128,22 @@ export function NewReservationDrawer({
     resolver: zodFormResolver<FormInput>(schema),
     defaultValues: reservation ?? {
       player: "",
-      courtId: "",
+      spaceId: "",
       time: "",
       duration: "",
       paymentStatus: "",
     },
   })
 
-  const courtId = form.watch("courtId")
+  const spaceId = form.watch("spaceId")
   const durations = useMemo(
     () =>
       bookingDurations(
         activities,
-        allCourts.find((c) => c.id === courtId)?.activityId,
+        allCourts.find((c) => c.id === spaceId)?.activityId,
         reservation ? Number(reservation.duration) : undefined
       ),
-    [activities, allCourts, courtId, reservation]
+    [activities, allCourts, spaceId, reservation]
   )
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export function NewReservationDrawer({
       form.reset(
         reservation ?? {
           player: "",
-          courtId: "",
+          spaceId: "",
           time: "",
           duration: "",
           paymentStatus: "",
@@ -163,7 +163,7 @@ export function NewReservationDrawer({
 
   function onSubmit(values: FormInput) {
     const payload = {
-      courtId: values.courtId,
+      spaceId: values.spaceId,
       player: values.player,
       date: format(values.date as Date, "yyyy-MM-dd"),
       startTime: values.time,
@@ -237,7 +237,7 @@ export function NewReservationDrawer({
 
             <FormField
               control={form.control}
-              name="courtId"
+              name="spaceId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("fields.court")}</FormLabel>

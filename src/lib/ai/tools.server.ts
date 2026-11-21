@@ -3,14 +3,14 @@ import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
 import {
-  court,
+  space,
   customerActivityProfile,
   player,
   reservation,
   stockItem,
 } from "@/db/schema"
 import { can } from "@/lib/permissions"
-import { assertCourtBookable } from "@/lib/courts.server"
+import { assertSpaceBookable } from "@/lib/spaces.server"
 import { assertBookingAllowed } from "@/lib/reservation-settings.server"
 import { findOverlap } from "@/lib/reservation-overlap"
 import {
@@ -172,12 +172,12 @@ export function buildAiTools(ctx: AiToolContext) {
             return { ok: false as const, error: "forbidden" }
           }
           const courtRows = await db
-            .select({ id: court.id, name: court.name })
-            .from(court)
+            .select({ id: space.id, name: space.name })
+            .from(space)
             .where(
               and(
-                eq(court.clubId, ctx.clubId),
-                eq(court.sortOrder, courtNumber)
+                eq(space.clubId, ctx.clubId),
+                eq(space.sortOrder, courtNumber)
               )
             )
             .limit(1)
@@ -186,7 +186,7 @@ export function buildAiTools(ctx: AiToolContext) {
           }
           const courtRow = courtRows[0]
 
-          await assertCourtBookable(ctx.clubId, courtRow.id)
+          await assertSpaceBookable(ctx.clubId, courtRow.id)
           await assertBookingAllowed(ctx.clubId, {
             date,
             startTime,
@@ -200,7 +200,7 @@ export function buildAiTools(ctx: AiToolContext) {
             .where(
               and(
                 eq(reservation.clubId, ctx.clubId),
-                eq(reservation.courtId, courtRow.id),
+                eq(reservation.spaceId, courtRow.id),
                 eq(reservation.date, date)
               )
             )
@@ -215,7 +215,7 @@ export function buildAiTools(ctx: AiToolContext) {
           const [created] = await db
             .insert(reservation)
             .values({
-              courtId: courtRow.id,
+              spaceId: courtRow.id,
               player: playerName,
               customerId: await findCustomerIdByName(ctx.clubId, playerName),
               bookedBy: ctx.userName,

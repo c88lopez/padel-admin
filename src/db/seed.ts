@@ -8,7 +8,7 @@ import {
   clubMember,
   coach,
   coachClass,
-  court,
+  space,
   player,
   reservation,
   sale,
@@ -17,7 +17,7 @@ import {
   tournament,
   user,
 } from "@/db/schema"
-import { seedDefaultCourts } from "@/lib/courts.server"
+import { seedDefaultSpaces } from "@/lib/spaces.server"
 import { ensureDefaultActivities } from "@/lib/activities.server"
 import { createPlayerRecord } from "@/lib/players.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
@@ -64,7 +64,7 @@ async function seedClubs() {
   // Give the Default Club its bookable courts and reservation settings
   // (idempotent; needed when the schema was applied via `db:push`).
   await ensureDefaultActivities(DEFAULT_CLUB_ID)
-  await seedDefaultCourts(DEFAULT_CLUB_ID)
+  await seedDefaultSpaces(DEFAULT_CLUB_ID)
   await seedDefaultReservationSettings(DEFAULT_CLUB_ID)
 
   // North Branch: a second tenant for multi-club demos and switcher tests.
@@ -73,7 +73,7 @@ async function seedClubs() {
     .values({ id: NORTH_CLUB_ID, name: "North Branch", slug: "north" })
     .onConflictDoNothing()
   await ensureDefaultActivities(NORTH_CLUB_ID)
-  await seedDefaultCourts(NORTH_CLUB_ID)
+  await seedDefaultSpaces(NORTH_CLUB_ID)
   await seedDefaultReservationSettings(NORTH_CLUB_ID)
   console.log("✓ Clubs ready (Default Club, North Branch)")
 }
@@ -81,9 +81,9 @@ async function seedClubs() {
 // Maps a club's court numbers (sort order) to court ids for seeding rows.
 async function courtIdByNumber(clubId: string): Promise<Map<number, string>> {
   const rows = await db
-    .select({ id: court.id, sortOrder: court.sortOrder })
-    .from(court)
-    .where(eq(court.clubId, clubId))
+    .select({ id: space.id, sortOrder: space.sortOrder })
+    .from(space)
+    .where(eq(space.clubId, clubId))
   return new Map(rows.map((r) => [r.sortOrder, r.id]))
 }
 
@@ -220,9 +220,9 @@ async function seedReservationSchedule() {
   const courts = await courtIdByNumber(DEFAULT_CLUB_ID)
   await db.insert(reservation).values(
     reservationSeeds.map(({ court: courtNumber, ...r }) => {
-      const courtId = courts.get(courtNumber)
-      if (!courtId) throw new Error(`No court #${courtNumber} to seed.`)
-      return { ...r, courtId, date: today, clubId: DEFAULT_CLUB_ID }
+      const spaceId = courts.get(courtNumber)
+      if (!spaceId) throw new Error(`No court #${courtNumber} to seed.`)
+      return { ...r, spaceId, date: today, clubId: DEFAULT_CLUB_ID }
     })
   )
   console.log(`✓ Seeded ${reservationSeeds.length} reservations for ${today}`)
@@ -281,11 +281,11 @@ async function seedCoaching() {
   const courts = await courtIdByNumber(DEFAULT_CLUB_ID)
   await db.insert(coachClass).values(
     classSeeds.map((seed) => {
-      const courtId = courts.get(seed.court)
-      if (!courtId) throw new Error(`No court #${seed.court} to seed.`)
+      const spaceId = courts.get(seed.court)
+      if (!spaceId) throw new Error(`No court #${seed.court} to seed.`)
       return {
         coachId: idByName.get(seed.coach) ?? null,
-        courtId,
+        spaceId,
         date: new Date(Date.now() + seed.offsetDays * 86_400_000)
           .toISOString()
           .slice(0, 10),

@@ -59,7 +59,7 @@ export const es: DeepString<typeof en> = {
       cannotArchiveSelf: "No puedes archivar tu propia cuenta.",
       cannotDeleteSelf: "No puedes eliminar tu propia cuenta.",
     },
-    court: {
+    space: {
       gone: "Esa pista ya no existe. Elige otra pista.",
       inactive: "Esa pista está inactiva. Elige otra pista.",
     },

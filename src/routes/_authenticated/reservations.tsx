@@ -18,8 +18,8 @@ import {
   listReservations,
 } from "@/lib/reservations.functions"
 import type { ReservationListItem } from "@/lib/reservations.functions"
-import { listCourts } from "@/lib/courts.functions"
-import type { CourtRecord } from "@/lib/courts.functions"
+import { listSpaces } from "@/lib/spaces.functions"
+import type { SpaceRecord } from "@/lib/spaces.functions"
 import { getReservationSettings } from "@/lib/reservation-settings.functions"
 import { todayHours } from "@/lib/reservation-settings"
 import type { ReservationSettingsData } from "@/lib/reservation-settings.functions"
@@ -30,7 +30,7 @@ import { formatHour, formatTimeRange, useAppSettings } from "@/lib/app-settings"
 export const Route = createFileRoute("/_authenticated/reservations")({
   loader: async () => ({
     reservations: await listReservations(),
-    courts: await listCourts(),
+    courts: await listSpaces(),
     settings: await getReservationSettings(),
     activities: await listActivities(),
   }),
@@ -42,7 +42,7 @@ type ReservationRow = ReservationListItem & { timeRange: string }
 
 interface TimelineReservation {
   id: string
-  courtId: string
+  spaceId: string
   reservedTo: string
   time: string
   paid: boolean
@@ -89,7 +89,7 @@ function CourtTimeline({
   onHover,
 }: {
   reservations: TimelineReservation[]
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
   settings: ReservationSettingsData
   hoveredId: string | null
   onHover: (id: string | null) => void
@@ -218,7 +218,7 @@ function CourtTimeline({
           {/* Court rows */}
           {courts.map((court, courtIdx) => {
             const courtReservations = reservations.filter(
-              (r) => r.courtId === court.id
+              (r) => r.spaceId === court.id
             )
             return (
               <div
@@ -301,7 +301,7 @@ function toReservationData(r: ReservationRow) {
   return {
     id: r.id,
     player: r.player,
-    courtId: r.courtId,
+    spaceId: r.spaceId,
     date: parseISO(r.date),
     time: r.startTime,
     duration: String(r.durationMinutes),
@@ -314,7 +314,7 @@ function ReservationActions({
   courts,
 }: {
   reservation: ReservationRow
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
 }) {
   const { t } = useTranslation()
   const router = useRouter()
@@ -367,13 +367,13 @@ const PAYMENT_BADGE: Record<
 
 function buildColumns(
   t: TFunction,
-  courts: CourtRecord[]
+  courts: SpaceRecord[]
 ): ColumnDef<ReservationRow>[] {
   return [
     {
-      accessorKey: "courtNumber",
+      accessorKey: "spaceNumber",
       header: t("fields.court"),
-      cell: ({ row }) => `# ${row.getValue<number>("courtNumber")}`,
+      cell: ({ row }) => `# ${row.getValue<number>("spaceNumber")}`,
     },
     {
       accessorKey: "player",
@@ -434,7 +434,7 @@ function ReservationsPage() {
     .filter((r) => r.date === todayISO)
     .map((r) => ({
       id: r.id,
-      courtId: r.courtId,
+      spaceId: r.spaceId,
       reservedTo: r.player,
       time: r.timeRange,
       paid: r.paymentStatus === "paid",
