@@ -50,7 +50,7 @@ export const getReservationSettings = createServerFn({ method: "GET" }).handler(
 )
 
 export const updateReservationSettings = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => updateInput.parse(data))
+  .validator((data: unknown) => updateInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
     return upsertReservationSettingsRecord(clubId, data)

@@ -70,7 +70,7 @@ export const listReservations = createServerFn({ method: "GET" }).handler(
 )
 
 export const createReservation = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => reservationInput.parse(data))
+  .validator((data: unknown) => reservationInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("reservations:manage")
     const clubId = await resolveActiveClubId(session.user)
@@ -91,7 +91,7 @@ export const createReservation = createServerFn({ method: "POST" })
   })
 
 export const updateReservation = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     reservationInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -112,7 +112,7 @@ export const updateReservation = createServerFn({ method: "POST" })
   })
 
 export const deleteReservation = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {

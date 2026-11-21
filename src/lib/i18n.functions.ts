@@ -56,7 +56,7 @@ const setLocaleInput = z.object({
  * next request. With no active club in scope, persists the global fallback.
  */
 export const setLocale = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => setLocaleInput.parse(data))
+  .validator((data: unknown) => setLocaleInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await activeClubId()
     setCookie(clubId ? clubLocaleCookie(clubId) : LOCALE_COOKIE, data.locale, {

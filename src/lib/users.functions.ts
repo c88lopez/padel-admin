@@ -183,7 +183,7 @@ export const listUsers = createServerFn({ method: "GET" }).handler(async () => {
 })
 
 export const createUser = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => createInput.parse(data))
+  .validator((data: unknown) => createInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     const { primary, memberships } = await resolveAssignment(
@@ -230,7 +230,7 @@ export const createUser = createServerFn({ method: "POST" })
   })
 
 export const updateUser = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => updateInput.parse(data))
+  .validator((data: unknown) => updateInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     await assertManageable(session.user, data.id)
@@ -274,7 +274,7 @@ export const updateUser = createServerFn({ method: "POST" })
   })
 
 export const resetUserPassword = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -294,7 +294,7 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   })
 
 export const setUserArchived = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().min(1), archived: z.boolean() }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -314,7 +314,7 @@ export const setUserArchived = createServerFn({ method: "POST" })
   })
 
 export const deleteUser = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {

@@ -25,7 +25,7 @@ export const listTournaments = createServerFn({ method: "GET" }).handler(
 )
 
 export const createTournament = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => tournamentInput.parse(data))
+  .validator((data: unknown) => tournamentInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("tournaments:manage")
     const [created] = await db
@@ -36,7 +36,7 @@ export const createTournament = createServerFn({ method: "POST" })
   })
 
 export const updateTournament = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     tournamentInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -51,7 +51,7 @@ export const updateTournament = createServerFn({ method: "POST" })
   })
 
 export const deleteTournament = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {

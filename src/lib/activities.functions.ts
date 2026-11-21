@@ -21,7 +21,7 @@ const renameActivityInput = z.object({
 })
 
 export const renameActivity = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => renameActivityInput.parse(data))
+  .validator((data: unknown) => renameActivityInput.parse(data))
   .handler(async ({ data }) =>
     renameActivityRecord(await requireClubId("settings:manage"), data)
   )
