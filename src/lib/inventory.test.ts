@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { aggregateQuantities, findStockShortages } from "./inventory"
+import i18n from "@/lib/i18n"
+import {
+  aggregateQuantities,
+  findStockShortages,
+  stockCategoryLabel,
+} from "./inventory"
 
 const levels = [
   { id: "a", name: "Water Bottle", stock: 10 },
@@ -64,5 +69,20 @@ describe("aggregateQuantities", () => {
     expect(totals.get("a")).toBe(5)
     expect(totals.get("b")).toBe(5)
     expect(totals.size).toBe(2)
+  })
+})
+
+describe("stockCategoryLabel", () => {
+  it("localizes the categories the item form stores", () => {
+    expect(stockCategoryLabel(i18n.getFixedT("en"), "Drinks")).toBe(
+      i18n.getFixedT("en")("options.drinks")
+    )
+    expect(stockCategoryLabel(i18n.getFixedT("es"), "Equipment")).toBe(
+      i18n.getFixedT("es")("options.equipment")
+    )
+  })
+
+  it("shows unknown categories as stored", () => {
+    expect(stockCategoryLabel(i18n.getFixedT("es"), "Snacks")).toBe("Snacks")
   })
 })
