@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { DataTable } from "@/components/data-table"
 import { NewClassDrawer } from "@/components/new-class-drawer"
+import { ClassAttendeesDrawer } from "@/components/class-attendees-drawer"
 import { RowActions } from "@/components/row-actions"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
 import type { ClassRecord } from "@/lib/classes.functions"
@@ -74,6 +75,7 @@ function ClassActions({
   const router = useRouter()
   const canManage = useCan("coaches:manage")
   const [editOpen, setEditOpen] = useState(false)
+  const [attendeesOpen, setAttendeesOpen] = useState(false)
 
   async function handleDelete() {
     try {
@@ -98,7 +100,23 @@ function ClassActions({
         onOpenChange={setEditOpen}
         onSaved={() => router.invalidate()}
       />
-      <RowActions onEdit={() => setEditOpen(true)} onDelete={handleDelete} />
+      <ClassAttendeesDrawer
+        classId={coachClass.id}
+        capacity={coachClass.capacity}
+        open={attendeesOpen}
+        onOpenChange={setAttendeesOpen}
+        onChanged={() => router.invalidate()}
+      />
+      <RowActions
+        extraItems={[
+          {
+            label: t("pages.classes.attendees"),
+            onClick: () => setAttendeesOpen(true),
+          },
+        ]}
+        onEdit={() => setEditOpen(true)}
+        onDelete={handleDelete}
+      />
     </>
   )
 }
@@ -156,9 +174,13 @@ function buildColumns(
       cell: ({ row }) => formatDuration(row.original.durationMinutes),
     },
     {
-      id: "capacity",
-      header: t("fields.capacity"),
-      accessorFn: (c) => c.capacity ?? t("pages.classes.noLimit"),
+      id: "attendees",
+      header: t("pages.classes.attendees"),
+      // "2 / 8", or just "2" without a limit.
+      accessorFn: (c) =>
+        c.capacity === null
+          ? String(c.attendeeCount)
+          : `${c.attendeeCount} / ${c.capacity}`,
     },
     {
       id: "status",

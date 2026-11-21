@@ -62,7 +62,33 @@ test("schedules a class with a capacity", async ({ page }) => {
   await page.goto("/coaches/classes")
   await waitForHydration(page)
   const row = classRow(page, court, time)
-  await expect(row.getByRole("cell", { name: "4", exact: true })).toBeVisible()
+  await expect(
+    row.getByRole("cell", { name: "0 / 4", exact: true })
+  ).toBeVisible()
+})
+
+test("signs a customer up until the class is full", async ({ page }) => {
+  const time = uniqueTime()
+  const court = await createClass(page, time, "1")
+
+  await page.goto("/coaches/classes")
+  await waitForHydration(page)
+  const row = classRow(page, court, time)
+  await row.getByRole("button").last().click()
+  await page.getByRole("menuitem", { name: "Attendees" }).click()
+
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByText("0 of 1 places taken")).toBeVisible()
+  await selectFirstOption(page, dialog, "Choose a customer")
+  await dialog.getByRole("button", { name: "Add", exact: true }).click()
+  await expect(page.getByText(/signed up$/)).toBeVisible()
+  await expect(dialog.getByText("1 of 1 places taken")).toBeVisible()
+  await expect(dialog.getByText("This class is full.")).toBeVisible()
+
+  await dialog.getByRole("button", { name: "Close" }).click()
+  await expect(
+    row.getByRole("cell", { name: "1 / 1", exact: true })
+  ).toBeVisible()
 })
 
 test("edits a scheduled class", async ({ page }) => {

@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface RowActionsProps {
+  // Row-specific items shown before Edit, e.g. a class's attendees.
+  extraItems?: { label: string; onClick: () => void }[]
   onEdit?: () => void
   onDuplicate?: () => void
   onDelete?: () => void
@@ -28,6 +30,7 @@ interface RowActionsProps {
 }
 
 export function RowActions({
+  extraItems = [],
   onEdit,
   onDuplicate,
   onDelete,
@@ -46,6 +49,11 @@ export function RowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {extraItems.map((item) => (
+            <DropdownMenuItem key={item.label} onClick={item.onClick}>
+              {item.label}
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuItem onClick={onEdit}>
             {t("rowActions.edit")}
           </DropdownMenuItem>
