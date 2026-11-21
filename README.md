@@ -1,6 +1,6 @@
 # Padel Club Admin
 
-A database-backed admin dashboard for managing padel clubs: court reservations, players, coaches and classes, tournaments, inventory, sales, users, club settings, and appearance. Built on TanStack Start with shadcn/ui.
+A database-backed admin dashboard for managing padel (and pilates) clubs: court reservations, players, coaches and classes, tournaments, inventory, sales, users, club settings, and appearance. Built on TanStack Start with shadcn/ui.
 
 The app is currently a functional admin prototype with real Postgres persistence, Better Auth email/password sessions, role-based permissions, and per-club data scoping.
 

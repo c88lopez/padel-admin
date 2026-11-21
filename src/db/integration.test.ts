@@ -512,7 +512,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
     })
 
     // A throwaway club with padel (no class capacity by default), pilates
-    // (8 by default, inserted directly as it isn't available yet), a court, a
+    // (8 by default, inserted directly), a court, a
     // studio and a coach. Deleting the club cascades.
     async function clubWithClasses() {
       const clubId = randomUUID()
@@ -855,8 +855,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
     const person = { name: "Coach", phone: "+34 600 000 003" }
 
-    // A throwaway club with the given activities (pilates inserted directly,
-    // as it isn't available yet). Deleting the club cascades.
+    // A throwaway club with the given activities, inserted directly.
+    // Deleting the club cascades.
     async function clubWith(...templateKeys: string[]) {
       const clubId = randomUUID()
       await db
@@ -986,8 +986,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       spaces = await loadSpaces()
     })
 
-    // A throwaway club with padel and pilates. Pilates isn't available to
-    // clubs yet, so its row is inserted directly. Deleting the club cascades.
+    // A throwaway club with padel and pilates, inserted directly. Deleting the
+    // club cascades.
     async function padelAndPilatesClub() {
       const clubId = randomUUID()
       await db
@@ -1237,14 +1237,36 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         await db.delete(club).where(eq(club.id, clubId))
       })
 
-      it("rejects unknown and unfinished templates", async () => {
+      // Unfinished templates (available: false) are covered by the
+      // enableRefusal unit tests; every template is available today.
+      it("rejects unknown templates", async () => {
         const clubId = await freshClub()
         expect(
           await activities.setActivityEnabled(clubId, "quidditch", true)
         ).toEqual({ ok: false, reason: "unknownTemplate" })
+        await db.delete(club).where(eq(club.id, clubId))
+      })
+
+      it("adds pilates next to padel, once", async () => {
+        const clubId = await freshClub()
+        const first = await activities.setActivityEnabled(
+          clubId,
+          "pilates",
+          true
+        )
+        expect(first).toMatchObject({
+          ok: true,
+          created: true,
+          activity: { templateKey: "pilates", active: true, sortOrder: 1 },
+        })
         expect(
           await activities.setActivityEnabled(clubId, "pilates", true)
-        ).toEqual({ ok: false, reason: "unavailable" })
+        ).toMatchObject({ ok: true, created: false })
+        expect(
+          (await activities.listActivityRecords(clubId)).map(
+            (a) => a.templateKey
+          )
+        ).toEqual(["padel", "pilates"])
         await db.delete(club).where(eq(club.id, clubId))
       })
 

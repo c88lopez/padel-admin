@@ -7,6 +7,7 @@ import {
   activityDisplayName,
   BLOCK_KEYS,
   DEFAULT_TEMPLATE_KEY,
+  enableRefusal,
   enabledBlocks,
   getTemplate,
   spacesForBlock,
@@ -147,5 +148,25 @@ describe("activityDisplayName", () => {
       activityDisplayName({ ...summary("padel"), name: "Pádel Pro" }, t)
     ).toBe("Pádel Pro")
     expect(activityDisplayName(summary("padel"), t)).toBe("Pádel")
+  })
+})
+
+describe("enableRefusal", () => {
+  const unfinished = {
+    ...(getTemplate("pilates") as ActivityTemplate),
+    available: false,
+  }
+
+  it("refuses unknown templates", () => {
+    expect(enableRefusal(undefined, true)).toBe("unknownTemplate")
+  })
+
+  it("refuses to switch on an unfinished template, but not off", () => {
+    expect(enableRefusal(unfinished, true)).toBe("unavailable")
+    expect(enableRefusal(unfinished, false)).toBeNull()
+  })
+
+  it("allows available templates", () => {
+    expect(enableRefusal(getTemplate("pilates"), true)).toBeNull()
   })
 })

@@ -82,7 +82,7 @@ export const ACTIVITY_TEMPLATES = [
     nameKey: "activities.pilates.name",
     descriptionKey: "activities.pilates.description",
     icon: IconStretching,
-    available: false,
+    available: true,
     blocks: ["sessions"],
     defaults: {
       sessions: { durationOptions: [45, 50, 60], defaultCapacity: 8 },
@@ -99,6 +99,20 @@ export const DEFAULT_TEMPLATE_KEY: ActivityTemplateKey = "padel"
 
 export function getTemplate(key: string): ActivityTemplate | undefined {
   return ACTIVITY_TEMPLATES.find((t) => t.key === key)
+}
+
+/**
+ * Why a template can't be switched on or off for a club, or null when it can.
+ * Unfinished templates (`available: false`) can't be switched on, so
+ * half-built features never reach a club; disabling stays allowed.
+ */
+export function enableRefusal(
+  template: ActivityTemplate | undefined,
+  active: boolean
+): "unknownTemplate" | "unavailable" | null {
+  if (!template) return "unknownTemplate"
+  if (active && !template.available) return "unavailable"
+  return null
 }
 
 export interface ActivitySummary {

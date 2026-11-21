@@ -4,6 +4,7 @@ import { activity } from "@/db/schema"
 import { AppError } from "@/lib/errors"
 import {
   DEFAULT_TEMPLATE_KEY,
+  enableRefusal,
   getTemplate,
   primaryActivity,
 } from "@/lib/activities/templates"
@@ -111,11 +112,8 @@ export async function setActivityEnabled(
   templateKey: string,
   active: boolean
 ): Promise<SetActivityEnabledResult> {
-  const template = getTemplate(templateKey)
-  if (!template) return { ok: false, reason: "unknownTemplate" }
-  // Unfinished templates can't be switched on, so half-built features never
-  // reach a club. Disabling stays allowed.
-  if (active && !template.available) return { ok: false, reason: "unavailable" }
+  const refusal = enableRefusal(getTemplate(templateKey), active)
+  if (refusal) return { ok: false, reason: refusal }
 
   await ensureDefaultActivities(clubId)
   const rows = await db
