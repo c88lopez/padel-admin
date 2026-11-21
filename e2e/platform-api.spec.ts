@@ -3,6 +3,9 @@ import { PLATFORM_API_KEY } from "./helpers"
 
 // Default Club, created by migration 0004.
 const CLUB_ID = "00000000-0000-0000-0000-000000000001"
+// North Branch (seeded): pilates is enabled there, away from the Default Club
+// the other specs use.
+const NORTH_CLUB_ID = "00000000-0000-0000-0000-000000000002"
 const BASE = `/api/platform/clubs/${CLUB_ID}/activities`
 const auth = { authorization: `Bearer ${PLATFORM_API_KEY}` }
 
@@ -32,7 +35,7 @@ test("lists the club's activities and the templates", async ({ request }) => {
     expect.objectContaining({ templateKey: "padel", active: true })
   )
   expect(body.templates).toContainEqual(
-    expect.objectContaining({ key: "pilates", available: false })
+    expect.objectContaining({ key: "pilates", available: true })
   )
 })
 
@@ -48,10 +51,14 @@ test("enforces the activity rules", async ({ request }) => {
     active: true,
   })
 
-  const unfinished = await put("pilates", { active: true })
-  expect(unfinished.status()).toBe(409)
-  expect(await unfinished.json()).toEqual({
-    error: "This activity isn't available yet.",
+  const pilates = await request.put(
+    `/api/platform/clubs/${NORTH_CLUB_ID}/activities/pilates`,
+    { headers: auth, data: { active: true } }
+  )
+  expect(pilates.status()).toBe(200)
+  expect(await pilates.json()).toMatchObject({
+    templateKey: "pilates",
+    active: true,
   })
 
   const lastActive = await put("padel", { active: false })
