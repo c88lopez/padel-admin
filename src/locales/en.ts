@@ -55,8 +55,10 @@ export const en = {
       cannotDeleteSelf: "You cannot delete your own account.",
     },
     space: {
-      gone: "That court no longer exists. Pick another court.",
-      inactive: "That court is inactive. Pick another court.",
+      gone: "That space no longer exists. Pick another one.",
+      inactive: "That space is inactive. Pick another one.",
+      wrongActivity: "That space can't be used for this. Pick another one.",
+      wrongType: "That activity doesn't use this type of space.",
     },
     reservation: {
       conflict:
@@ -140,6 +142,7 @@ export const en = {
       users: "Users",
       appearance: "Appearance",
       activitySettings: "Activities",
+      spaceSettings: "Spaces",
     },
   },
   assistant: {
@@ -184,6 +187,13 @@ export const en = {
       description: "Group classes with a limited number of spots.",
     },
   },
+  spaces: {
+    name: "Space",
+    types: {
+      court: { name: "Court", label: "Court {{n}}" },
+      studio: { name: "Studio", label: "Studio {{n}}" },
+    },
+  },
   notifications: {
     title: "Notifications",
     unread: "{{count}} unread",
@@ -204,7 +214,7 @@ export const en = {
     emailInvalid: "Invalid email address",
     genderRequired: "Gender is required",
     categoryRequired: "Category is required",
-    courtRequired: "Court is required",
+    spaceRequired: "Space is required",
     dateRequired: "Date is required",
     timeRequired: "Time is required",
     durationRequired: "Duration is required",
@@ -253,7 +263,7 @@ export const en = {
     selectGender: "Select gender",
     selectCategory: "Select category",
     selectGenderFirst: "Select gender first",
-    selectCourt: "Select a court",
+    selectSpace: "Select a space",
     selectDuration: "Select duration",
     selectPaymentStatus: "Select payment status",
     selectRole: "Select role",
@@ -437,6 +447,7 @@ export const en = {
     nav: {
       general: "General",
       activities: "Activities",
+      spaces: "Spaces",
       reservations: "Reservations",
       notifications: "Notifications",
       users: "Users",
@@ -529,9 +540,32 @@ export const en = {
       deleteConfirmRest:
         "of its data — players, reservations, inventory, sales, coaches, classes and {{count}} member account(s). This cannot be undone.",
     },
+    spaces: {
+      title: "Spaces",
+      description:
+        "Where each activity takes place: courts, studios and more. Inactive spaces can't be booked.",
+      empty: "None of the club's active activities uses spaces.",
+      countOne: "{{count}} space",
+      countOther: "{{count}} spaces",
+      name: "Name",
+      type: "Type",
+      indoor: "Indoor",
+      outdoor: "Outdoor",
+      add: "Add {{name}}",
+      remove: "Remove {{name}}",
+      deleteTitle: "Delete {{name}}?",
+      deleteConfirm:
+        "This removes it from your settings. This cannot be undone.",
+      deleteBlockedTitle: "Can't delete {{name}}",
+      deleteBlockedOne:
+        "{{name}} still has {{count}} reservation or class. Delete or reassign it first.",
+      deleteBlockedOther:
+        "{{name}} still has {{count}} reservations or classes. Delete or reassign them first.",
+      removed: "{{name}} removed",
+    },
     reservations: {
-      title: "Reservations & Courts",
-      description: "Operating hours, courts and booking rules.",
+      title: "Reservations",
+      description: "Operating hours and booking rules.",
       resetToast: "Reservation settings reset to defaults",
       operatingHours: {
         title: "Operating hours",
@@ -551,23 +585,6 @@ export const en = {
         sat: "Saturday",
         sun: "Sunday",
       },
-      courts: {
-        title: "Courts",
-        description: "Manage the courts shown in the reservations timeline.",
-      },
-      courtTypeIndoor: "Indoor",
-      courtTypeOutdoor: "Outdoor",
-      addCourt: "Add court",
-      removeCourt: "Remove {{name}}",
-      deleteCourtTitle: "Delete {{name}}?",
-      deleteCourtConfirm:
-        "This removes the court from your settings. This cannot be undone.",
-      deleteCourtBlockedTitle: "Can't delete this court",
-      deleteCourtBlockedOne:
-        "{{name}} still has {{count}} reservation. Delete or reassign it before removing the court.",
-      deleteCourtBlockedOther:
-        "{{name}} still has {{count}} reservations. Delete or reassign them before removing the court.",
-      courtRemoved: "{{name}} removed",
       slots: {
         title: "Slots",
         description: "Default granularity and length for new bookings.",

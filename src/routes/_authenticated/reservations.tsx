@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/data-table"
 import { NewReservationDrawer } from "@/components/new-reservation-drawer"
 import { listActivities } from "@/lib/activities.functions"
+import { spacesForBlock } from "@/lib/activities/templates"
+import { spaceNounKey, spaceShortName } from "@/lib/activities/spaces"
 import { RowActions } from "@/components/row-actions"
 import { cn } from "@/lib/utils"
 import {
@@ -28,12 +30,16 @@ import { useCan } from "@/hooks/use-permissions"
 import { formatHour, formatTimeRange, useAppSettings } from "@/lib/app-settings"
 
 export const Route = createFileRoute("/_authenticated/reservations")({
-  loader: async () => ({
-    reservations: await listReservations(),
-    courts: await listSpaces(),
-    settings: await getReservationSettings(),
-    activities: await listActivities(),
-  }),
+  loader: async () => {
+    const activities = await listActivities()
+    return {
+      reservations: await listReservations(),
+      // Only spaces whose activity takes bookings (courts, not studios).
+      courts: spacesForBlock(await listSpaces(), activities, "bookings"),
+      settings: await getReservationSettings(),
+      activities,
+    }
+  },
   component: ReservationsPage,
 })
 
@@ -200,7 +206,7 @@ function CourtTimeline({
           {/* Hour header */}
           <div className="flex border-b">
             <div className="sticky left-0 z-30 flex w-16 shrink-0 items-center border-r bg-background px-3 text-xs font-bold">
-              {t("fields.court")}
+              {t(spaceNounKey(courts))}
             </div>
             <div className="relative h-8 flex-1 overflow-visible">
               {hours.map((h) => (
@@ -230,7 +236,7 @@ function CourtTimeline({
               >
                 {/* Label */}
                 <div className="sticky left-0 z-30 flex w-16 shrink-0 items-center border-r bg-background px-3 text-xs font-bold text-muted-foreground">
-                  {court.name.replace(/^Court\s+/i, "# ")}
+                  {spaceShortName(court)}
                 </div>
 
                 {/* Track */}
@@ -372,7 +378,7 @@ function buildColumns(
   return [
     {
       accessorKey: "spaceNumber",
-      header: t("fields.court"),
+      header: t(spaceNounKey(courts)),
       cell: ({ row }) => `# ${row.getValue<number>("spaceNumber")}`,
     },
     {

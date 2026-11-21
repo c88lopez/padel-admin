@@ -483,12 +483,150 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
     it("treats another club's court as not bookable", async () => {
       await expect(
-        spaces.assertSpaceBookable(CLUB_B_ID, COURT1_ID)
+        spaces.assertSpaceBookable(CLUB_B_ID, COURT1_ID, "bookings")
       ).rejects.toThrow()
       // Sanity: the court is bookable within its own club.
       await expect(
-        spaces.assertSpaceBookable(CLUB_ID, COURT1_ID)
+        spaces.assertSpaceBookable(CLUB_ID, COURT1_ID, "bookings")
       ).resolves.toBeUndefined()
+    })
+  })
+
+  describe("space types (spaces.server)", () => {
+    const loadSpaces = () => import("@/lib/spaces.server")
+    let spaces: Awaited<ReturnType<typeof loadSpaces>>
+
+    beforeAll(async () => {
+      spaces = await loadSpaces()
+    })
+
+    // A throwaway club with padel and pilates. Pilates isn't available to
+    // clubs yet, so its row is inserted directly. Deleting the club cascades.
+    async function padelAndPilatesClub() {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      const [padel, pilates] = await db
+        .insert(activity)
+        .values([
+          { clubId, templateKey: "padel", sortOrder: 0 },
+          { clubId, templateKey: "pilates", sortOrder: 1 },
+        ])
+        .returning()
+      await spaces.seedDefaultSpaces(clubId)
+      return { clubId, padelId: padel.id, pilatesId: pilates.id }
+    }
+
+    async function spacesOf(clubId: string, activityId: string) {
+      return (await spaces.listSpaceRecords(clubId)).filter(
+        (s) => s.activityId === activityId
+      )
+    }
+
+    it("gives each activity its default spaces, once", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      await spaces.seedDefaultSpaces(clubId)
+
+      const courts = await spacesOf(clubId, padelId)
+      expect(courts.map((s) => s.name)).toEqual([
+        "Court 1",
+        "Court 2",
+        "Court 3",
+        "Court 4",
+        "Court 5",
+        "Court 6",
+      ])
+      expect(new Set(courts.map((s) => s.type))).toEqual(new Set(["court"]))
+      expect(await spacesOf(clubId, pilatesId)).toMatchObject([
+        { name: "Studio 1", type: "studio", sortOrder: 1, indoor: true },
+      ])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("counts pre-activity spaces as the bookings activity's own", async () => {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      await db
+        .insert(space)
+        .values({ clubId, name: "Court 1", sortOrder: 1, activityId: null })
+      await spaces.seedDefaultSpaces(clubId)
+      expect(await spaces.listSpaceRecords(clubId)).toHaveLength(1)
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("numbers and names new spaces within their activity", async () => {
+      const { clubId, pilatesId } = await padelAndPilatesClub()
+      const created = await spaces.createSpaceRecord(clubId, {
+        activityId: pilatesId,
+        indoor: true,
+        active: true,
+      })
+      expect(created).toMatchObject({
+        name: "Studio 2",
+        type: "studio",
+        sortOrder: 2,
+        activityId: pilatesId,
+      })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("rejects a type the activity doesn't use", async () => {
+      const { clubId, pilatesId } = await padelAndPilatesClub()
+      await expect(
+        spaces.createSpaceRecord(clubId, {
+          activityId: pilatesId,
+          type: "court",
+          indoor: true,
+          active: true,
+        })
+      ).rejects.toThrow("errors.space.wrongType")
+      const [studio] = await spacesOf(clubId, pilatesId)
+      await expect(
+        spaces.updateSpaceRecord(clubId, { id: studio.id, type: "court" })
+      ).rejects.toThrow("errors.space.wrongType")
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("rejects another club's activity", async () => {
+      const { clubId, pilatesId } = await padelAndPilatesClub()
+      await expect(
+        spaces.createSpaceRecord(CLUB_B_ID, {
+          activityId: pilatesId,
+          indoor: true,
+          active: true,
+        })
+      ).rejects.toThrow("errors.activity.notFound")
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("only lets a space be used for its activity's blocks", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      const [court] = await spacesOf(clubId, padelId)
+      const [studio] = await spacesOf(clubId, pilatesId)
+
+      // Pilates has classes but no bookings.
+      await expect(
+        spaces.assertSpaceBookable(clubId, studio.id, "bookings")
+      ).rejects.toThrow("errors.space.wrongActivity")
+      await expect(
+        spaces.assertSpaceBookable(clubId, studio.id, "sessions")
+      ).resolves.toBeUndefined()
+      await expect(
+        spaces.assertSpaceBookable(clubId, court.id, "bookings")
+      ).resolves.toBeUndefined()
+
+      // A disabled activity's spaces can't be used at all.
+      await db
+        .update(activity)
+        .set({ active: false })
+        .where(eq(activity.id, pilatesId))
+      await expect(
+        spaces.assertSpaceBookable(clubId, studio.id, "sessions")
+      ).rejects.toThrow("errors.space.wrongActivity")
+      await db.delete(club).where(eq(club.id, clubId))
     })
   })
 

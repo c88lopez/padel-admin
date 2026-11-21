@@ -93,7 +93,8 @@ export async function renameActivityRecord(
 }
 
 export type SetActivityEnabledResult =
-  | { ok: true; activity: ActivityRecord }
+  // `created`: this call gave the club the activity for the first time.
+  | { ok: true; activity: ActivityRecord; created: boolean }
   | {
       ok: false
       reason: "unknownTemplate" | "unavailable" | "notFound" | "lastActive"
@@ -125,6 +126,7 @@ export async function setActivityEnabled(
     )
     .limit(1)
   let row = rows.at(0)
+  const created = !row
 
   if (!row) {
     if (!active) return { ok: false, reason: "notFound" }
@@ -161,6 +163,6 @@ export async function setActivityEnabled(
 
   const record = toRecord(row)
   return record
-    ? { ok: true, activity: record }
+    ? { ok: true, activity: record, created }
     : { ok: false, reason: "unknownTemplate" }
 }

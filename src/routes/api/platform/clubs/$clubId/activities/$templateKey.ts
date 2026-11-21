@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import { getClubRecord } from "@/lib/clubs.server"
 import { setActivityEnabled } from "@/lib/activities.server"
+import { seedActivitySpaces } from "@/lib/spaces.server"
 import type { SetActivityEnabledResult } from "@/lib/activities.server"
 import {
   ApiError,
@@ -26,7 +27,8 @@ const FAILURES: Record<
 
 // Hidden platform API (app owners only, PLATFORM_API_KEY):
 //   PUT /api/platform/clubs/:clubId/activities/:templateKey  { "active": bool }
-// Enables (creating it on first use) or disables an activity for a club.
+// Enables (creating it, with its default spaces, on first use) or disables an
+// activity for a club.
 export const Route = createFileRoute(
   "/api/platform/clubs/$clubId/activities/$templateKey"
 )({
@@ -44,6 +46,10 @@ export const Route = createFileRoute(
             active
           )
           if (!result.ok) throw new ApiError(...FAILURES[result.reason])
+          // A club that gets an activity also gets its default spaces.
+          if (result.created) {
+            await seedActivitySpaces(club.id, result.activity.id)
+          }
           return Response.json(result.activity)
         } catch (error) {
           return apiErrorResponse(error)

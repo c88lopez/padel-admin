@@ -44,12 +44,13 @@ import {
 import { cn } from "@/lib/utils"
 import { createClass, updateClass } from "@/lib/classes.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
+import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
 import type { Coach } from "@/db/schema"
 
 function makeSchema(t: TFunction) {
   return z.object({
     coachId: z.string().min(1, t("validation.coachRequired")),
-    spaceId: z.string().min(1, t("validation.courtRequired")),
+    spaceId: z.string().min(1, t("validation.spaceRequired")),
     date: z.date({ error: t("validation.dateRequired") }),
     time: z.string().min(1, t("validation.timeRequired")),
     duration: z.string().min(1, t("validation.durationRequired")),
@@ -207,19 +208,19 @@ export function NewClassDrawer({
               name="spaceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.court")}</FormLabel>
+                  <FormLabel>{t(spaceNounKey(courts))}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue
-                          placeholder={t("placeholders.selectCourt")}
+                          placeholder={t("placeholders.selectSpace")}
                         />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {courts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name}
+                          {spaceDisplayName(c, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -2,7 +2,14 @@ import { and, asc, count, eq, isNull, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { coachClass, reservation, space } from "@/db/schema"
 import { AppError } from "@/lib/errors"
-import { primaryActivityFor } from "@/lib/activities.server"
+import {
+  listActivityRecords,
+  primaryActivityFor,
+} from "@/lib/activities.server"
+import type { ActivityRecord } from "@/lib/activities.server"
+import { activityProvides, getTemplate } from "@/lib/activities/templates"
+import type { BlockKey } from "@/lib/activities/templates"
+import { defaultSpaceName } from "@/lib/activities/spaces"
 
 // Pure data-access helpers for spaces (no auth). Kept in a server-only module so
 // the Postgres driver (`pg`) never leaks into the client bundle. Shared by the
@@ -12,18 +19,29 @@ import { primaryActivityFor } from "@/lib/activities.server"
 export interface SpaceRecord {
   id: string
   name: string
-  // The kind of space ("court", later "studio", "field", …).
+  // The kind of space (src/lib/activities/spaces.ts): "court", "studio", …
   type: string
   indoor: boolean
   active: boolean
+  // Numbered per activity: Court 1–6 and Studio 1 can coexist.
   sortOrder: number
   activityId: string | null
 }
 
-export interface SpaceInput {
-  name: string
+export interface CreateSpaceInput {
+  activityId: string
+  // Defaults to the activity's first allowed type.
+  type?: string
   indoor: boolean
   active: boolean
+}
+
+export interface UpdateSpaceInput {
+  id: string
+  name?: string
+  type?: string
+  indoor?: boolean
+  active?: boolean
 }
 
 const spaceColumns = {
@@ -48,8 +66,7 @@ function toRecord(row: SpaceRecord): SpaceRecord {
   }
 }
 
-// The activity new and unassigned spaces belong to while the UI manages a
-// single bookings activity.
+// The activity unassigned (pre-activity) spaces belong to.
 async function bookingsActivityId(clubId: string): Promise<string | null> {
   return (await primaryActivityFor(clubId, "bookings"))?.id ?? null
 }
@@ -78,24 +95,67 @@ export async function listSpaceRecords(clubId: string): Promise<SpaceRecord[]> {
   return rows.map(toRecord)
 }
 
-export async function createSpaceRecord(
+/** Ids of the club's active activities that provide a block. */
+export async function activityIdsProviding(
   clubId: string,
-  data: SpaceInput
-): Promise<SpaceRecord> {
-  // Next space number = current max sort order + 1, so new spaces append.
+  block: BlockKey
+): Promise<string[]> {
+  return (await listActivityRecords(clubId))
+    .filter((a) => activityProvides(a, block))
+    .map((a) => a.id)
+}
+
+// The club's activity, which must have spaces at all.
+async function activityWithSpaces(
+  clubId: string,
+  activityId: string
+): Promise<ActivityRecord> {
+  const found = (await listActivityRecords(clubId)).find(
+    (a) => a.id === activityId
+  )
+  if (!found || !getTemplate(found.templateKey)?.spaces) {
+    throw new AppError("errors.activity.notFound")
+  }
+  return found
+}
+
+function assertTypeAllowed(activity: ActivityRecord, type: string): void {
+  const allowed: readonly string[] =
+    getTemplate(activity.templateKey)?.spaces?.types ?? []
+  if (!allowed.includes(type)) throw new AppError("errors.space.wrongType")
+}
+
+// Next number within the activity, so new spaces append ("Court 7").
+async function nextSortOrder(
+  clubId: string,
+  activityId: string
+): Promise<number> {
   const [{ max }] = await db
     .select({ max: sql<number>`coalesce(max(${space.sortOrder}), 0)::int` })
     .from(space)
-    .where(eq(space.clubId, clubId))
+    .where(and(eq(space.clubId, clubId), eq(space.activityId, activityId)))
+  return max + 1
+}
+
+export async function createSpaceRecord(
+  clubId: string,
+  data: CreateSpaceInput
+): Promise<SpaceRecord> {
+  const activity = await activityWithSpaces(clubId, data.activityId)
+  const type =
+    data.type ?? getTemplate(activity.templateKey)?.spaces?.types[0] ?? ""
+  assertTypeAllowed(activity, type)
+  const sortOrder = await nextSortOrder(clubId, activity.id)
   const [created] = await db
     .insert(space)
     .values({
       clubId,
-      name: data.name,
+      activityId: activity.id,
+      type,
+      name: defaultSpaceName(type, sortOrder),
       indoor: data.indoor,
       active: data.active,
-      sortOrder: max + 1,
-      activityId: await bookingsActivityId(clubId),
+      sortOrder,
     })
     .returning()
   return toRecord(created)
@@ -103,12 +163,26 @@ export async function createSpaceRecord(
 
 export async function updateSpaceRecord(
   clubId: string,
-  data: { id: string } & Partial<SpaceInput>
+  data: UpdateSpaceInput
 ): Promise<SpaceRecord> {
-  const set: Partial<SpaceInput> = {}
+  const set: Omit<UpdateSpaceInput, "id"> = {}
   if (data.name !== undefined) set.name = data.name
   if (data.indoor !== undefined) set.indoor = data.indoor
   if (data.active !== undefined) set.active = data.active
+  if (data.type !== undefined) {
+    const rows = await db
+      .select({ activityId: space.activityId })
+      .from(space)
+      .where(and(eq(space.id, data.id), eq(space.clubId, clubId)))
+      .limit(1)
+    const current = rows.at(0)
+    if (!current?.activityId) throw new Error("Space not found.")
+    assertTypeAllowed(
+      await activityWithSpaces(clubId, current.activityId),
+      data.type
+    )
+    set.type = data.type
+  }
   const updated = await db
     .update(space)
     .set(set)
@@ -156,48 +230,75 @@ export async function deleteSpaceRecord(
   return { id: spaceId }
 }
 
-// Ensures a space exists in this club and is bookable. Throws otherwise. Used
-// by reservation and class writes before persisting.
+/**
+ * Ensures a space exists in this club, is active, and belongs to an active
+ * activity that provides the block it's used for (a reservation needs
+ * "bookings", a class "sessions"). Throws otherwise. Used by reservation and
+ * class writes before persisting.
+ */
 export async function assertSpaceBookable(
   clubId: string,
-  spaceId: string
+  spaceId: string,
+  block: BlockKey
 ): Promise<void> {
   const rows = await db
-    .select({ active: space.active })
+    .select({ active: space.active, activityId: space.activityId })
     .from(space)
     .where(and(eq(space.id, spaceId), eq(space.clubId, clubId)))
     .limit(1)
-  if (rows.length === 0) {
-    throw new AppError("errors.space.gone")
-  }
-  if (!rows[0].active) {
-    throw new AppError("errors.space.inactive")
+  const row = rows.at(0)
+  if (!row) throw new AppError("errors.space.gone")
+  if (!row.active) throw new AppError("errors.space.inactive")
+  // Spaces from before activities belong to the bookings activity, which
+  // linkUnassignedSpaces sets on the next read.
+  const activityId = row.activityId ?? (await bookingsActivityId(clubId))
+  const activity = (await listActivityRecords(clubId)).find(
+    (a) => a.id === activityId
+  )
+  if (!activityProvides(activity, block)) {
+    throw new AppError("errors.space.wrongActivity")
   }
 }
 
-// Creates a default set of numbered courts for a club's padel activity. Used
-// when provisioning a new club and when seeding. Idempotent-ish: skips if the
-// club already has any space.
-export async function seedDefaultSpaces(
+/**
+ * Gives an activity its default spaces (e.g. six padel courts, one pilates
+ * studio) when it has none. Runs when a club gets the activity: on club
+ * creation and seeding, and when the app's owners first enable it.
+ */
+export async function seedActivitySpaces(
   clubId: string,
-  countOf = 6
+  activityId: string
 ): Promise<void> {
+  const activity = await activityWithSpaces(clubId, activityId)
+  const spaces = getTemplate(activity.templateKey)?.spaces
+  if (!spaces) return
+  // Pre-activity spaces count as the bookings activity's own.
+  await linkUnassignedSpaces(clubId)
   const existing = await db
     .select({ id: space.id })
     .from(space)
-    .where(eq(space.clubId, clubId))
+    .where(and(eq(space.clubId, clubId), eq(space.activityId, activityId)))
     .limit(1)
   if (existing.length > 0) return
-  const activityId = await bookingsActivityId(clubId)
+  const [type] = spaces.types
   await db.insert(space).values(
-    Array.from({ length: countOf }, (_, i) => ({
+    Array.from({ length: spaces.defaultCount }, (_, i) => ({
       clubId,
-      name: `Court ${i + 1}`,
-      type: "court",
+      activityId,
+      type,
+      name: defaultSpaceName(type, i + 1),
       indoor: true,
       active: true,
       sortOrder: i + 1,
-      activityId,
     }))
   )
+}
+
+/** Default spaces for every activity of a new club (see seedActivitySpaces). */
+export async function seedDefaultSpaces(clubId: string): Promise<void> {
+  for (const activity of await listActivityRecords(clubId)) {
+    if (getTemplate(activity.templateKey)?.spaces) {
+      await seedActivitySpaces(clubId, activity.id)
+    }
+  }
 }

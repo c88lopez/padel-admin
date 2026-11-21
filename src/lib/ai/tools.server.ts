@@ -10,7 +10,7 @@ import {
   stockItem,
 } from "@/db/schema"
 import { can } from "@/lib/permissions"
-import { assertSpaceBookable } from "@/lib/spaces.server"
+import { activityIdsProviding, assertSpaceBookable } from "@/lib/spaces.server"
 import { assertBookingAllowed } from "@/lib/reservation-settings.server"
 import { findOverlap } from "@/lib/reservation-overlap"
 import {
@@ -171,12 +171,18 @@ export function buildAiTools(ctx: AiToolContext) {
           if (!can(ctx.userRole, "reservations:manage")) {
             return { ok: false as const, error: "forbidden" }
           }
+          // Numbers restart per activity ("Studio 3"), so only look among
+          // the spaces that take bookings.
           const courtRows = await db
             .select({ id: space.id, name: space.name })
             .from(space)
             .where(
               and(
                 eq(space.clubId, ctx.clubId),
+                inArray(
+                  space.activityId,
+                  await activityIdsProviding(ctx.clubId, "bookings")
+                ),
                 eq(space.sortOrder, courtNumber)
               )
             )
@@ -186,7 +192,7 @@ export function buildAiTools(ctx: AiToolContext) {
           }
           const courtRow = courtRows[0]
 
-          await assertSpaceBookable(ctx.clubId, courtRow.id)
+          await assertSpaceBookable(ctx.clubId, courtRow.id, "bookings")
           await assertBookingAllowed(ctx.clubId, {
             date,
             startTime,

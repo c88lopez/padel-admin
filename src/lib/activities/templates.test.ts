@@ -7,8 +7,10 @@ import {
   DEFAULT_TEMPLATE_KEY,
   enabledBlocks,
   getTemplate,
+  spacesForBlock,
 } from "./templates"
 import type { ActivitySummary, ActivityTemplate } from "./templates"
+import { getSpaceType } from "./spaces"
 
 function lookup(resources: object, key: string): unknown {
   return key
@@ -64,6 +66,22 @@ describe("activity templates", () => {
     }
   })
 
+  it("define known space types exactly when they have bookings or sessions", () => {
+    const templates: readonly ActivityTemplate[] = ACTIVITY_TEMPLATES
+    for (const template of templates) {
+      const needsSpaces =
+        template.blocks.includes("bookings") ||
+        template.blocks.includes("sessions")
+      expect(Boolean(template.spaces), template.key).toBe(needsSpaces)
+      for (const type of template.spaces?.types ?? []) {
+        expect(getSpaceType(type), `${template.key} ${type}`).toBeDefined()
+      }
+      if (template.spaces) {
+        expect(template.spaces.defaultCount).toBeGreaterThan(0)
+      }
+    }
+  })
+
   it("are translated in every locale", () => {
     for (const template of ACTIVITY_TEMPLATES) {
       for (const key of [template.nameKey, template.descriptionKey]) {
@@ -92,5 +110,29 @@ describe("enabledBlocks", () => {
   it("unions the blocks of several activities", () => {
     const blocks = enabledBlocks([summary("pilates"), summary("padel", false)])
     expect([...blocks]).toEqual(["sessions"])
+  })
+})
+
+describe("spacesForBlock", () => {
+  const activities = [summary("padel"), summary("pilates")]
+  const spaces = [
+    { id: "court", activityId: "padel" },
+    { id: "studio", activityId: "pilates" },
+    { id: "legacy", activityId: null },
+  ]
+
+  it("keeps the spaces whose activity provides the block", () => {
+    expect(
+      spacesForBlock(spaces, activities, "bookings").map((s) => s.id)
+    ).toEqual(["court"])
+    expect(
+      spacesForBlock(spaces, activities, "sessions").map((s) => s.id)
+    ).toEqual(["court", "studio"])
+  })
+
+  it("drops spaces of inactive activities", () => {
+    expect(
+      spacesForBlock(spaces, [summary("padel", false)], "bookings")
+    ).toEqual([])
   })
 })
