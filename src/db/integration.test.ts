@@ -399,11 +399,18 @@ describe.skipIf(!TEST_URL)("database integration", () => {
           clubId: CLUB_ID,
         })
         .returning()
+      const [padel] = await db
+        .select()
+        .from(activity)
+        .where(
+          and(eq(activity.clubId, CLUB_ID), eq(activity.templateKey, "padel"))
+        )
       const [cls] = await db
         .insert(coachClass)
         .values({
           coachId: c.id,
           spaceId: COURT1_ID,
+          activityId: padel.id,
           date: "2026-03-01",
           startTime: "10:00",
           durationMinutes: 90,
@@ -488,7 +495,122 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       // Sanity: the court is bookable within its own club.
       await expect(
         spaces.assertSpaceBookable(CLUB_ID, COURT1_ID, "bookings")
-      ).resolves.toBeUndefined()
+      ).resolves.toMatchObject({ templateKey: "padel" })
+    })
+  })
+
+  describe("classes (classes.server)", () => {
+    const loadClasses = () => import("@/lib/classes.server")
+    const loadSpaces = () => import("@/lib/spaces.server")
+    let classes: Awaited<ReturnType<typeof loadClasses>>
+    let spaces: Awaited<ReturnType<typeof loadSpaces>>
+
+    beforeAll(async () => {
+      classes = await loadClasses()
+      spaces = await loadSpaces()
+    })
+
+    // A throwaway club with padel (no class capacity by default), pilates
+    // (8 by default, inserted directly as it isn't available yet), a court, a
+    // studio and a coach. Deleting the club cascades.
+    async function clubWithClasses() {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      const [padel, pilates] = await db
+        .insert(activity)
+        .values([
+          { clubId, templateKey: "padel", sortOrder: 0 },
+          { clubId, templateKey: "pilates", sortOrder: 1 },
+        ])
+        .returning()
+      await spaces.seedDefaultSpaces(clubId)
+      const list = await spaces.listSpaceRecords(clubId)
+      const court = list.find((s) => s.activityId === padel.id)
+      const studio = list.find((s) => s.activityId === pilates.id)
+      if (!court || !studio) throw new Error("Default spaces missing.")
+      const [c] = await db
+        .insert(coach)
+        .values({
+          name: "Class Coach",
+          phone: "+34 600 000 002",
+          birthday: "1990-01-01",
+          clubId,
+        })
+        .returning()
+      const base = {
+        coachId: c.id,
+        date: "2026-03-02",
+        startTime: "10:00",
+        durationMinutes: 60,
+      }
+      return { clubId, padel, pilates, court, studio, base }
+    }
+
+    it("is for its space's activity, with that activity's capacity", async () => {
+      const { clubId, padel, pilates, court, studio, base } =
+        await clubWithClasses()
+
+      const lesson = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: court.id,
+      })
+      expect(lesson).toMatchObject({ activityId: padel.id, capacity: null })
+
+      const pilatesClass = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+      })
+      expect(pilatesClass).toMatchObject({
+        activityId: pilates.id,
+        capacity: 8,
+      })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("keeps an explicit capacity, or no limit", async () => {
+      const { clubId, studio, base } = await clubWithClasses()
+      const small = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+        capacity: 4,
+      })
+      expect(small.capacity).toBe(4)
+      const open = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+        capacity: null,
+      })
+      expect(open.capacity).toBeNull()
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("follows its space to another activity, keeping its capacity", async () => {
+      const { clubId, padel, court, studio, base } = await clubWithClasses()
+      const created = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+      })
+      const moved = await classes.updateClassRecord(clubId, {
+        ...base,
+        id: created.id,
+        spaceId: court.id,
+      })
+      expect(moved).toMatchObject({ activityId: padel.id, capacity: 8 })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("rejects a space whose activity has no classes", async () => {
+      const { clubId, pilates, studio, base } = await clubWithClasses()
+      await db
+        .update(activity)
+        .set({ active: false })
+        .where(eq(activity.id, pilates.id))
+      await expect(
+        classes.createClassRecord(clubId, { ...base, spaceId: studio.id })
+      ).rejects.toThrow("errors.space.wrongActivity")
+      await db.delete(club).where(eq(club.id, clubId))
     })
   })
 
@@ -613,10 +735,10 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       ).rejects.toThrow("errors.space.wrongActivity")
       await expect(
         spaces.assertSpaceBookable(clubId, studio.id, "sessions")
-      ).resolves.toBeUndefined()
+      ).resolves.toMatchObject({ id: pilatesId })
       await expect(
         spaces.assertSpaceBookable(clubId, court.id, "bookings")
-      ).resolves.toBeUndefined()
+      ).resolves.toMatchObject({ id: padelId })
 
       // A disabled activity's spaces can't be used at all.
       await db
