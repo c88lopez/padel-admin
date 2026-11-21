@@ -32,6 +32,7 @@ export interface ReservationListItem {
   id: string
   spaceId: string
   spaceName: string
+  spaceType: string
   spaceNumber: number
   player: string
   bookedBy: string
@@ -89,6 +90,7 @@ export const listReservations = createServerFn({ method: "GET" }).handler(
         id: reservation.id,
         spaceId: reservation.spaceId,
         spaceName: space.name,
+        spaceType: space.type,
         spaceNumber: space.sortOrder,
         player: reservation.player,
         bookedBy: reservation.bookedBy,
@@ -114,7 +116,7 @@ export const createReservation = createServerFn({ method: "POST" })
     const session = await requirePermission("reservations:manage")
     const clubId = await resolveActiveClubId(session.user)
     if (!clubId) throw new AppError("errors.clubContextRequired")
-    await assertSpaceBookable(clubId, data.spaceId)
+    await assertSpaceBookable(clubId, data.spaceId, "bookings")
     await assertBookingAllowed(clubId, data)
     const conflict = await findConflict(clubId, data)
     if (conflict) conflictError(conflict)
@@ -137,7 +139,7 @@ export const updateReservation = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const clubId = await requireClubId("reservations:manage")
     const { id, ...values } = data
-    await assertSpaceBookable(clubId, values.spaceId)
+    await assertSpaceBookable(clubId, values.spaceId, "bookings")
     await assertBookingAllowed(clubId, values, { excludeId: id })
     const conflict = await findConflict(clubId, { ...values, excludeId: id })
     if (conflict) conflictError(conflict)

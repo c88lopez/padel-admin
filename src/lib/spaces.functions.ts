@@ -14,14 +14,16 @@ import {
 export type { SpaceRecord, SpaceUsage } from "@/lib/spaces.server"
 
 const createInput = z.object({
-  name: z.string().min(1),
+  activityId: z.string().min(1),
+  type: z.string().min(1).optional(),
   indoor: z.boolean().default(true),
   active: z.boolean().default(true),
 })
 
 const updateInput = z.object({
   id: z.string().min(1),
-  name: z.string().min(1).optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+  type: z.string().min(1).optional(),
   indoor: z.boolean().optional(),
   active: z.boolean().optional(),
 })

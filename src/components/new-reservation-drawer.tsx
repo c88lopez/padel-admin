@@ -16,6 +16,7 @@ import {
   updateReservation,
 } from "@/lib/reservations.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
+import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { bookingDurations } from "@/lib/activities/config"
 import { formatDuration } from "@/lib/classes"
@@ -69,7 +70,7 @@ function durationLabel(minutes: number, t: TFunction): string {
 function makeSchema(t: TFunction) {
   return z.object({
     player: z.string().min(1, t("validation.playerRequired")),
-    spaceId: z.string().min(1, t("validation.courtRequired")),
+    spaceId: z.string().min(1, t("validation.spaceRequired")),
     date: z.date({ error: t("validation.dateRequired") }),
     time: z.string().min(1, t("validation.timeRequired")),
     duration: z.string().min(1, t("validation.durationRequired")),
@@ -240,19 +241,19 @@ export function NewReservationDrawer({
               name="spaceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.court")}</FormLabel>
+                  <FormLabel>{t(spaceNounKey(courts))}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue
-                          placeholder={t("placeholders.selectCourt")}
+                          placeholder={t("placeholders.selectSpace")}
                         />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {courts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name}
+                          {spaceDisplayName(c, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>

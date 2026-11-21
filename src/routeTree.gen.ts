@@ -32,6 +32,7 @@ import { Route as AuthenticatedSettingsClubsRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings/general'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsReservationsRouteImport } from './routes/_authenticated/settings/reservations'
+import { Route as AuthenticatedSettingsSpacesRouteImport } from './routes/_authenticated/settings/spaces'
 import { Route as AuthenticatedSettingsUiRouteImport } from './routes/_authenticated/settings/ui'
 import { Route as AuthenticatedSettingsUsersRouteImport } from './routes/_authenticated/settings/users'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -169,6 +170,12 @@ const AuthenticatedSettingsReservationsRoute =
     path: '/reservations',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsSpacesRoute =
+  AuthenticatedSettingsSpacesRouteImport.update({
+    id: '/spaces',
+    path: '/spaces',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsUiRoute = AuthenticatedSettingsUiRouteImport.update({
   id: '/ui',
   path: '/ui',
@@ -238,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
+  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -270,6 +278,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
+  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -305,6 +314,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
+  '/_authenticated/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/_authenticated/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/_authenticated/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -340,6 +350,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/notifications'
     | '/settings/reservations'
+    | '/settings/spaces'
     | '/settings/ui'
     | '/settings/users'
     | '/api/auth/$'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/notifications'
     | '/settings/reservations'
+    | '/settings/spaces'
     | '/settings/ui'
     | '/settings/users'
     | '/api/auth/$'
@@ -406,6 +418,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/reservations'
+    | '/_authenticated/settings/spaces'
     | '/_authenticated/settings/ui'
     | '/_authenticated/settings/users'
     | '/api/auth/$'
@@ -600,6 +613,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsReservationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/spaces': {
+      id: '/_authenticated/settings/spaces'
+      path: '/spaces'
+      fullPath: '/settings/spaces'
+      preLoaderRoute: typeof AuthenticatedSettingsSpacesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/ui': {
       id: '/_authenticated/settings/ui'
       path: '/ui'
@@ -672,6 +692,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsReservationsRoute: typeof AuthenticatedSettingsReservationsRoute
+  AuthenticatedSettingsSpacesRoute: typeof AuthenticatedSettingsSpacesRoute
   AuthenticatedSettingsUiRoute: typeof AuthenticatedSettingsUiRoute
   AuthenticatedSettingsUsersRoute: typeof AuthenticatedSettingsUsersRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -685,6 +706,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsReservationsRoute:
     AuthenticatedSettingsReservationsRoute,
+  AuthenticatedSettingsSpacesRoute: AuthenticatedSettingsSpacesRoute,
   AuthenticatedSettingsUiRoute: AuthenticatedSettingsUiRoute,
   AuthenticatedSettingsUsersRoute: AuthenticatedSettingsUsersRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,

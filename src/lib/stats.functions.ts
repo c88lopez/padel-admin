@@ -11,6 +11,7 @@ import {
   stockItem,
 } from "@/db/schema"
 import { currentClubId } from "@/lib/auth.server"
+import { activityIdsProviding } from "@/lib/spaces.server"
 import { endTime } from "@/lib/classes"
 import {
   busiestCourt,
@@ -60,10 +61,18 @@ export const getOverviewStats = createServerFn({ method: "GET" }).handler(
         )
       )
 
+    // Only bookable spaces: a pilates studio isn't a free court.
+    const bookingActivityIds = await activityIdsProviding(clubId, "bookings")
     const [activeCourtsRow] = await db
       .select({ value: count() })
       .from(space)
-      .where(and(eq(space.clubId, clubId), eq(space.active, true)))
+      .where(
+        and(
+          eq(space.clubId, clubId),
+          eq(space.active, true),
+          inArray(space.activityId, bookingActivityIds)
+        )
+      )
 
     const months = Array.from({ length: 7 }, (_, i) => {
       const d = subMonths(now, 6 - i)

@@ -5,6 +5,7 @@ import {
   IconBuildings,
   IconCalendarCog,
   IconLayoutGrid,
+  IconMapPin,
   IconPalette,
   IconUsers,
 } from "@tabler/icons-react"
@@ -35,6 +36,12 @@ const navItems: {
     to: "/settings/activities",
     labelKey: "settings.nav.activities",
     icon: IconLayoutGrid,
+    permission: "settings:manage",
+  },
+  {
+    to: "/settings/spaces",
+    labelKey: "settings.nav.spaces",
+    icon: IconMapPin,
     permission: "settings:manage",
   },
   {

@@ -11,6 +11,7 @@ import {
   IconChartBar,
   IconDashboard,
   IconLayoutGrid,
+  IconMapPin,
   IconPalette,
   IconReceipt,
   IconSchool,
@@ -141,11 +142,18 @@ export const NAV_ENTRIES: NavEntry[] = [
     keywords: "activities modules sports padel pilates actividades deportes",
   },
   {
+    to: "/settings/spaces",
+    icon: IconMapPin,
+    commandGroupKey: "commandPalette.groups.settings",
+    commandLabelKey: "commandPalette.items.spaceSettings",
+    keywords: "spaces courts studios rooms espacios pistas salas",
+  },
+  {
     to: "/settings/reservations",
     icon: IconCalendarCog,
     commandGroupKey: "commandPalette.groups.settings",
     commandLabelKey: "commandPalette.items.reservationSettings",
-    keywords: "hours courts booking rules reservas pistas",
+    keywords: "hours booking rules horario reservas",
   },
   {
     to: "/settings/notifications",

@@ -9,6 +9,7 @@ import type { Icon } from "@tabler/icons-react"
 import type { TranslationKey } from "@/lib/i18n"
 import { PADEL_LEVELS } from "./levels"
 import type { LevelScale } from "./levels"
+import type { SpaceTypeKey } from "./spaces"
 
 export const BLOCK_KEYS = [
   "bookings",
@@ -34,6 +35,13 @@ export interface ActivityConfig {
   sessions?: SessionsConfig
 }
 
+export interface SpacesConfig {
+  // The space types this activity's spaces can be; the first is the default.
+  types: readonly [SpaceTypeKey, ...SpaceTypeKey[]]
+  // How many spaces a club gets when it first has this activity.
+  defaultCount: number
+}
+
 export interface ActivityTemplate {
   key: string
   nameKey: TranslationKey
@@ -46,6 +54,8 @@ export interface ActivityTemplate {
   defaults: ActivityConfig
   // Required when the template has the "levels" block.
   levels?: LevelScale
+  // Required when the template has the "bookings" or "sessions" block.
+  spaces?: SpacesConfig
 }
 
 export const ACTIVITY_TEMPLATES = [
@@ -64,6 +74,7 @@ export const ACTIVITY_TEMPLATES = [
       sessions: { durationOptions: [60, 90, 120], defaultCapacity: null },
     },
     levels: PADEL_LEVELS,
+    spaces: { types: ["court"], defaultCount: 6 },
   },
   {
     key: "pilates",
@@ -75,6 +86,7 @@ export const ACTIVITY_TEMPLATES = [
     defaults: {
       sessions: { durationOptions: [45, 50, 60], defaultCapacity: 8 },
     },
+    spaces: { types: ["studio"], defaultCount: 1 },
   },
 ] as const satisfies readonly ActivityTemplate[]
 
@@ -123,4 +135,28 @@ export function enabledBlocks(
     }
   }
   return blocks
+}
+
+/** Whether an activity is active and its template provides the block. */
+export function activityProvides(
+  activity: ActivitySummary | undefined,
+  block: BlockKey
+): boolean {
+  if (!activity?.active) return false
+  return (getTemplate(activity.templateKey)?.blocks ?? []).includes(block)
+}
+
+/**
+ * Spaces usable for a block: those whose activity is active and provides it,
+ * e.g. the courts a reservation can go on.
+ */
+export function spacesForBlock<T extends { activityId: string | null }>(
+  spaces: readonly T[],
+  activities: readonly ActivitySummary[],
+  block: BlockKey
+): T[] {
+  const ids = new Set(
+    activities.filter((a) => activityProvides(a, block)).map((a) => a.id)
+  )
+  return spaces.filter((s) => s.activityId !== null && ids.has(s.activityId))
 }

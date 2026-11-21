@@ -15,6 +15,9 @@ import type { ClassRecord } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
+import { listActivities } from "@/lib/activities.functions"
+import { spacesForBlock } from "@/lib/activities/templates"
+import { spaceNounKey, spaceNumberLabel } from "@/lib/activities/spaces"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
 import { useCan } from "@/hooks/use-permissions"
@@ -24,7 +27,12 @@ export const Route = createFileRoute("/_authenticated/coaches/classes")({
   loader: async () => ({
     classes: await listClasses(),
     coaches: await listCoaches(),
-    courts: await listSpaces(),
+    // Only spaces whose activity runs classes.
+    courts: spacesForBlock(
+      await listSpaces(),
+      await listActivities(),
+      "sessions"
+    ),
   }),
   component: ClassesPage,
 })
@@ -98,9 +106,13 @@ function buildColumns(
     },
     {
       accessorKey: "spaceNumber",
-      header: t("fields.court"),
+      header: t(spaceNounKey(courts)),
       cell: ({ row }) =>
-        t("stats.court", { court: row.getValue<number>("spaceNumber") }),
+        spaceNumberLabel(
+          row.original.spaceType,
+          row.getValue<number>("spaceNumber"),
+          t
+        ),
     },
     {
       accessorKey: "date",

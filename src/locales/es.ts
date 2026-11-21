@@ -60,8 +60,10 @@ export const es: DeepString<typeof en> = {
       cannotDeleteSelf: "No puedes eliminar tu propia cuenta.",
     },
     space: {
-      gone: "Esa pista ya no existe. Elige otra pista.",
-      inactive: "Esa pista está inactiva. Elige otra pista.",
+      gone: "Ese espacio ya no existe. Elige otro.",
+      inactive: "Ese espacio está inactivo. Elige otro.",
+      wrongActivity: "Ese espacio no se puede usar para esto. Elige otro.",
+      wrongType: "Esa actividad no usa este tipo de espacio.",
     },
     reservation: {
       conflict:
@@ -148,6 +150,7 @@ export const es: DeepString<typeof en> = {
       users: "Usuarios",
       appearance: "Apariencia",
       activitySettings: "Actividades",
+      spaceSettings: "Espacios",
     },
   },
   assistant: {
@@ -193,6 +196,13 @@ export const es: DeepString<typeof en> = {
       description: "Clases grupales con plazas limitadas.",
     },
   },
+  spaces: {
+    name: "Espacio",
+    types: {
+      court: { name: "Pista", label: "Pista {{n}}" },
+      studio: { name: "Sala", label: "Sala {{n}}" },
+    },
+  },
   notifications: {
     title: "Notificaciones",
     unread: "{{count}} sin leer",
@@ -213,7 +223,7 @@ export const es: DeepString<typeof en> = {
     emailInvalid: "Correo electrónico no válido",
     genderRequired: "El género es obligatorio",
     categoryRequired: "La categoría es obligatoria",
-    courtRequired: "La pista es obligatoria",
+    spaceRequired: "El espacio es obligatorio",
     dateRequired: "La fecha es obligatoria",
     timeRequired: "La hora es obligatoria",
     durationRequired: "La duración es obligatoria",
@@ -262,7 +272,7 @@ export const es: DeepString<typeof en> = {
     selectGender: "Selecciona el género",
     selectCategory: "Selecciona la categoría",
     selectGenderFirst: "Selecciona el género primero",
-    selectCourt: "Selecciona una pista",
+    selectSpace: "Selecciona un espacio",
     selectDuration: "Selecciona la duración",
     selectPaymentStatus: "Selecciona el estado de pago",
     selectRole: "Selecciona el rol",
@@ -449,6 +459,7 @@ export const es: DeepString<typeof en> = {
     nav: {
       general: "General",
       activities: "Actividades",
+      spaces: "Espacios",
       reservations: "Reservas",
       notifications: "Notificaciones",
       users: "Usuarios",
@@ -543,9 +554,31 @@ export const es: DeepString<typeof en> = {
       deleteConfirmRest:
         "sus datos: jugadores, reservas, inventario, ventas, entrenadores, clases y {{count}} cuenta(s) de miembro. Esto no se puede deshacer.",
     },
+    spaces: {
+      title: "Espacios",
+      description:
+        "Dónde se realiza cada actividad: pistas, salas y más. Los espacios inactivos no se pueden reservar.",
+      empty: "Ninguna de las actividades activas del club usa espacios.",
+      countOne: "{{count}} espacio",
+      countOther: "{{count}} espacios",
+      name: "Nombre",
+      type: "Tipo",
+      indoor: "Cubierto",
+      outdoor: "Descubierto",
+      add: "Agregar {{name}}",
+      remove: "Eliminar {{name}}",
+      deleteTitle: "¿Eliminar {{name}}?",
+      deleteConfirm: "Esto lo quita de tu configuración. No se puede deshacer.",
+      deleteBlockedTitle: "No se puede eliminar {{name}}",
+      deleteBlockedOne:
+        "{{name}} todavía tiene {{count}} reserva o clase. Elimínala o reasígnala primero.",
+      deleteBlockedOther:
+        "{{name}} todavía tiene {{count}} reservas o clases. Elimínalas o reasígnalas primero.",
+      removed: "Se eliminó {{name}}",
+    },
     reservations: {
-      title: "Reservas y pistas",
-      description: "Horario de apertura, pistas y reglas de reserva.",
+      title: "Reservas",
+      description: "Horario de apertura y reglas de reserva.",
       resetToast:
         "Configuración de reservas restablecida a los valores predeterminados",
       operatingHours: {
@@ -566,24 +599,6 @@ export const es: DeepString<typeof en> = {
         sat: "Sábado",
         sun: "Domingo",
       },
-      courts: {
-        title: "Pistas",
-        description:
-          "Administra las pistas que se muestran en el cronograma de reservas.",
-      },
-      courtTypeIndoor: "Cubierta",
-      courtTypeOutdoor: "Descubierta",
-      addCourt: "Agregar pista",
-      removeCourt: "Eliminar {{name}}",
-      deleteCourtTitle: "¿Eliminar {{name}}?",
-      deleteCourtConfirm:
-        "Esto quita la pista de tu configuración. No se puede deshacer.",
-      deleteCourtBlockedTitle: "No se puede eliminar esta pista",
-      deleteCourtBlockedOne:
-        "{{name}} todavía tiene {{count}} reserva. Elimínala o reasígnala antes de quitar la pista.",
-      deleteCourtBlockedOther:
-        "{{name}} todavía tiene {{count}} reservas. Elimínalas o reasígnalas antes de quitar la pista.",
-      courtRemoved: "{{name}} eliminada",
       slots: {
         title: "Franjas",
         description:

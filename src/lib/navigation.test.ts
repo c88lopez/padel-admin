@@ -81,6 +81,7 @@ describe("commandItems", () => {
     const routes = commandItems(ALL_BLOCKS).map((i) => i.to)
     expect(routes).toContain("/settings/general")
     expect(routes).toContain("/settings/activities")
+    expect(routes).toContain("/settings/spaces")
     expect(routes).toContain("/settings/ui")
   })
 

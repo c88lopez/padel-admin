@@ -20,6 +20,7 @@ export interface ClassRecord {
   coachName: string
   spaceId: string
   spaceName: string
+  spaceType: string
   spaceNumber: number
   date: string
   startTime: string
@@ -36,6 +37,7 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
         coachName: coach.name,
         spaceId: coachClass.spaceId,
         spaceName: space.name,
+        spaceType: space.type,
         spaceNumber: space.sortOrder,
         date: coachClass.date,
         startTime: coachClass.startTime,
@@ -58,7 +60,7 @@ export const createClass = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => classInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("coaches:manage")
-    await assertSpaceBookable(clubId, data.spaceId)
+    await assertSpaceBookable(clubId, data.spaceId, "sessions")
     const [created] = await db
       .insert(coachClass)
       .values({ ...data, clubId })
@@ -73,7 +75,7 @@ export const updateClass = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const clubId = await requireClubId("coaches:manage")
     const { id, ...values } = data
-    await assertSpaceBookable(clubId, values.spaceId)
+    await assertSpaceBookable(clubId, values.spaceId, "sessions")
     const [updated] = await db
       .update(coachClass)
       .set(values)
