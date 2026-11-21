@@ -76,10 +76,12 @@ export const es: DeepString<typeof en> = {
       inactive: "Ese espacio está inactivo. Elige otro.",
       wrongActivity: "Ese espacio no se puede usar para esto. Elige otro.",
       wrongType: "Esa actividad no usa este tipo de espacio.",
+      classConflict:
+        "Hay una clase en ese espacio {{start}}–{{end}}. Elige otra hora o espacio.",
     },
     reservation: {
       conflict:
-        "La pista ya está reservada {{start}}–{{end}} ({{player}}). Elige otra hora o pista.",
+        "Ese espacio ya está reservado {{start}}–{{end}} ({{player}}). Elige otra hora o espacio.",
     },
     sale: {
       insufficientStock: "Stock insuficiente: {{detail}}",

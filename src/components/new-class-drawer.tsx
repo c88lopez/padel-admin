@@ -52,6 +52,7 @@ import {
 } from "@/lib/activities/templates"
 import { sessionDurations } from "@/lib/activities/config"
 import { durationLabel } from "@/lib/duration-label"
+import { translateError } from "@/lib/errors"
 import type { CoachRecord } from "@/lib/coaches.functions"
 
 // "" = no limit; otherwise a whole number of places.
@@ -246,9 +247,15 @@ export function NewClassDrawer({
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
-      onError: () => {
+      onError: (err) => {
         toast.error(t("common.genericError"), {
-          description: t("forms.class.errorDescription"),
+          // Why it was refused (e.g. the space is taken), when the server
+          // says so.
+          description: translateError(
+            err,
+            t,
+            t("forms.class.errorDescription")
+          ),
         })
       },
     })

@@ -9,13 +9,12 @@ import {
   requirePermission,
   resolveActiveClubId,
 } from "@/lib/auth.server"
-import { assertSpaceBookable } from "@/lib/spaces.server"
+import { assertSpaceBookable, assertSpaceFree } from "@/lib/spaces.server"
 import { findCustomerIdByName } from "@/lib/players.server"
 import {
   assertBookingAllowed,
   assertCancellationAllowed,
 } from "@/lib/reservation-settings.server"
-import { findOverlap, timeToMin } from "@/lib/reservation-overlap"
 import { AppError } from "@/lib/errors"
 
 const reservationInput = z.object({
@@ -40,46 +39,6 @@ export interface ReservationListItem {
   startTime: string
   durationMinutes: number
   paymentStatus: string
-}
-
-// Returns an overlapping reservation on the same court+date within the club.
-async function findConflict(
-  clubId: string,
-  input: {
-    spaceId: string
-    date: string
-    startTime: string
-    durationMinutes: number
-    excludeId?: string
-  }
-) {
-  const sameSlot = await db
-    .select()
-    .from(reservation)
-    .where(
-      and(
-        eq(reservation.clubId, clubId),
-        eq(reservation.spaceId, input.spaceId),
-        eq(reservation.date, input.date)
-      )
-    )
-  return findOverlap(input, sameSlot, input.excludeId)
-}
-
-function conflictError(conflict: {
-  startTime: string
-  durationMinutes: number
-  player: string
-}): never {
-  const endMin = timeToMin(conflict.startTime) + conflict.durationMinutes
-  const end = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(
-    endMin % 60
-  ).padStart(2, "0")}`
-  throw new AppError("errors.reservation.conflict", {
-    start: conflict.startTime,
-    end,
-    player: conflict.player,
-  })
 }
 
 export const listReservations = createServerFn({ method: "GET" }).handler(
@@ -118,8 +77,7 @@ export const createReservation = createServerFn({ method: "POST" })
     if (!clubId) throw new AppError("errors.clubContextRequired")
     await assertSpaceBookable(clubId, data.spaceId, "bookings")
     await assertBookingAllowed(clubId, data)
-    const conflict = await findConflict(clubId, data)
-    if (conflict) conflictError(conflict)
+    await assertSpaceFree(clubId, data)
     const [created] = await db
       .insert(reservation)
       .values({
@@ -141,8 +99,7 @@ export const updateReservation = createServerFn({ method: "POST" })
     const { id, ...values } = data
     await assertSpaceBookable(clubId, values.spaceId, "bookings")
     await assertBookingAllowed(clubId, values, { excludeId: id })
-    const conflict = await findConflict(clubId, { ...values, excludeId: id })
-    if (conflict) conflictError(conflict)
+    await assertSpaceFree(clubId, values, { reservationId: id })
     const [updated] = await db
       .update(reservation)
       .set({

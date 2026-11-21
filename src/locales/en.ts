@@ -71,10 +71,12 @@ export const en = {
       inactive: "That space is inactive. Pick another one.",
       wrongActivity: "That space can't be used for this. Pick another one.",
       wrongType: "That activity doesn't use this type of space.",
+      classConflict:
+        "There's a class in that space {{start}}–{{end}}. Pick another time or space.",
     },
     reservation: {
       conflict:
-        "Court is already booked {{start}}–{{end}} ({{player}}). Pick another time or court.",
+        "That space is already booked {{start}}–{{end}} ({{player}}). Pick another time or space.",
     },
     sale: {
       insufficientStock: "Not enough stock: {{detail}}",

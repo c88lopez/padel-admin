@@ -10,9 +10,12 @@ import {
   stockItem,
 } from "@/db/schema"
 import { can } from "@/lib/permissions"
-import { activityIdsProviding, assertSpaceBookable } from "@/lib/spaces.server"
+import {
+  activityIdsProviding,
+  assertSpaceBookable,
+  findSpaceConflict,
+} from "@/lib/spaces.server"
 import { assertBookingAllowed } from "@/lib/reservation-settings.server"
-import { findOverlap } from "@/lib/reservation-overlap"
 import {
   createPlayerRecord,
   findCustomerIdByName,
@@ -200,21 +203,20 @@ export function buildAiTools(ctx: AiToolContext) {
             player: playerName,
           })
 
-          const sameSlot = await db
-            .select()
-            .from(reservation)
-            .where(
-              and(
-                eq(reservation.clubId, ctx.clubId),
-                eq(reservation.spaceId, courtRow.id),
-                eq(reservation.date, date)
-              )
-            )
-          const conflict = findOverlap({ startTime, durationMinutes }, sameSlot)
+          // Another reservation or a class there at that time.
+          const conflict = await findSpaceConflict(ctx.clubId, {
+            spaceId: courtRow.id,
+            date,
+            startTime,
+            durationMinutes,
+          })
           if (conflict) {
             return {
               ok: false as const,
-              error: `Conflicts with ${conflict.player} at ${conflict.startTime}`,
+              error:
+                conflict.kind === "reservation"
+                  ? `Conflicts with ${conflict.who} at ${conflict.startTime}`
+                  : `Conflicts with a class at ${conflict.startTime}`,
             }
           }
 
