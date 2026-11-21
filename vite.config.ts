@@ -31,8 +31,16 @@ const config = defineConfig({
     ],
   },
   // Nitro builds the server output. The Dockerfile sets NITRO_PRESET=node-server
-  // for a self-contained Node bundle in .output/.
-  plugins: [devtools(), tailwindcss(), tanstackStart(), nitro(), viteReact()],
+  // for a self-contained Node bundle in .output/. traceDeps keeps pg out of the
+  // bundle, in .output/server/node_modules, so tracing can patch it
+  // (src/tracing.ts).
+  plugins: [
+    devtools(),
+    tailwindcss(),
+    tanstackStart(),
+    nitro({ traceDeps: ["pg"] }),
+    viteReact(),
+  ],
 })
 
 export default config

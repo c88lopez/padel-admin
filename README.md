@@ -23,6 +23,7 @@ It runs in the home Kubernetes cluster (the `vandelay-labs` workspace), deployed
 - **Database**: `padel_admin` on the cluster's shared Postgres (platform repo, `manifests/data/postgres.yaml`), through PgBouncer.
 - **Secrets**: `make secrets` creates `padel-admin-deps` (database URLs, Better Auth and API secrets, the AI Gateway key from `.env`). Generated values are kept on re-runs.
 - **Metrics**: Prometheus scrapes port 9464 (not exposed outside the cluster); `/api/metrics` only serves them in local dev.
+- **Logs and traces**: JSON logs on stdout, one line per request (`src/lib/logger.server.ts`), which Loki collects. In the cluster, OpenTelemetry traces (HTTP, Better Auth, Postgres) go to Tempo through Alloy (`src/tracing.ts`), and each log line's `trace_id` links to its trace in Grafana. Tracing is off locally.
 
 ## Getting started
 
