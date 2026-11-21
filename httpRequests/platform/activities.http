@@ -1,0 +1,60 @@
+# Requests for the hidden platform API's activity endpoints (app owners only).
+# Pick an environment from the selector at the top of the editor: "local"
+# (make tunnel, then make run, against padel_admin_dev) or "k8s" (the cluster's
+# NodePort, against the real database).
+#
+# Hosts and the template key are in http-client.env.json. The key and the club
+# id differ per environment and the key is a secret, so set them in
+# http-client.private.env.json (gitignored):
+#   {"k8s": {"platformApiKey": "…", "clubId": "…"}}
+# For k8s, the key is in the padel-admin-deps Secret:
+#   kubectl -n padel-admin get secret padel-admin-deps -o jsonpath='{.data.PLATFORM_API_KEY}' | base64 -d
+# For local, the dev server only accepts the key you put in .env as
+# PLATFORM_API_KEY (unset means every request is a 404).
+#
+# A missing or wrong key answers 404, not 401, so the endpoints stay hidden.
+
+### List the club's activities and every template
+GET {{host}}/api/platform/clubs/{{clubId}}/activities
+Authorization: Bearer {{platformApiKey}}
+
+> {%
+    client.test("returns 200 with activities and templates", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(Array.isArray(response.body.activities), "activities is not an array");
+        client.assert(Array.isArray(response.body.templates), "templates is not an array");
+    });
+%}
+
+### Enable an activity (creates it on first enable)
+PUT {{host}}/api/platform/clubs/{{clubId}}/activities/{{templateKey}}
+Authorization: Bearer {{platformApiKey}}
+Content-Type: application/json
+
+{
+  "active": true
+}
+
+> {%
+    client.test("returns 200 with the active activity", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.templateKey === request.environment.get("templateKey"), "wrong templateKey");
+        client.assert(response.body.active === true, "activity is not active");
+    });
+%}
+
+### Disable an activity (409 if it's the club's last active one)
+PUT {{host}}/api/platform/clubs/{{clubId}}/activities/{{templateKey}}
+Authorization: Bearer {{platformApiKey}}
+Content-Type: application/json
+
+{
+  "active": false
+}
+
+> {%
+    client.test("returns 200 with the inactive activity", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.active === false, "activity is still active");
+    });
+%}
