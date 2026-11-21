@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { allLevels } from "@/lib/activities/levels"
+import type { LevelScale } from "@/lib/activities/levels"
 import { cn } from "@/lib/utils"
 import { createTournament, updateTournament } from "@/lib/tournaments.functions"
 
@@ -79,6 +81,8 @@ export interface TournamentData {
 }
 
 interface Props {
+  // Levels offered as tournament categories (the club's levels activity).
+  levelScale: LevelScale
   trigger?: React.ReactNode
   tournament?: TournamentData & { id?: string }
   open?: boolean
@@ -97,6 +101,7 @@ function defaults(tournament?: TournamentData): FormInput {
 }
 
 export function NewTournamentDrawer({
+  levelScale,
   trigger,
   tournament,
   open: controlledOpen,
@@ -242,19 +247,7 @@ export function NewTournamentDrawer({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {[
-                        "C4",
-                        "C5",
-                        "C6",
-                        "C7",
-                        "C8",
-                        "D4",
-                        "D5",
-                        "D6",
-                        "D7",
-                        "D8",
-                        "Mixed",
-                      ].map((c) => (
+                      {[...allLevels(levelScale), "Mixed"].map((c) => (
                         <SelectItem key={c} value={c}>
                           {c === "Mixed" ? t("options.mixed") : c}
                         </SelectItem>

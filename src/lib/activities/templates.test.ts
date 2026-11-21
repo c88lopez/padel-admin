@@ -57,6 +57,13 @@ describe("activity templates", () => {
     }
   })
 
+  it("define a level scale exactly when they have the levels block", () => {
+    const templates: readonly ActivityTemplate[] = ACTIVITY_TEMPLATES
+    for (const template of templates) {
+      expect(Boolean(template.levels)).toBe(template.blocks.includes("levels"))
+    }
+  })
+
   it("are translated in every locale", () => {
     for (const template of ACTIVITY_TEMPLATES) {
       for (const key of [template.nameKey, template.descriptionKey]) {

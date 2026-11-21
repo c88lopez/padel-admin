@@ -2,10 +2,15 @@ import { and, asc, count, eq, max, ne } from "drizzle-orm"
 import { db } from "@/db"
 import { activity } from "@/db/schema"
 import { AppError } from "@/lib/errors"
-import { DEFAULT_TEMPLATE_KEY, getTemplate } from "@/lib/activities/templates"
+import {
+  DEFAULT_TEMPLATE_KEY,
+  getTemplate,
+  primaryActivity,
+} from "@/lib/activities/templates"
 import type {
   ActivityConfig,
   ActivitySummary,
+  BlockKey,
 } from "@/lib/activities/templates"
 import { resolveActivityConfig } from "@/lib/activities/config"
 
@@ -61,6 +66,14 @@ export async function listActivityRecords(
     .where(eq(activity.clubId, clubId))
     .orderBy(asc(activity.sortOrder), asc(activity.createdAt))
   return rows.flatMap((row) => toRecord(row) ?? [])
+}
+
+/** The club's activity that provides a building block (see primaryActivity). */
+export async function primaryActivityFor(
+  clubId: string,
+  block: BlockKey
+): Promise<ActivityRecord | undefined> {
+  return primaryActivity(await listActivityRecords(clubId), block)
 }
 
 /** Renames an activity; an empty name falls back to the template's name. */

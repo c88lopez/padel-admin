@@ -1,13 +1,9 @@
-import type {
-  NewCoach,
-  NewPlayer,
-  NewStockItem,
-  NewTournament,
-} from "@/db/schema"
+import type { NewCoach, NewStockItem, NewTournament } from "@/db/schema"
+import type { PlayerData } from "@/lib/players.server"
 
 // Initial player roster used to seed an empty database. Mirrors the data that
 // previously lived inline in the Players route.
-export const seedPlayers: Omit<NewPlayer, "id" | "createdAt" | "clubId">[] = [
+export const seedPlayers: PlayerData[] = [
   {
     fullName: "Carlos López",
     email: "carlos.lopez@email.com",

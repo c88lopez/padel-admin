@@ -1,6 +1,8 @@
 import { z } from "zod"
+import { primaryActivity } from "./templates"
 import type {
   ActivityConfig,
+  ActivitySummary,
   ActivityTemplate,
   BookingsConfig,
   SessionsConfig,
@@ -81,4 +83,27 @@ export function resolveActivityConfig(
       sessions: resolveSessions(sessions, overrides.sessions),
     }),
   }
+}
+
+interface ActivityWithConfig extends ActivitySummary {
+  config: ActivityConfig
+}
+
+/**
+ * Booking lengths to offer for a space: its activity's configured options (or
+ * the club's primary bookings activity when the space has none yet). An
+ * existing booking's length is always kept selectable, even if it's no longer
+ * an option.
+ */
+export function bookingDurations(
+  activities: readonly ActivityWithConfig[],
+  activityId: string | null | undefined,
+  current?: number
+): number[] {
+  const activity =
+    activities.find((a) => a.id === activityId) ??
+    primaryActivity(activities, "bookings")
+  const options = [...(activity?.config.bookings?.durationOptions ?? [])]
+  if (current !== undefined && !options.includes(current)) options.push(current)
+  return options.sort((a, b) => a - b)
 }

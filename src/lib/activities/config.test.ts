@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resolveActivityConfig } from "./config"
+import { bookingDurations, resolveActivityConfig } from "./config"
 import { getTemplate } from "./templates"
 import type { ActivityTemplate } from "./templates"
 
@@ -62,5 +62,45 @@ describe("resolveActivityConfig", () => {
     })
     expect(config.bookings).toBeUndefined()
     expect(config.sessions).toBeDefined()
+  })
+})
+
+describe("bookingDurations", () => {
+  const padelActivity = {
+    id: "padel-1",
+    templateKey: "padel",
+    name: null,
+    active: true,
+    config: resolveActivityConfig(padel, {
+      bookings: { durationOptions: [60, 90] },
+    }),
+  }
+  const pilatesActivity = {
+    id: "pilates-1",
+    templateKey: "pilates",
+    name: null,
+    active: true,
+    config: resolveActivityConfig(pilates, {}),
+  }
+
+  it("uses the space's activity options", () => {
+    expect(bookingDurations([padelActivity], "padel-1")).toEqual([60, 90])
+  })
+
+  it("falls back to the primary bookings activity for unassigned spaces", () => {
+    expect(bookingDurations([pilatesActivity, padelActivity], null)).toEqual([
+      60, 90,
+    ])
+  })
+
+  it("keeps an existing booking's length selectable", () => {
+    expect(bookingDurations([padelActivity], "padel-1", 75)).toEqual([
+      60, 75, 90,
+    ])
+    expect(bookingDurations([padelActivity], "padel-1", 90)).toEqual([60, 90])
+  })
+
+  it("offers nothing when no activity has bookings", () => {
+    expect(bookingDurations([pilatesActivity], null)).toEqual([])
   })
 })

@@ -9,6 +9,7 @@ import {
   doublePrecision,
   jsonb,
   unique,
+  index,
 } from "drizzle-orm/pg-core"
 import type { DayHours, Weekday } from "@/lib/reservation-settings"
 
@@ -121,8 +122,9 @@ export const verification = pgTable("verification", {
 
 // --- App domain tables ---
 
-// A bookable court. Belongs to exactly one club. `sortOrder` doubles as the
-// human-facing court number (1, 2, 3 …) used in labels like "Court 3".
+// A bookable space — a padel court today, later a pilates studio, pool lane or
+// pitch. Belongs to exactly one club and one activity. `sortOrder` doubles as
+// the human-facing number (1, 2, 3 …) used in labels like "Court 3".
 export const court = pgTable("court", {
   id: text("id")
     .primaryKey()
@@ -134,6 +136,11 @@ export const court = pgTable("court", {
   clubId: text("club_id")
     .notNull()
     .references(() => club.id, { onDelete: "cascade" }),
+  // Nullable until a later contract migration; null means the club's default
+  // bookings activity (see courts.server.ts).
+  // NO ACTION (checked at the end of the statement) rather than RESTRICT, so a
+  // club delete can cascade to its courts and activities in any order.
+  activityId: text("activity_id").references(() => activity.id),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -212,7 +219,7 @@ export const player = pgTable("player", {
   phone: text("phone").notNull(),
   age: integer("age").notNull(),
   gender: text("gender").notNull(),
-  category: text("category").notNull(),
+  // The padel level lives in customer_activity_profile.
   clubId: text("club_id")
     .notNull()
     .references(() => club.id, { onDelete: "cascade" }),
@@ -224,26 +231,63 @@ export const player = pgTable("player", {
 export type Player = typeof player.$inferSelect
 export type NewPlayer = typeof player.$inferInsert
 
-export const reservation = pgTable("reservation", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  courtId: text("court_id")
-    .notNull()
-    .references(() => court.id, { onDelete: "restrict" }),
-  player: text("player").notNull(),
-  bookedBy: text("booked_by").notNull(),
-  date: date("date").notNull(),
-  startTime: text("start_time").notNull(),
-  durationMinutes: integer("duration_minutes").notNull(),
-  paymentStatus: text("payment_status").notNull(),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+// Activity-specific data for a customer (one shared customer list per club).
+// Holds e.g. the padel level; activities without levels need no row.
+export const customerActivityProfile = pgTable(
+  "customer_activity_profile",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    customerId: text("customer_id")
+      .notNull()
+      .references(() => player.id, { onDelete: "cascade" }),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    level: text("level"),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (t) => [unique().on(t.customerId, t.activityId)]
+)
+
+export type CustomerActivityProfile =
+  typeof customerActivityProfile.$inferSelect
+
+export const reservation = pgTable(
+  "reservation",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    courtId: text("court_id")
+      .notNull()
+      .references(() => court.id, { onDelete: "restrict" }),
+    // Display snapshot of who the booking is for (free text, as typed).
+    player: text("player").notNull(),
+    // The matching customer, when the name identifies exactly one.
+    customerId: text("customer_id").references(() => player.id, {
+      onDelete: "set null",
+    }),
+    bookedBy: text("booked_by").notNull(),
+    date: date("date").notNull(),
+    startTime: text("start_time").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    paymentStatus: text("payment_status").notNull(),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (t) => [index("reservation_club_customer_idx").on(t.clubId, t.customerId)]
+)
 
 export type Reservation = typeof reservation.$inferSelect
 export type NewReservation = typeof reservation.$inferInsert

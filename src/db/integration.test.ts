@@ -10,6 +10,7 @@ import {
   activity,
   club,
   clubReservationSettings,
+  customerActivityProfile,
   coach,
   coachClass,
   court,
@@ -127,7 +128,6 @@ describe.skipIf(!TEST_URL)("database integration", () => {
           phone: "+34 600 000 000",
           age: 30,
           gender: "Male",
-          category: "B",
           clubId: CLUB_ID,
         })
         .returning()
@@ -137,13 +137,13 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
       await db
         .update(player)
-        .set({ category: "A" })
+        .set({ age: 31 })
         .where(eq(player.id, created.id))
       const [updated] = await db
         .select()
         .from(player)
         .where(eq(player.id, created.id))
-      expect(updated.category).toBe("A")
+      expect(updated.age).toBe(31)
 
       await db.delete(player).where(eq(player.id, created.id))
       expect(await db.select().from(player)).toHaveLength(0)
@@ -653,6 +653,189 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         await db.delete(club).where(eq(club.id, clubId))
       })
     })
+  })
+
+  describe("customers, profiles and spaces (P1)", () => {
+    const loadPlayers = () => import("@/lib/players.server")
+    const loadCourts = () => import("@/lib/courts.server")
+    let players: Awaited<ReturnType<typeof loadPlayers>>
+    let courts: Awaited<ReturnType<typeof loadCourts>>
+    let padelId: string
+
+    const base = {
+      email: "p@example.com",
+      phone: "600000000",
+      age: 30,
+      gender: "Male" as const,
+    }
+
+    beforeAll(async () => {
+      players = await loadPlayers()
+      courts = await loadCourts()
+      const [padel] = await db
+        .select()
+        .from(activity)
+        .where(
+          and(eq(activity.clubId, CLUB_ID), eq(activity.templateKey, "padel"))
+        )
+      padelId = padel.id
+    })
+
+    it("links courts without an activity to the club's padel activity", async () => {
+      await db
+        .update(court)
+        .set({ activityId: null })
+        .where(eq(court.id, COURT1_ID))
+      const list = await courts.listCourtRecords(CLUB_ID)
+      expect(list.find((c) => c.id === COURT1_ID)?.activityId).toBe(padelId)
+    })
+
+    it("stores a player's level in their padel profile", async () => {
+      const created = await players.createPlayerRecord(CLUB_ID, {
+        ...base,
+        fullName: "Level Player",
+        category: "C5",
+      })
+      const [profile] = await db
+        .select()
+        .from(customerActivityProfile)
+        .where(eq(customerActivityProfile.customerId, created.id))
+      expect(profile).toMatchObject({ activityId: padelId, level: "C5" })
+
+      await players.updatePlayerRecord(CLUB_ID, {
+        id: created.id,
+        ...base,
+        fullName: "Level Player",
+        category: "C4",
+      })
+      const profiles = await db
+        .select()
+        .from(customerActivityProfile)
+        .where(eq(customerActivityProfile.customerId, created.id))
+      expect(profiles.map((p) => p.level)).toEqual(["C4"])
+    })
+
+    it("lists the profile level, or none without a profile", async () => {
+      await players.createPlayerRecord(CLUB_ID, {
+        ...base,
+        fullName: "Has Profile",
+        category: "C6",
+      })
+      await db.insert(player).values({
+        ...base,
+        fullName: "No Profile",
+        clubId: CLUB_ID,
+      })
+      const list = await players.listPlayerRecords(CLUB_ID)
+      const levelOf = (name: string) =>
+        list.find((p) => p.fullName === name)?.category
+      expect(levelOf("Has Profile")).toBe("C6")
+      expect(levelOf("No Profile")).toBeNull()
+    })
+
+    it("matches a booking name to exactly one customer", async () => {
+      const ana = await players.createPlayerRecord(CLUB_ID, {
+        ...base,
+        fullName: "Ana Ruiz",
+        category: "C5",
+      })
+      expect(await players.findCustomerIdByName(CLUB_ID, "  ana ruiz ")).toBe(
+        ana.id
+      )
+      expect(await players.findCustomerIdByName(CLUB_ID, "Ana")).toBeNull()
+      // Another club never matches.
+      expect(
+        await players.findCustomerIdByName(CLUB_B_ID, "Ana Ruiz")
+      ).toBeNull()
+
+      // Two players with the same name are ambiguous.
+      await players.createPlayerRecord(CLUB_ID, {
+        ...base,
+        fullName: "ANA RUIZ",
+        category: "C6",
+      })
+      expect(await players.findCustomerIdByName(CLUB_ID, "Ana Ruiz")).toBeNull()
+    })
+
+    it("removes the profile and unlinks bookings when a player is deleted", async () => {
+      const gone = await players.createPlayerRecord(CLUB_ID, {
+        ...base,
+        fullName: "Leaving Player",
+        category: "C5",
+      })
+      const [booking] = await db
+        .insert(reservation)
+        .values({
+          courtId: COURT1_ID,
+          player: "Leaving Player",
+          customerId: gone.id,
+          bookedBy: "Front Desk",
+          date: "2026-01-01",
+          startTime: "10:00",
+          durationMinutes: 90,
+          paymentStatus: "paid",
+          clubId: CLUB_ID,
+        })
+        .returning()
+
+      await players.deletePlayerRecord(CLUB_ID, gone.id)
+
+      const profiles = await db
+        .select()
+        .from(customerActivityProfile)
+        .where(eq(customerActivityProfile.customerId, gone.id))
+      expect(profiles).toHaveLength(0)
+      const [after] = await db
+        .select()
+        .from(reservation)
+        .where(eq(reservation.id, booking.id))
+      expect(after).toMatchObject({
+        customerId: null,
+        player: "Leaving Player",
+      })
+    })
+
+    it("gives a new club's courts its padel activity", async () => {
+      const { createClubRecord } = await import("@/lib/clubs.server")
+      const created = await createClubRecord({
+        name: `Spaces ${randomUUID()}`,
+        status: "active",
+      })
+      const [clubPadel] = await db
+        .select()
+        .from(activity)
+        .where(eq(activity.clubId, created.id))
+      const rows = await db
+        .select()
+        .from(court)
+        .where(eq(court.clubId, created.id))
+      expect(rows).toHaveLength(6)
+      expect(new Set(rows.map((r) => r.activityId))).toEqual(
+        new Set([clubPadel.id])
+      )
+      await db.delete(court).where(eq(court.clubId, created.id))
+      await db.delete(club).where(eq(club.id, created.id))
+    })
+
+    it("deletes a provisioned club with its activities and courts", async () => {
+      const { createClubRecord, deleteClubRecord } =
+        await import("@/lib/clubs.server")
+      const created = await createClubRecord({
+        name: `Doomed ${randomUUID()}`,
+        status: "active",
+      })
+      await deleteClubRecord(created.id)
+      expect(await activitiesOfClub(created.id)).toHaveLength(0)
+      const rows = await db
+        .select()
+        .from(court)
+        .where(eq(court.clubId, created.id))
+      expect(rows).toHaveLength(0)
+    })
+
+    async function activitiesOfClub(clubId: string) {
+      return db.select().from(activity).where(eq(activity.clubId, clubId))
+    }
   })
 
   // Exercises the DB-backed per-player concurrency rule in

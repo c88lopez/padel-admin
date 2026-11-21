@@ -1,12 +1,23 @@
 import { tool } from "ai"
-import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm"
+import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
-import { court, player, reservation, stockItem } from "@/db/schema"
+import {
+  court,
+  customerActivityProfile,
+  player,
+  reservation,
+  stockItem,
+} from "@/db/schema"
 import { can } from "@/lib/permissions"
 import { assertCourtBookable } from "@/lib/courts.server"
 import { assertBookingAllowed } from "@/lib/reservation-settings.server"
 import { findOverlap } from "@/lib/reservation-overlap"
+import {
+  createPlayerRecord,
+  findCustomerIdByName,
+  levelsActivityId,
+} from "@/lib/players.server"
 import { AppError } from "@/lib/errors"
 
 // Context captured once per request in the chat route and closed over by the
@@ -65,6 +76,7 @@ export function buildAiTools(ctx: AiToolContext) {
           // values (e.g. ±Number.MAX_SAFE_INTEGER) to mean "no limit", which
           // overflow the integer `age` column and fail the query.
           const inAgeRange = (n: number) => n >= 0 && n <= 150
+          const activityId = (await levelsActivityId(ctx.clubId)) ?? null
           const conds = [eq(player.clubId, ctx.clubId)]
           if (minAge != null && inAgeRange(minAge))
             conds.push(gte(player.age, minAge))
@@ -72,7 +84,7 @@ export function buildAiTools(ctx: AiToolContext) {
             conds.push(lte(player.age, maxAge))
           if (gender) conds.push(eq(player.gender, gender))
           if (categories && categories.length > 0)
-            conds.push(inArray(player.category, categories))
+            conds.push(inArray(customerActivityProfile.level, categories))
           if (hasPhone) conds.push(ne(player.phone, ""))
 
           const rows = await db
@@ -83,9 +95,16 @@ export function buildAiTools(ctx: AiToolContext) {
               phone: player.phone,
               age: player.age,
               gender: player.gender,
-              category: player.category,
+              category: customerActivityProfile.level,
             })
             .from(player)
+            .leftJoin(
+              customerActivityProfile,
+              and(
+                eq(customerActivityProfile.customerId, player.id),
+                sql`${customerActivityProfile.activityId} = ${activityId}`
+              )
+            )
             .where(and(...conds))
             .orderBy(asc(player.fullName))
             .limit(100)
@@ -114,11 +133,11 @@ export function buildAiTools(ctx: AiToolContext) {
           if (!can(ctx.userRole, "players:manage")) {
             return { ok: false as const, error: "forbidden" }
           }
-          const [created] = await db
-            .insert(player)
-            .values({ ...data, clubId: ctx.clubId })
-            .returning({ id: player.id, fullName: player.fullName })
-          return { ok: true as const, player: created }
+          const created = await createPlayerRecord(ctx.clubId, data)
+          return {
+            ok: true as const,
+            player: { id: created.id, fullName: created.fullName },
+          }
         } catch (error) {
           return { ok: false as const, error: readableError(error) }
         }
@@ -197,6 +216,7 @@ export function buildAiTools(ctx: AiToolContext) {
             .values({
               courtId: courtRow.id,
               player: playerName,
+              customerId: await findCustomerIdByName(ctx.clubId, playerName),
               bookedBy: ctx.userName,
               date,
               startTime,

@@ -7,6 +7,8 @@
 import { IconBallTennis, IconStretching } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import type { TranslationKey } from "@/lib/i18n"
+import { PADEL_LEVELS } from "./levels"
+import type { LevelScale } from "./levels"
 
 export const BLOCK_KEYS = [
   "bookings",
@@ -42,6 +44,8 @@ export interface ActivityTemplate {
   available: boolean
   blocks: readonly BlockKey[]
   defaults: ActivityConfig
+  // Required when the template has the "levels" block.
+  levels?: LevelScale
 }
 
 export const ACTIVITY_TEMPLATES = [
@@ -59,6 +63,7 @@ export const ACTIVITY_TEMPLATES = [
       },
       sessions: { durationOptions: [60, 90, 120], defaultCapacity: null },
     },
+    levels: PADEL_LEVELS,
   },
   {
     key: "pilates",
@@ -89,6 +94,21 @@ export interface ActivitySummary {
   // Club-chosen name; null shows the template's translated name.
   name: string | null
   active: boolean
+}
+
+/**
+ * The activity that provides a building block: the first active one in the
+ * given (display) order, else the first inactive one. Used while the UI still
+ * assumes one activity per block, e.g. the level shown for a customer.
+ */
+export function primaryActivity<T extends ActivitySummary>(
+  activities: readonly T[],
+  block: BlockKey
+): T | undefined {
+  const withBlock = activities.filter((a) =>
+    (getTemplate(a.templateKey)?.blocks ?? []).includes(block)
+  )
+  return withBlock.find((a) => a.active) ?? withBlock.at(0)
 }
 
 /** Building blocks provided by the club's active, known activities. */

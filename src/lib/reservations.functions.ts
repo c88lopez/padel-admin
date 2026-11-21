@@ -10,6 +10,7 @@ import {
   resolveActiveClubId,
 } from "@/lib/auth.server"
 import { assertCourtBookable } from "@/lib/courts.server"
+import { findCustomerIdByName } from "@/lib/players.server"
 import {
   assertBookingAllowed,
   assertCancellationAllowed,
@@ -119,7 +120,12 @@ export const createReservation = createServerFn({ method: "POST" })
     if (conflict) conflictError(conflict)
     const [created] = await db
       .insert(reservation)
-      .values({ ...data, bookedBy: session.user.name, clubId })
+      .values({
+        ...data,
+        customerId: await findCustomerIdByName(clubId, data.player),
+        bookedBy: session.user.name,
+        clubId,
+      })
       .returning()
     return created
   })
@@ -137,7 +143,10 @@ export const updateReservation = createServerFn({ method: "POST" })
     if (conflict) conflictError(conflict)
     const [updated] = await db
       .update(reservation)
-      .set(values)
+      .set({
+        ...values,
+        customerId: await findCustomerIdByName(clubId, values.player),
+      })
       .where(and(eq(reservation.id, id), eq(reservation.clubId, clubId)))
       .returning()
     return updated

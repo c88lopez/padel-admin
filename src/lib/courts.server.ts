@@ -1,7 +1,8 @@
-import { and, asc, count, eq, sql } from "drizzle-orm"
+import { and, asc, count, eq, isNull, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { coachClass, court, reservation } from "@/db/schema"
 import { AppError } from "@/lib/errors"
+import { primaryActivityFor } from "@/lib/activities.server"
 
 // Pure data-access helpers for courts (no auth). Kept in a server-only module so
 // the Postgres driver (`pg`) never leaks into the client bundle. Shared by the
@@ -14,6 +15,7 @@ export interface CourtRecord {
   type: "indoor" | "outdoor"
   active: boolean
   sortOrder: number
+  activityId: string | null
 }
 
 export interface CourtInput {
@@ -28,6 +30,7 @@ function toRecord(row: {
   type: string
   active: boolean
   sortOrder: number
+  activityId: string | null
 }): CourtRecord {
   return {
     id: row.id,
@@ -35,10 +38,32 @@ function toRecord(row: {
     type: row.type === "outdoor" ? "outdoor" : "indoor",
     active: row.active,
     sortOrder: row.sortOrder,
+    activityId: row.activityId,
   }
 }
 
+// The activity new and unassigned courts belong to while the UI manages a
+// single bookings activity.
+async function bookingsActivityId(clubId: string): Promise<string | null> {
+  return (await primaryActivityFor(clubId, "bookings"))?.id ?? null
+}
+
+/**
+ * Idempotent: links courts without an activity to the club's bookings
+ * activity. Covers databases baselined without running migration 0012's
+ * backfill.
+ */
+export async function linkUnassignedCourts(clubId: string): Promise<void> {
+  const activityId = await bookingsActivityId(clubId)
+  if (!activityId) return
+  await db
+    .update(court)
+    .set({ activityId })
+    .where(and(eq(court.clubId, clubId), isNull(court.activityId)))
+}
+
 export async function listCourtRecords(clubId: string): Promise<CourtRecord[]> {
+  await linkUnassignedCourts(clubId)
   const rows = await db
     .select({
       id: court.id,
@@ -46,6 +71,7 @@ export async function listCourtRecords(clubId: string): Promise<CourtRecord[]> {
       type: court.type,
       active: court.active,
       sortOrder: court.sortOrder,
+      activityId: court.activityId,
     })
     .from(court)
     .where(eq(court.clubId, clubId))
@@ -70,6 +96,7 @@ export async function createCourtRecord(
       type: data.type,
       active: data.active,
       sortOrder: max + 1,
+      activityId: await bookingsActivityId(clubId),
     })
     .returning()
   return toRecord(created)
@@ -161,6 +188,7 @@ export async function seedDefaultCourts(
     .where(eq(court.clubId, clubId))
     .limit(1)
   if (existing.length > 0) return
+  const activityId = await bookingsActivityId(clubId)
   await db.insert(court).values(
     Array.from({ length: countOf }, (_, i) => ({
       clubId,
@@ -168,6 +196,7 @@ export async function seedDefaultCourts(
       type: "indoor",
       active: true,
       sortOrder: i + 1,
+      activityId,
     }))
   )
 }

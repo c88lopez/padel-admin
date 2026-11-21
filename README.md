@@ -32,7 +32,7 @@ There's no local database: development uses its own databases on the cluster's P
 bun install
 cp .env.example .env   # add AI_GATEWAY_API_KEY for the assistant
 make dev-setup         # once: the dev, test and e2e databases
-make tunnel            # in its own terminal: Postgres on localhost:5433
+make tunnel            # in its own terminal: Postgres on localhost:5432
 make dev-reset         # once (and whenever you want a clean slate): demo data in padel_admin_dev
 make run               # dev server on http://localhost:3003, on padel_admin_dev
 ```

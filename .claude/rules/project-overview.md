@@ -23,7 +23,7 @@ bun run lint       # ESLint
 bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
 bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)
-make tunnel        # cluster Postgres on localhost:5433 (keep it running)
+make tunnel        # cluster Postgres on localhost:5432 (keep it running)
 make dev-reset     # empty padel_admin_dev and load demo data (first time too)
 make run           # migrate padel_admin_dev, then the dev server on it
 make test          # unit + integration (padel_admin_test)
@@ -57,4 +57,7 @@ Clubs offer one or more **activities** (padel today; pilates, football and swim 
 - Navigation entries declare the `block` they need (`src/lib/navigation.ts`); the sidebar and command palette only show entries whose block an active activity provides.
 - `ensureDefaultActivities(clubId)` (`src/lib/activities.server.ts`) gives a club padel when it has no activities. It runs on club creation and lazily on reads, so it also covers databases baselined without running migration backfills.
 - Only the app's owners enable/disable activities, through the hidden platform API (`PUT /api/platform/clubs/:clubId/activities/:templateKey` with `{ "active": bool }`, `GET …/activities` to inspect). Templates marked `available: false` can't be enabled, and a club must keep at least one enabled activity. Club admins can only rename activities in Settings → Activities.
+- Spaces: `court` rows belong to an activity (`activity_id`); `linkUnassignedCourts` links legacy rows lazily. Booking length options come from the space's activity config (`bookingDurations`).
+- Customers: one `player` list per club; activity-specific data (the padel level) lives in `customer_activity_profile` via `src/lib/players.server.ts`. Level scales live in the template (`src/lib/activities/levels.ts`); UI reads them with `usePrimaryLevelScale()`.
+- Bookings keep the typed name and link `customer_id` only when it matches exactly one player (`findCustomerIdByName`).
 - New sport = new template. Add DB columns/tables only for genuinely new building blocks, as additive migrations.
