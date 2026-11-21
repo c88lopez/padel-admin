@@ -13,6 +13,7 @@ import { NewStockItemDrawer } from "@/components/new-stock-item-drawer"
 import { RowActions } from "@/components/row-actions"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/app-settings"
+import { stockCategoryLabel } from "@/lib/inventory"
 import {
   deleteStockItem,
   listStockItems,
@@ -166,7 +167,9 @@ function buildStockColumns(
       meta: { className: "w-[448px] text-center" },
       cell: ({ row }) => (
         <div className="flex justify-center">
-          <Badge variant="outline">{row.getValue("category")}</Badge>
+          <Badge variant="outline">
+            {stockCategoryLabel(t, row.getValue<string>("category"))}
+          </Badge>
         </div>
       ),
     },
