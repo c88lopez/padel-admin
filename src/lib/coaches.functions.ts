@@ -28,13 +28,13 @@ export const listCoaches = createServerFn({ method: "GET" }).handler(async () =>
 )
 
 export const createCoach = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => coachInput.parse(data))
+  .validator((data: unknown) => coachInput.parse(data))
   .handler(async ({ data }) =>
     createCoachRecord(await requireClubId("coaches:manage"), data)
   )
 
 export const updateCoach = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     coachInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) =>
@@ -42,9 +42,7 @@ export const updateCoach = createServerFn({ method: "POST" })
   )
 
 export const deleteCoach = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("coaches:manage")
     await db

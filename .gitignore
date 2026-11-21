@@ -27,3 +27,6 @@ todos.json
 /blob-report
 /playwright/.cache
 e2e/.auth/*.json
+
+# JetBrains HTTP client secrets
+http-client.private.env.json
