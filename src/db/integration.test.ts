@@ -606,6 +606,153 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await db.delete(club).where(eq(club.id, clubId))
     })
 
+    // Customers of the club, inserted directly.
+    async function customers(clubId: string, n: number): Promise<string[]> {
+      const rows = await db
+        .insert(player)
+        .values(
+          Array.from({ length: n }, (_, i) => ({
+            fullName: `Customer ${i + 1}`,
+            email: `c${i + 1}@example.com`,
+            phone: "600000000",
+            age: 30,
+            gender: "Female",
+            clubId,
+          }))
+        )
+        .returning()
+      return rows.map((r) => r.id)
+    }
+
+    it("signs customers up until the class is full", async () => {
+      const { clubId, studio, base } = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+        capacity: 2,
+      })
+      const [a, b, c] = await customers(clubId, 3)
+      await classes.addAttendeeRecord(clubId, cls.id, a)
+      await classes.addAttendeeRecord(clubId, cls.id, b)
+      // Signing up again is a no-op, not a second place.
+      await classes.addAttendeeRecord(clubId, cls.id, a)
+      await expect(
+        classes.addAttendeeRecord(clubId, cls.id, c)
+      ).rejects.toThrow("errors.class.full")
+      expect(
+        (await classes.listAttendeeRecords(clubId, cls.id)).map(
+          (r) => r.playerId
+        )
+      ).toEqual([a, b])
+
+      // Removing someone frees a place.
+      await classes.removeAttendeeRecord(clubId, cls.id, a)
+      await classes.addAttendeeRecord(clubId, cls.id, c)
+      expect(await classes.listAttendeeRecords(clubId, cls.id)).toHaveLength(2)
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("never gives the last place twice", async () => {
+      const { clubId, studio, base } = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+        capacity: 1,
+      })
+      const [first, second] = await customers(clubId, 2)
+
+      // Another sign-up holds the class row and takes the last place, but
+      // hasn't committed yet.
+      const other = await pool.connect()
+      await other.query("BEGIN")
+      await other.query("SELECT id FROM coach_class WHERE id = $1 FOR UPDATE", [
+        cls.id,
+      ])
+      await other.query(
+        "INSERT INTO coach_class_attendee (class_id, player_id, created_at) VALUES ($1, $2, now())",
+        [cls.id, first]
+      )
+
+      // This one has to wait for that lock, then sees the class full. Without
+      // the lock it would count 0 attendees and take the place too.
+      const pending = classes.addAttendeeRecord(clubId, cls.id, second).then(
+        () => "added",
+        (err: unknown) => String(err)
+      )
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await other.query("COMMIT")
+      other.release()
+
+      expect(await pending).toContain("errors.class.full")
+      expect(await classes.listAttendeeRecords(clubId, cls.id)).toHaveLength(1)
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("has no limit without a capacity", async () => {
+      const { clubId, court, base } = await clubWithClasses()
+      const lesson = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: court.id,
+      })
+      for (const id of await customers(clubId, 3)) {
+        await classes.addAttendeeRecord(clubId, lesson.id, id)
+      }
+      expect(await classes.listAttendeeRecords(clubId, lesson.id)).toHaveLength(
+        3
+      )
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("won't lower the capacity below who's signed up", async () => {
+      const { clubId, studio, base } = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+        capacity: 3,
+      })
+      for (const id of await customers(clubId, 2)) {
+        await classes.addAttendeeRecord(clubId, cls.id, id)
+      }
+      const edit = { ...base, id: cls.id, spaceId: studio.id }
+      await expect(
+        classes.updateClassRecord(clubId, { ...edit, capacity: 1 })
+      ).rejects.toThrow("errors.class.capacityBelowAttendees")
+      expect(
+        await classes.updateClassRecord(clubId, { ...edit, capacity: 2 })
+      ).toMatchObject({ capacity: 2 })
+      expect(
+        await classes.updateClassRecord(clubId, { ...edit, capacity: null })
+      ).toMatchObject({ capacity: null })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("keeps attendees within the club", async () => {
+      const { clubId, studio, base } = await clubWithClasses()
+      const other = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+      })
+      const [mine] = await customers(clubId, 1)
+      const [theirs] = await customers(other.clubId, 1)
+
+      await expect(
+        classes.addAttendeeRecord(clubId, cls.id, theirs)
+      ).rejects.toThrow("errors.class.playerNotFound")
+      await expect(
+        classes.addAttendeeRecord(other.clubId, cls.id, theirs)
+      ).rejects.toThrow("errors.class.notFound")
+
+      await classes.addAttendeeRecord(clubId, cls.id, mine)
+      expect(await classes.listAttendeeRecords(other.clubId, cls.id)).toEqual(
+        []
+      )
+      await classes.removeAttendeeRecord(other.clubId, cls.id, mine)
+      expect(await classes.listAttendeeRecords(clubId, cls.id)).toHaveLength(1)
+      await db.delete(club).where(eq(club.id, clubId))
+      await db.delete(club).where(eq(club.id, other.clubId))
+    })
+
     it("rejects a coach who doesn't teach the activity", async () => {
       const { clubId, pilates, studio, base } = await clubWithClasses()
       await db

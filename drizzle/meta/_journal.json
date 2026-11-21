@@ -127,6 +127,13 @@
       "when": 1795238375478,
       "tag": "0017_coach_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795239081572,
+      "tag": "0018_class_attendees",
+      "breakpoints": true
     }
   ]
 }

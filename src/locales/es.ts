@@ -59,6 +59,13 @@ export const es: DeepString<typeof en> = {
       cannotArchiveSelf: "No puedes archivar tu propia cuenta.",
       cannotDeleteSelf: "No puedes eliminar tu propia cuenta.",
     },
+    class: {
+      notFound: "Esa clase ya no existe.",
+      playerNotFound: "Ese cliente ya no existe.",
+      full: "Esta clase está completa.",
+      capacityBelowAttendees:
+        "Ya hay {{count}} clientes inscritos. Pon una capacidad de al menos {{count}}, o quita algunos primero.",
+    },
     coach: {
       activityRequired:
         "Elige al menos una actividad que enseñe este entrenador.",
@@ -421,6 +428,17 @@ export const es: DeepString<typeof en> = {
       recordedOne: "{{count}} artículo guardado y stock actualizado.",
       recordedOther: "{{count}} artículos guardados y stock actualizado.",
       errorDescription: "No se pudo guardar la venta. Inténtalo de nuevo.",
+    },
+    attendees: {
+      title: "Inscritos",
+      placesTaken: "{{count}} de {{capacity}} plazas ocupadas",
+      signedUp: "{{count}} inscritos, sin límite",
+      empty: "Todavía no hay nadie inscrito.",
+      addPlaceholder: "Elige un cliente",
+      add: "Agregar",
+      remove: "Quitar a {{name}}",
+      added: "{{name}} inscrito",
+      removed: "Se quitó a {{name}}",
     },
     class: {
       titleNew: "Nueva clase",
@@ -813,7 +831,7 @@ export const es: DeepString<typeof en> = {
       statusOngoing: "En curso",
       statusCompleted: "Completada",
       allActivities: "Todas las actividades",
-      noLimit: "Sin límite",
+      attendees: "Inscritos",
     },
     stock: {
       title: "Stock",

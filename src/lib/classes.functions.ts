@@ -1,10 +1,18 @@
 import { createServerFn } from "@tanstack/react-start"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
-import { coach, coachClass, space } from "@/db/schema"
+import { coach, coachClass, coachClassAttendee, space } from "@/db/schema"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
-import { createClassRecord, updateClassRecord } from "@/lib/classes.server"
+import {
+  addAttendeeRecord,
+  createClassRecord,
+  listAttendeeRecords,
+  removeAttendeeRecord,
+  updateClassRecord,
+} from "@/lib/classes.server"
+
+export type { AttendeeRecord } from "@/lib/classes.server"
 
 const classInput = z.object({
   coachId: z.string().min(1),
@@ -29,6 +37,7 @@ export interface ClassRecord {
   startTime: string
   durationMinutes: number
   capacity: number | null
+  attendeeCount: number
 }
 
 export const listClasses = createServerFn({ method: "GET" }).handler(
@@ -48,6 +57,10 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
         startTime: coachClass.startTime,
         durationMinutes: coachClass.durationMinutes,
         capacity: coachClass.capacity,
+        attendeeCount: sql<number>`(
+          select count(*)::int from ${coachClassAttendee}
+          where ${coachClassAttendee.classId} = ${coachClass.id}
+        )`,
       })
       .from(coachClass)
       .innerJoin(space, eq(coachClass.spaceId, space.id))
@@ -87,3 +100,36 @@ export const deleteClass = createServerFn({ method: "POST" })
       .where(and(eq(coachClass.id, data.id), eq(coachClass.clubId, clubId)))
     return { id: data.id }
   })
+
+const attendeeInput = z.object({
+  classId: z.string().min(1),
+  playerId: z.string().min(1),
+})
+
+export const listClassAttendees = createServerFn({ method: "GET" })
+  .inputValidator((data: unknown) =>
+    z.object({ classId: z.string().min(1) }).parse(data)
+  )
+  .handler(async ({ data }) =>
+    listAttendeeRecords(await currentClubId(), data.classId)
+  )
+
+export const addClassAttendee = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => attendeeInput.parse(data))
+  .handler(async ({ data }) =>
+    addAttendeeRecord(
+      await requireClubId("coaches:manage"),
+      data.classId,
+      data.playerId
+    )
+  )
+
+export const removeClassAttendee = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => attendeeInput.parse(data))
+  .handler(async ({ data }) =>
+    removeAttendeeRecord(
+      await requireClubId("coaches:manage"),
+      data.classId,
+      data.playerId
+    )
+  )

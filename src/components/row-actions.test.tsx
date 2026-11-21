@@ -40,4 +40,15 @@ describe("RowActions", () => {
     await user.click(screen.getByRole("button"))
     expect(await screen.findByText("Remove")).toBeInTheDocument()
   })
+
+  it("shows row-specific items", async () => {
+    const user = userEvent.setup()
+    const onClick = vi.fn()
+    render(<RowActions extraItems={[{ label: "Attendees", onClick }]} />)
+
+    await user.click(screen.getByRole("button"))
+    await user.click(await screen.findByText("Attendees"))
+
+    expect(onClick).toHaveBeenCalledOnce()
+  })
 })

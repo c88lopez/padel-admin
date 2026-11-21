@@ -54,6 +54,13 @@ export const en = {
       cannotArchiveSelf: "You cannot archive your own account.",
       cannotDeleteSelf: "You cannot delete your own account.",
     },
+    class: {
+      notFound: "That class no longer exists.",
+      playerNotFound: "That customer no longer exists.",
+      full: "This class is full.",
+      capacityBelowAttendees:
+        "{{count}} customers are already signed up. Set a capacity of at least {{count}}, or remove some first.",
+    },
     coach: {
       activityRequired: "Pick at least one activity this coach teaches.",
       wrongActivity:
@@ -409,6 +416,17 @@ export const en = {
       recordedOne: "{{count}} item saved and stock updated.",
       recordedOther: "{{count}} items saved and stock updated.",
       errorDescription: "The sale could not be saved. Please try again.",
+    },
+    attendees: {
+      title: "Attendees",
+      placesTaken: "{{count}} of {{capacity}} places taken",
+      signedUp: "{{count}} signed up, no limit",
+      empty: "Nobody is signed up yet.",
+      addPlaceholder: "Choose a customer",
+      add: "Add",
+      remove: "Remove {{name}}",
+      added: "{{name}} signed up",
+      removed: "{{name}} removed",
     },
     class: {
       titleNew: "New Class",
@@ -794,7 +812,7 @@ export const en = {
       statusOngoing: "In progress",
       statusCompleted: "Completed",
       allActivities: "All activities",
-      noLimit: "No limit",
+      attendees: "Attendees",
     },
     stock: {
       title: "Stock",
