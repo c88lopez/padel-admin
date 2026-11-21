@@ -31,4 +31,4 @@ function getRouter() {
 - `@/*` path alias maps to `src/`.
 - ESLint extends `@tanstack/eslint-config`; `src/components/ui/**` and generated dirs are ignored. Don't disable lint rules to silence problems — fix the cause.
 - Add a comment only to explain non-obvious *why*, never to narrate *what* the code does.
-- Before opening a PR, ensure `bun run typecheck`, `bun run lint`, and `bun run test` pass.
+- Before opening a PR, ensure `bun run typecheck`, `bun run lint`, `bun run check` (Prettier) and `make test` pass. CI runs all of them.
