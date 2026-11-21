@@ -12,6 +12,8 @@ import {
 } from "@/lib/auth.server"
 import { can } from "@/lib/permissions"
 import { AppError } from "@/lib/errors"
+import { listActivityRecords } from "@/lib/activities.server"
+import type { ActivitySummary } from "@/lib/activities/templates"
 import {
   createClubRecord,
   deleteClubRecord,
@@ -90,6 +92,8 @@ export interface ClubContext {
   activeClubName: string | null
   isSuper: boolean
   clubs: { id: string; name: string }[]
+  // The active club's activities; drives which sections the navigation shows.
+  activities: ActivitySummary[]
 }
 
 // Club context for the sidebar club switcher. Super-admins receive every club;
@@ -125,7 +129,17 @@ export const getClubContext = createServerFn({ method: "GET" }).handler(
         activeClubName = rows[0]?.name ?? null
       }
     }
-    return { activeClubId, activeClubName, isSuper, clubs }
+    const activities = activeClubId
+      ? (await listActivityRecords(activeClubId)).map(
+          ({ id, templateKey, name, active }) => ({
+            id,
+            templateKey,
+            name,
+            active,
+          })
+        )
+      : []
+    return { activeClubId, activeClubName, isSuper, clubs, activities }
   }
 )
 

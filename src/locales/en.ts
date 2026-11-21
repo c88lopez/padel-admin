@@ -35,6 +35,9 @@ export const en = {
     forbidden: "Forbidden",
     noClub: "No club is available for this account.",
     clubContextRequired: "This action requires a club context.",
+    activity: {
+      notFound: "Activity not found.",
+    },
     club: {
       notFound: "Club not found.",
       noAccess: "You don't have access to that club.",
@@ -136,6 +139,7 @@ export const en = {
       notificationSettings: "Notification settings",
       users: "Users",
       appearance: "Appearance",
+      activitySettings: "Activities",
     },
   },
   assistant: {
@@ -168,6 +172,16 @@ export const en = {
         "Microphone access is blocked. Allow it in your browser settings to use voice.",
       noSpeech: "No speech detected. Try again.",
       failed: "Couldn't transcribe the recording. Try again.",
+    },
+  },
+  activities: {
+    padel: {
+      name: "Padel",
+      description: "Court bookings, lessons, tournaments and player levels.",
+    },
+    pilates: {
+      name: "Pilates",
+      description: "Group classes with a limited number of spots.",
     },
   },
   notifications: {
@@ -422,11 +436,25 @@ export const en = {
       "Manage your club, reservations, notifications, users and appearance.",
     nav: {
       general: "General",
+      activities: "Activities",
       reservations: "Reservations",
       notifications: "Notifications",
       users: "Users",
       clubs: "Clubs",
       ui: "UI",
+    },
+    activities: {
+      title: "Activities",
+      description:
+        "Choose what your club offers. Each activity adds its own sections to the app.",
+      statusEnabled: "Enabled",
+      statusDisabled: "Disabled",
+      managedNote:
+        "Activities are enabled by the app's owners. Contact support to add one.",
+      nameLabel: "Display name",
+      nameHint: "Leave empty to use the default name.",
+      renamedToast: "Activity renamed",
+      updateError: "Could not update the activity",
     },
     ui: {
       title: "UI",

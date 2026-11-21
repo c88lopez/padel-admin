@@ -27,6 +27,7 @@ import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedInventoryDashboardRouteImport } from './routes/_authenticated/inventory/dashboard'
 import { Route as AuthenticatedInventorySalesLogRouteImport } from './routes/_authenticated/inventory/sales-log'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedSettingsActivitiesRouteImport } from './routes/_authenticated/settings/activities'
 import { Route as AuthenticatedSettingsClubsRouteImport } from './routes/_authenticated/settings/clubs'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings/general'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
@@ -38,6 +39,8 @@ import { Route as ApiClubsIndexRouteImport } from './routes/api/clubs/index'
 import { Route as ApiClubsIdRouteImport } from './routes/api/clubs/$id'
 import { Route as ApiUsersIndexRouteImport } from './routes/api/users/index'
 import { Route as ApiUsersIdRouteImport } from './routes/api/users/$id'
+import { Route as ApiPlatformClubsClubIdActivitiesIndexRouteImport } from './routes/api/platform/clubs/$clubId/activities/index'
+import { Route as ApiPlatformClubsClubIdActivitiesTemplateKeyRouteImport } from './routes/api/platform/clubs/$clubId/activities/$templateKey'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -136,6 +139,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsActivitiesRoute =
+  AuthenticatedSettingsActivitiesRouteImport.update({
+    id: '/activities',
+    path: '/activities',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsClubsRoute =
   AuthenticatedSettingsClubsRouteImport.update({
     id: '/clubs',
@@ -196,6 +205,18 @@ const ApiUsersIdRoute = ApiUsersIdRouteImport.update({
   path: '/api/users/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPlatformClubsClubIdActivitiesIndexRoute =
+  ApiPlatformClubsClubIdActivitiesIndexRouteImport.update({
+    id: '/api/platform/clubs/$clubId/activities/',
+    path: '/api/platform/clubs/$clubId/activities/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPlatformClubsClubIdActivitiesTemplateKeyRoute =
+  ApiPlatformClubsClubIdActivitiesTemplateKeyRouteImport.update({
+    id: '/api/platform/clubs/$clubId/activities/$templateKey',
+    path: '/api/platform/clubs/$clubId/activities/$templateKey',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -212,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/coaches/classes': typeof AuthenticatedCoachesClassesRoute
   '/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
+  '/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
   '/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -226,6 +248,8 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/api/clubs/': typeof ApiClubsIndexRoute
   '/api/users/': typeof ApiUsersIndexRoute
+  '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
+  '/api/platform/clubs/$clubId/activities/': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -241,6 +265,7 @@ export interface FileRoutesByTo {
   '/coaches/classes': typeof AuthenticatedCoachesClassesRoute
   '/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
+  '/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
   '/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -255,6 +280,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/api/clubs': typeof ApiClubsIndexRoute
   '/api/users': typeof ApiUsersIndexRoute
+  '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
+  '/api/platform/clubs/$clubId/activities': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -273,6 +300,7 @@ export interface FileRoutesById {
   '/_authenticated/coaches/classes': typeof AuthenticatedCoachesClassesRoute
   '/_authenticated/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/_authenticated/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
+  '/_authenticated/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
   '/_authenticated/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -287,6 +315,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/api/clubs/': typeof ApiClubsIndexRoute
   '/api/users/': typeof ApiUsersIndexRoute
+  '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
+  '/api/platform/clubs/$clubId/activities/': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -305,6 +335,7 @@ export interface FileRouteTypes {
     | '/coaches/classes'
     | '/inventory/dashboard'
     | '/inventory/sales-log'
+    | '/settings/activities'
     | '/settings/clubs'
     | '/settings/general'
     | '/settings/notifications'
@@ -319,6 +350,8 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/api/clubs/'
     | '/api/users/'
+    | '/api/platform/clubs/$clubId/activities/$templateKey'
+    | '/api/platform/clubs/$clubId/activities/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -334,6 +367,7 @@ export interface FileRouteTypes {
     | '/coaches/classes'
     | '/inventory/dashboard'
     | '/inventory/sales-log'
+    | '/settings/activities'
     | '/settings/clubs'
     | '/settings/general'
     | '/settings/notifications'
@@ -348,6 +382,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/clubs'
     | '/api/users'
+    | '/api/platform/clubs/$clubId/activities/$templateKey'
+    | '/api/platform/clubs/$clubId/activities'
   id:
     | '__root__'
     | '/_authenticated'
@@ -365,6 +401,7 @@ export interface FileRouteTypes {
     | '/_authenticated/coaches/classes'
     | '/_authenticated/inventory/dashboard'
     | '/_authenticated/inventory/sales-log'
+    | '/_authenticated/settings/activities'
     | '/_authenticated/settings/clubs'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/notifications'
@@ -379,6 +416,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/api/clubs/'
     | '/api/users/'
+    | '/api/platform/clubs/$clubId/activities/$templateKey'
+    | '/api/platform/clubs/$clubId/activities/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -394,6 +433,8 @@ export interface RootRouteChildren {
   ApiUsersIdRoute: typeof ApiUsersIdRoute
   ApiClubsIndexRoute: typeof ApiClubsIndexRoute
   ApiUsersIndexRoute: typeof ApiUsersIndexRoute
+  ApiPlatformClubsClubIdActivitiesTemplateKeyRoute: typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
+  ApiPlatformClubsClubIdActivitiesIndexRoute: typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -524,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/activities': {
+      id: '/_authenticated/settings/activities'
+      path: '/activities'
+      fullPath: '/settings/activities'
+      preLoaderRoute: typeof AuthenticatedSettingsActivitiesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/clubs': {
       id: '/_authenticated/settings/clubs'
       path: '/clubs'
@@ -601,10 +649,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUsersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/platform/clubs/$clubId/activities/': {
+      id: '/api/platform/clubs/$clubId/activities/'
+      path: '/api/platform/clubs/$clubId/activities'
+      fullPath: '/api/platform/clubs/$clubId/activities/'
+      preLoaderRoute: typeof ApiPlatformClubsClubIdActivitiesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/platform/clubs/$clubId/activities/$templateKey': {
+      id: '/api/platform/clubs/$clubId/activities/$templateKey'
+      path: '/api/platform/clubs/$clubId/activities/$templateKey'
+      fullPath: '/api/platform/clubs/$clubId/activities/$templateKey'
+      preLoaderRoute: typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsActivitiesRoute: typeof AuthenticatedSettingsActivitiesRoute
   AuthenticatedSettingsClubsRoute: typeof AuthenticatedSettingsClubsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
@@ -615,6 +678,7 @@ interface AuthenticatedSettingsRouteChildren {
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsActivitiesRoute: AuthenticatedSettingsActivitiesRoute,
   AuthenticatedSettingsClubsRoute: AuthenticatedSettingsClubsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsNotificationsRoute:
@@ -674,6 +738,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiUsersIdRoute: ApiUsersIdRoute,
   ApiClubsIndexRoute: ApiClubsIndexRoute,
   ApiUsersIndexRoute: ApiUsersIndexRoute,
+  ApiPlatformClubsClubIdActivitiesTemplateKeyRoute:
+    ApiPlatformClubsClubIdActivitiesTemplateKeyRoute,
+  ApiPlatformClubsClubIdActivitiesIndexRoute:
+    ApiPlatformClubsClubIdActivitiesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

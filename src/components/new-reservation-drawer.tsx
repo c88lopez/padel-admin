@@ -16,6 +16,10 @@ import {
   updateReservation,
 } from "@/lib/reservations.functions"
 import type { CourtRecord } from "@/lib/courts.functions"
+import type { ActivityRecord } from "@/lib/activities.functions"
+import { bookingDurations } from "@/lib/activities/config"
+import { formatDuration } from "@/lib/classes"
+import type { TranslationKey } from "@/lib/i18n"
 import {
   Drawer,
   DrawerClose,
@@ -49,6 +53,19 @@ import {
 import { cn } from "@/lib/utils"
 import { translateError } from "@/lib/errors"
 
+const DURATION_LABELS: Partial<Record<number, TranslationKey>> = {
+  60: "options.oneHour",
+  90: "options.onePointFiveHours",
+  120: "options.twoHours",
+  150: "options.twoPointFiveHours",
+  180: "options.threeHours",
+}
+
+function durationLabel(minutes: number, t: TFunction): string {
+  const key = DURATION_LABELS[minutes]
+  return key ? t(key) : formatDuration(minutes)
+}
+
 function makeSchema(t: TFunction) {
   return z.object({
     player: z.string().min(1, t("validation.playerRequired")),
@@ -76,6 +93,8 @@ interface Props {
   trigger?: React.ReactNode
   reservation?: ReservationData & { id?: string }
   courts: CourtRecord[]
+  // The club's activities; booking lengths come from the court's activity.
+  activities: ActivityRecord[]
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSaved?: () => void
@@ -85,6 +104,7 @@ export function NewReservationDrawer({
   trigger,
   reservation,
   courts: allCourts,
+  activities,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   onSaved,
@@ -114,6 +134,17 @@ export function NewReservationDrawer({
       paymentStatus: "",
     },
   })
+
+  const courtId = form.watch("courtId")
+  const durations = useMemo(
+    () =>
+      bookingDurations(
+        activities,
+        allCourts.find((c) => c.id === courtId)?.activityId,
+        reservation ? Number(reservation.duration) : undefined
+      ),
+    [activities, allCourts, courtId, reservation]
+  )
 
   useEffect(() => {
     if (open) {
@@ -299,19 +330,11 @@ export function NewReservationDrawer({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="60">{t("options.oneHour")}</SelectItem>
-                      <SelectItem value="90">
-                        {t("options.onePointFiveHours")}
-                      </SelectItem>
-                      <SelectItem value="120">
-                        {t("options.twoHours")}
-                      </SelectItem>
-                      <SelectItem value="150">
-                        {t("options.twoPointFiveHours")}
-                      </SelectItem>
-                      <SelectItem value="180">
-                        {t("options.threeHours")}
-                      </SelectItem>
+                      {durations.map((minutes) => (
+                        <SelectItem key={minutes} value={String(minutes)}>
+                          {durationLabel(minutes, t)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { ENGLISH_STATE } from "./e2e/helpers"
+import { ENGLISH_STATE, PLATFORM_API_KEY } from "./e2e/helpers"
 
 // E2E runs on its own port + database so it never touches your dev server (3003)
 // or dev DB. The app reads `DATABASE_URL` from the environment (injected below),
@@ -76,6 +76,7 @@ export default defineConfig({
       DATABASE_URL,
       BETTER_AUTH_URL: baseURL,
       BETTER_AUTH_SECRET,
+      PLATFORM_API_KEY,
     },
   },
 })

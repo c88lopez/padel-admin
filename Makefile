@@ -26,14 +26,14 @@ DEV_PASS = $(eval DEV_PASS := $(call uri,$(call secret,padel-admin-dev-postgres-
 # The deployed app's user: only `secrets` and `seed`, which act on the cluster.
 PG_PASS  = $(eval PG_PASS := $(call uri,$(call secret,padel-admin-postgres-role,password)))$(PG_PASS)
 
-LOCAL_DATABASE_URL      ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_dev
-LOCAL_TEST_DATABASE_URL ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_test
-LOCAL_E2E_DATABASE_URL  ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5433/padel_admin_e2e
+LOCAL_DATABASE_URL      ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_dev
+LOCAL_TEST_DATABASE_URL ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_test
+LOCAL_E2E_DATABASE_URL  ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_e2e
 
-# Leave it running in its own terminal. The same port as importer's and
-# deny-list's tunnels, so any one of them serves all three.
-tunnel: ## forward the cluster's Postgres to localhost:5433
-	kubectl -n $(DATA_NS) port-forward svc/postgres-rw 5433:5432
+# Leave it running in its own terminal. Postgres's default port: there's no
+# local Postgres to clash with (importer's and deny-list's tunnels use 5433).
+tunnel: ## forward the cluster's Postgres to localhost:5432
+	kubectl -n $(DATA_NS) port-forward svc/postgres-rw 5432:5432
 
 dev-setup: ## once: create the dev, test and e2e databases in the cluster (needs the padel_admin_dev role from the platform repo)
 	kubectl apply -f k8s/dev/
@@ -66,7 +66,7 @@ test-e2e: ## Playwright against padel_admin_e2e, which it wipes first (needs mak
 # (`make admin-password` prints it), not into the terminal: the seed prints it.
 # Idempotent: an existing admin is kept, password included. A cluster task, not
 # development: it runs as the deployed app's user, on its database.
-seed: export DATABASE_URL = postgres://padel_admin:$(PG_PASS)@localhost:5433/padel_admin
+seed: export DATABASE_URL = postgres://padel_admin:$(PG_PASS)@localhost:5432/padel_admin
 seed: ## once, on a new cluster: seed the deployed padel_admin database (needs make tunnel)
 	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts >/dev/null 2>&1 \
 	  || kubectl -n $(NAMESPACE) create secret generic padel-admin-seed-accounts \

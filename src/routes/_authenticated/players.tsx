@@ -27,7 +27,10 @@ import { RowActions } from "@/components/row-actions"
 import { deletePlayer, listPlayers } from "@/lib/players.functions"
 import { getPlayerStats } from "@/lib/stats.functions"
 import { useCan } from "@/hooks/use-permissions"
-import type { Player as DbPlayer } from "@/db/schema"
+import { usePrimaryLevelScale } from "@/hooks/use-activities"
+import type { PlayerRecord } from "@/lib/players.functions"
+import { allLevels, levelRank, NO_LEVELS } from "@/lib/activities/levels"
+import type { LevelScale } from "@/lib/activities/levels"
 
 export const Route = createFileRoute("/_authenticated/players")({
   loader: async () => ({
@@ -37,32 +40,11 @@ export const Route = createFileRoute("/_authenticated/players")({
   component: PlayersPage,
 })
 
-type Player = DbPlayer
+type Player = PlayerRecord
 
-const CATEGORY_ORDER = [
-  "C4",
-  "C5",
-  "C6",
-  "C7",
-  "C8",
-  "D4",
-  "D5",
-  "D6",
-  "D7",
-  "D8",
-] as const
-
-const CATEGORY_FILL: Record<string, string> = {
-  C4: "var(--chart-1)",
-  C5: "var(--chart-2)",
-  C6: "var(--chart-3)",
-  C7: "var(--chart-4)",
-  C8: "var(--chart-5)",
-  D4: "var(--chart-1)",
-  D5: "var(--chart-2)",
-  D6: "var(--chart-3)",
-  D7: "var(--chart-4)",
-  D8: "var(--chart-5)",
+// Matching levels across groups (C4 and D4) share a chart color.
+function levelFill(scale: LevelScale, level: string): string {
+  return `var(--chart-${(Math.max(levelRank(scale, level), 0) % 5) + 1})`
 }
 
 function buildCategoryChartConfig(t: TFunction): ChartConfig {
@@ -71,24 +53,22 @@ function buildCategoryChartConfig(t: TFunction): ChartConfig {
   }
 }
 
-// --- Higher level (C4/D4) = bolder badge; lower level (C8/D8) = muted
-const levelVariant: Record<string, "default" | "secondary" | "outline"> = {
-  C4: "default",
-  C5: "default",
-  C6: "secondary",
-  C7: "secondary",
-  C8: "outline",
-  D4: "default",
-  D5: "default",
-  D6: "secondary",
-  D7: "secondary",
-  D8: "outline",
+// More advanced levels get a bolder badge.
+function levelVariant(
+  scale: LevelScale,
+  level: string
+): "default" | "secondary" | "outline" | undefined {
+  const rank = levelRank(scale, level)
+  if (rank < 0) return undefined
+  if (rank <= 1) return "default"
+  return rank <= 3 ? "secondary" : "outline"
 }
 
 function PlayerActions({ player }: { player: Player }) {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("players:manage")
+  const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
   const [editOpen, setEditOpen] = useState(false)
 
   async function handleDelete() {
@@ -110,7 +90,12 @@ function PlayerActions({ player }: { player: Player }) {
   return (
     <>
       <NewPlayerDrawer
-        player={{ ...player, gender: player.gender as "Male" | "Female" }}
+        levelScale={levelScale}
+        player={{
+          ...player,
+          gender: player.gender as "Male" | "Female",
+          category: player.category ?? "",
+        }}
         open={editOpen}
         onOpenChange={setEditOpen}
         onSaved={() => router.invalidate()}
@@ -120,7 +105,10 @@ function PlayerActions({ player }: { player: Player }) {
   )
 }
 
-function buildColumns(t: TFunction): ColumnDef<Player>[] {
+function buildColumns(
+  t: TFunction,
+  levelScale: LevelScale
+): ColumnDef<Player>[] {
   return [
     {
       accessorKey: "fullName",
@@ -145,12 +133,12 @@ function buildColumns(t: TFunction): ColumnDef<Player>[] {
       header: t("fields.category"),
       meta: { className: "w-[384px] text-center" },
       cell: ({ row }) => {
-        const cat = row.getValue<string>("category")
-        return (
+        const cat = row.getValue<string | null>("category")
+        return cat ? (
           <div className="flex justify-center">
-            <Badge variant={levelVariant[cat]}>{cat}</Badge>
+            <Badge variant={levelVariant(levelScale, cat)}>{cat}</Badge>
           </div>
-        )
+        ) : null
       },
     },
     {
@@ -176,16 +164,17 @@ function PlayersPage() {
   const router = useRouter()
   const canManage = useCan("players:manage")
   const { players, stats } = Route.useLoaderData()
-  const columns = useMemo(() => buildColumns(t), [t])
+  const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
+  const columns = useMemo(() => buildColumns(t, levelScale), [t, levelScale])
   const categoryChartConfig = useMemo(() => buildCategoryChartConfig(t), [t])
 
   const maleCount = players.filter((p) => p.gender === "Male").length
   const femaleCount = players.filter((p) => p.gender === "Female").length
 
-  const categoryDistribution = CATEGORY_ORDER.map((category) => ({
+  const categoryDistribution = allLevels(levelScale).map((category) => ({
     category,
     count: players.filter((p) => p.category === category).length,
-    fill: CATEGORY_FILL[category],
+    fill: levelFill(levelScale, category),
   }))
 
   const topCategory = categoryDistribution.reduce(
@@ -327,6 +316,7 @@ function PlayersPage() {
         action={
           canManage ? (
             <NewPlayerDrawer
+              levelScale={levelScale}
               onSaved={() => router.invalidate()}
               trigger={
                 <Button size="sm">

@@ -18,6 +18,8 @@ import {
   user,
 } from "@/db/schema"
 import { seedDefaultCourts } from "@/lib/courts.server"
+import { ensureDefaultActivities } from "@/lib/activities.server"
+import { createPlayerRecord } from "@/lib/players.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import {
@@ -61,6 +63,7 @@ async function seedClubs() {
     .onConflictDoNothing()
   // Give the Default Club its bookable courts and reservation settings
   // (idempotent; needed when the schema was applied via `db:push`).
+  await ensureDefaultActivities(DEFAULT_CLUB_ID)
   await seedDefaultCourts(DEFAULT_CLUB_ID)
   await seedDefaultReservationSettings(DEFAULT_CLUB_ID)
 
@@ -69,6 +72,7 @@ async function seedClubs() {
     .insert(club)
     .values({ id: NORTH_CLUB_ID, name: "North Branch", slug: "north" })
     .onConflictDoNothing()
+  await ensureDefaultActivities(NORTH_CLUB_ID)
   await seedDefaultCourts(NORTH_CLUB_ID)
   await seedDefaultReservationSettings(NORTH_CLUB_ID)
   console.log("✓ Clubs ready (Default Club, North Branch)")
@@ -196,9 +200,10 @@ async function seedPlayerRoster() {
     console.log("• Players already seeded, skipping.")
     return
   }
-  await db
-    .insert(player)
-    .values(seedPlayers.map((p) => ({ ...p, clubId: DEFAULT_CLUB_ID })))
+  // Through the regular write path so each player also gets a padel profile.
+  for (const p of seedPlayers) {
+    await createPlayerRecord(DEFAULT_CLUB_ID, p)
+  }
   console.log(`✓ Seeded ${seedPlayers.length} players`)
 }
 

@@ -34,9 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-const maleCategories = ["C8", "C7", "C6", "C5", "C4"] as const
-const femaleCategories = ["D8", "D7", "D6", "D5", "D4"] as const
+import { levelsFor } from "@/lib/activities/levels"
+import type { LevelScale } from "@/lib/activities/levels"
 
 function makeSchema(t: TFunction) {
   return z.object({
@@ -67,6 +66,8 @@ export interface PlayerData {
 }
 
 interface Props {
+  // Levels offered in the category picker (the club's levels activity).
+  levelScale: LevelScale
   trigger?: React.ReactNode
   player?: PlayerData & { id?: string }
   open?: boolean
@@ -75,6 +76,7 @@ interface Props {
 }
 
 export function NewPlayerDrawer({
+  levelScale,
   trigger,
   player,
   open: controlledOpen,
@@ -119,7 +121,11 @@ export function NewPlayerDrawer({
   }, [open, player, form, reset])
 
   const gender = form.watch("gender")
-  const categories = gender === "Female" ? femaleCategories : maleCategories
+  // Listed from the least to the most advanced level.
+  const categories = useMemo(
+    () => [...levelsFor(levelScale, gender)].reverse(),
+    [levelScale, gender]
+  )
 
   function onSubmit(values: FormInput) {
     const payload = {

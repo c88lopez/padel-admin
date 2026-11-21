@@ -4,6 +4,10 @@ import type { Locator, Page } from "@playwright/test"
 // Signed-out storage state that pins the UI to English (see global-setup.ts).
 export const ENGLISH_STATE = "e2e/.auth/english.json"
 
+// Key for the hidden platform API on the E2E server (see playwright.config.ts).
+export const PLATFORM_API_KEY =
+  process.env.PLATFORM_API_KEY ?? "e2e-platform-key-not-for-production"
+
 // SSR serves interactive-looking HTML before React hydrates. Clicking a button
 // (e.g. "Sign in") before hydration triggers a native form submit instead of the
 // JS handler. Wait until React has attached to the DOM (it adds `__reactFiber$…`

@@ -13,6 +13,8 @@ import type { TournamentData } from "@/components/new-tournament-drawer"
 import { RowActions } from "@/components/row-actions"
 import { deleteTournament, listTournaments } from "@/lib/tournaments.functions"
 import { useCan } from "@/hooks/use-permissions"
+import { usePrimaryLevelScale } from "@/hooks/use-activities"
+import { NO_LEVELS } from "@/lib/activities/levels"
 import type { TranslationKey } from "@/lib/i18n"
 import type { Tournament } from "@/db/schema"
 
@@ -37,6 +39,7 @@ function TournamentActions({ tournament }: { tournament: Tournament }) {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("tournaments:manage")
+  const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
   const [editOpen, setEditOpen] = useState(false)
 
   async function handleDelete() {
@@ -58,6 +61,7 @@ function TournamentActions({ tournament }: { tournament: Tournament }) {
   return (
     <>
       <NewTournamentDrawer
+        levelScale={levelScale}
         tournament={{
           id: tournament.id,
           name: tournament.name,
@@ -129,6 +133,7 @@ function TournamentsPage() {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("tournaments:manage")
+  const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
   const { tournaments } = Route.useLoaderData()
   const columns = useMemo(() => buildColumns(t, canManage), [t, canManage])
 
@@ -151,6 +156,7 @@ function TournamentsPage() {
         action={
           canManage ? (
             <NewTournamentDrawer
+              levelScale={levelScale}
               onSaved={() => router.invalidate()}
               trigger={
                 <Button size="sm">

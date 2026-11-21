@@ -4,6 +4,7 @@ import {
   IconBuildingStore,
   IconBuildings,
   IconCalendarCog,
+  IconLayoutGrid,
   IconPalette,
   IconUsers,
 } from "@tabler/icons-react"
@@ -28,6 +29,12 @@ const navItems: {
     to: "/settings/general",
     labelKey: "settings.nav.general",
     icon: IconBuildingStore,
+    permission: "settings:manage",
+  },
+  {
+    to: "/settings/activities",
+    labelKey: "settings.nav.activities",
+    icon: IconLayoutGrid,
     permission: "settings:manage",
   },
   {

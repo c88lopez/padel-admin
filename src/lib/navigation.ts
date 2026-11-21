@@ -10,6 +10,7 @@ import {
   IconCalendarCog,
   IconChartBar,
   IconDashboard,
+  IconLayoutGrid,
   IconPalette,
   IconReceipt,
   IconSchool,
@@ -19,6 +20,7 @@ import {
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import type { TranslationKey } from "@/lib/i18n"
+import type { BlockKey } from "@/lib/activities/templates"
 
 // Sidebar group keys (map to `nav.groups.*` translation keys).
 export type SidebarGroup =
@@ -40,6 +42,9 @@ export interface NavEntry {
   commandLabelKey?: TranslationKey
   // Extra search terms for the command palette (bilingual hints welcome).
   keywords?: string
+  // Only shown when one of the club's active activities provides this
+  // building block (e.g. tournaments need "competitions").
+  block?: BlockKey
 }
 
 export const NAV_ENTRIES: NavEntry[] = [
@@ -54,6 +59,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     to: "/reservations",
     icon: IconCalendar,
+    block: "bookings",
     sidebarGroup: "courts",
     sidebarLabelKey: "nav.items.reservations",
     commandGroupKey: "commandPalette.groups.courts",
@@ -86,6 +92,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     to: "/coaches",
     icon: IconUserStar,
+    block: "sessions",
     sidebarGroup: "coaches",
     sidebarLabelKey: "nav.items.coaches",
     commandGroupKey: "commandPalette.groups.coaches",
@@ -94,6 +101,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     to: "/coaches/classes",
     icon: IconSchool,
+    block: "sessions",
     sidebarGroup: "coaches",
     sidebarLabelKey: "nav.items.classes",
     commandGroupKey: "commandPalette.groups.coaches",
@@ -110,6 +118,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     to: "/tournaments",
     icon: IconTrophy,
+    block: "competitions",
     sidebarGroup: "tournaments",
     sidebarLabelKey: "nav.items.tournaments",
     commandGroupKey: "commandPalette.groups.tournaments",
@@ -123,6 +132,13 @@ export const NAV_ENTRIES: NavEntry[] = [
     commandGroupKey: "commandPalette.groups.settings",
     commandLabelKey: "commandPalette.items.generalSettings",
     keywords: "club currency locale profile general configuración",
+  },
+  {
+    to: "/settings/activities",
+    icon: IconLayoutGrid,
+    commandGroupKey: "commandPalette.groups.settings",
+    commandLabelKey: "commandPalette.items.activitySettings",
+    keywords: "activities modules sports padel pilates actividades deportes",
   },
   {
     to: "/settings/reservations",
@@ -172,10 +188,18 @@ export interface SidebarNavItem {
   labelKey: TranslationKey
 }
 
-// Entries for a sidebar group, in declaration order.
-export function sidebarItemsForGroup(group: SidebarGroup): SidebarNavItem[] {
+function isVisible(entry: NavEntry, blocks: ReadonlySet<BlockKey>): boolean {
+  return entry.block === undefined || blocks.has(entry.block)
+}
+
+// Entries for a sidebar group, in declaration order, limited to the building
+// blocks the club's activities provide.
+export function sidebarItemsForGroup(
+  group: SidebarGroup,
+  blocks: ReadonlySet<BlockKey>
+): SidebarNavItem[] {
   return NAV_ENTRIES.filter(
-    (e) => e.sidebarGroup === group && e.sidebarLabelKey
+    (e) => e.sidebarGroup === group && e.sidebarLabelKey && isVisible(e, blocks)
   ).map((e) => ({
     to: e.to,
     icon: e.icon,
@@ -191,13 +215,16 @@ export interface CommandNavItem {
   keywords?: string
 }
 
-// All command-palette entries, in declaration order.
-export const COMMAND_ITEMS: CommandNavItem[] = NAV_ENTRIES.filter(
-  (e) => e.commandLabelKey && e.commandGroupKey
-).map((e) => ({
-  to: e.to,
-  icon: e.icon,
-  labelKey: e.commandLabelKey as TranslationKey,
-  groupKey: e.commandGroupKey as TranslationKey,
-  keywords: e.keywords,
-}))
+// Command-palette entries, in declaration order, limited to the building
+// blocks the club's activities provide.
+export function commandItems(blocks: ReadonlySet<BlockKey>): CommandNavItem[] {
+  return NAV_ENTRIES.filter(
+    (e) => e.commandLabelKey && e.commandGroupKey && isVisible(e, blocks)
+  ).map((e) => ({
+    to: e.to,
+    icon: e.icon,
+    labelKey: e.commandLabelKey as TranslationKey,
+    groupKey: e.commandGroupKey as TranslationKey,
+    keywords: e.keywords,
+  }))
+}

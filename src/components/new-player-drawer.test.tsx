@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { NewPlayerDrawer } from "./new-player-drawer"
 import { createPlayer, updatePlayer } from "@/lib/players.functions"
+import { PADEL_LEVELS } from "@/lib/activities/levels"
 
 // `vaul` reads computed transforms on pointer events and crashes under jsdom;
 // swap the drawer shell for passthroughs so we test the form inside it.
@@ -46,7 +47,9 @@ describe("NewPlayerDrawer", () => {
 
   it("validates required fields before creating", async () => {
     const user = userEvent.setup()
-    render(<NewPlayerDrawer open onOpenChange={vi.fn()} />)
+    render(
+      <NewPlayerDrawer levelScale={PADEL_LEVELS} open onOpenChange={vi.fn()} />
+    )
 
     await user.click(screen.getByRole("button", { name: "Add Player" }))
 
@@ -56,7 +59,9 @@ describe("NewPlayerDrawer", () => {
 
   it("keeps category disabled until a gender is chosen and scopes its options", async () => {
     const user = userEvent.setup()
-    render(<NewPlayerDrawer open onOpenChange={vi.fn()} />)
+    render(
+      <NewPlayerDrawer levelScale={PADEL_LEVELS} open onOpenChange={vi.fn()} />
+    )
 
     const [genderTrigger, categoryTrigger] = screen.getAllByRole("combobox")
     expect(categoryTrigger).toBeDisabled()
@@ -77,7 +82,9 @@ describe("NewPlayerDrawer", () => {
 
   it("creates a player with the age coerced to a number", async () => {
     const user = userEvent.setup()
-    render(<NewPlayerDrawer open onOpenChange={vi.fn()} />)
+    render(
+      <NewPlayerDrawer levelScale={PADEL_LEVELS} open onOpenChange={vi.fn()} />
+    )
 
     await user.type(screen.getByLabelText("Full Name"), "Jane Doe")
     await user.type(screen.getByLabelText("Email"), "jane@example.com")
@@ -111,7 +118,12 @@ describe("NewPlayerDrawer", () => {
   it("pre-fills fields when editing and saves via updatePlayer", async () => {
     const user = userEvent.setup()
     render(
-      <NewPlayerDrawer open player={existingPlayer} onOpenChange={vi.fn()} />
+      <NewPlayerDrawer
+        levelScale={PADEL_LEVELS}
+        open
+        player={existingPlayer}
+        onOpenChange={vi.fn()}
+      />
     )
 
     expect(screen.getByLabelText("Full Name")).toHaveValue("John Smith")

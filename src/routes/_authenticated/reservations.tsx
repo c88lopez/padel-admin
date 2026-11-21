@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/data-table"
 import { NewReservationDrawer } from "@/components/new-reservation-drawer"
+import { listActivities } from "@/lib/activities.functions"
 import { RowActions } from "@/components/row-actions"
 import { cn } from "@/lib/utils"
 import {
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/reservations")({
     reservations: await listReservations(),
     courts: await listCourts(),
     settings: await getReservationSettings(),
+    activities: await listActivities(),
   }),
   component: ReservationsPage,
 })
@@ -317,6 +319,7 @@ function ReservationActions({
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("reservations:manage")
+  const { activities } = Route.useLoaderData()
   const [editOpen, setEditOpen] = useState(false)
 
   async function handleDelete() {
@@ -340,6 +343,7 @@ function ReservationActions({
       <NewReservationDrawer
         reservation={toReservationData(reservation)}
         courts={courts}
+        activities={activities}
         open={editOpen}
         onOpenChange={setEditOpen}
         onSaved={() => router.invalidate()}
@@ -416,7 +420,7 @@ function ReservationsPage() {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("reservations:manage")
-  const { reservations, courts, settings } = Route.useLoaderData()
+  const { reservations, courts, settings, activities } = Route.useLoaderData()
   const columns = useMemo(() => buildColumns(t, courts), [t, courts])
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
@@ -450,6 +454,7 @@ function ReservationsPage() {
         {canManage && (
           <NewReservationDrawer
             courts={courts}
+            activities={activities}
             onSaved={() => router.invalidate()}
             trigger={
               <Button size="sm">

@@ -14,12 +14,18 @@ vi.mock("@/lib/permissions", () => ({
   can: mocks.can,
 }))
 
-const { ApiError, apiErrorResponse, readJsonBody, requireApiAccess } =
-  await import("./api-auth")
+const {
+  ApiError,
+  apiErrorResponse,
+  readJsonBody,
+  requireApiAccess,
+  requirePlatformKey,
+} = await import("./api-auth")
 
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.ADMIN_API_KEY
+  delete process.env.PLATFORM_API_KEY
 })
 
 describe("requireApiAccess", () => {
@@ -151,5 +157,42 @@ describe("apiErrorResponse", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Unexpected error.",
     })
+  })
+})
+
+describe("requirePlatformKey", () => {
+  function withToken(token?: string) {
+    return new Request("http://localhost/api/platform", {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+  }
+
+  it("accepts the platform key", () => {
+    process.env.PLATFORM_API_KEY = "owner-key"
+    expect(() => requirePlatformKey(withToken("owner-key"))).not.toThrow()
+  })
+
+  it("answers 404 for a wrong or missing key so the API stays hidden", () => {
+    process.env.PLATFORM_API_KEY = "owner-key"
+    for (const request of [withToken("nope"), withToken()]) {
+      expect(() => requirePlatformKey(request)).toThrow(
+        expect.objectContaining({ status: 404, message: "Not found." })
+      )
+    }
+  })
+
+  it("is disabled when no platform key is configured", () => {
+    expect(() => requirePlatformKey(withToken("anything"))).toThrow(
+      expect.objectContaining({ status: 404 })
+    )
+  })
+
+  it("does not accept the admin API key or a session", () => {
+    process.env.PLATFORM_API_KEY = "owner-key"
+    process.env.ADMIN_API_KEY = "admin-key"
+    expect(() => requirePlatformKey(withToken("admin-key"))).toThrow(
+      expect.objectContaining({ status: 404 })
+    )
+    expect(mocks.getSession).not.toHaveBeenCalled()
   })
 })
