@@ -1,6 +1,6 @@
 # Padel Club Admin
 
-A database-backed admin dashboard for managing padel clubs (court reservations, players, coaches/classes, tournaments, inventory, sales, users, settings, appearance). Real Postgres persistence, Better Auth sessions, role-based permissions, per-club scoping, English/Spanish i18n, an AI assistant, and Prometheus metrics.
+A database-backed admin dashboard for managing padel clubs (court reservations, players, coaches/classes, tournaments, inventory, sales, users, settings, appearance). Real Postgres persistence, Better Auth sessions, role-based permissions, per-club scoping, English/Spanish i18n, an AI assistant, Prometheus metrics, and JSON logs with OpenTelemetry traces.
 
 ## Stack
 
@@ -61,3 +61,10 @@ Clubs offer one or more **activities** (padel today; pilates, football and swim 
 - Customers: one `player` list per club; activity-specific data (the padel level) lives in `customer_activity_profile` via `src/lib/players.server.ts`. Level scales live in the template (`src/lib/activities/levels.ts`); UI reads them with `usePrimaryLevelScale()`.
 - Bookings keep the typed name and link `customer_id` only when it matches exactly one player (`findCustomerIdByName`).
 - New sport = new template. Add DB columns/tables only for genuinely new building blocks, as additive migrations.
+
+## Observability
+
+- Log with `logger` from `src/lib/logger.server.ts` (pino, JSON on stdout), never `console.*`. Pass errors as `{ err }`. Lines written during a request carry `trace_id`/`span_id`.
+- `src/lib/request-log-middleware.ts` logs one line per request (path, never the query string), skipping the probes.
+- Tracing is a preload, not an import: `bun run build:tracing` bundles `src/tracing.ts` into `.output/server/tracing.mjs`, and the image runs `node --import` on it. It's on only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (the ConfigMap sets Alloy's OTLP/HTTP port).
+- Auto-instrumentation only patches packages left out of the Nitro bundle: `pg` is kept external with `traceDeps` in `vite.config.ts`. Add a package there before adding its instrumentation.

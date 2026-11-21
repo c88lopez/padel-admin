@@ -19,6 +19,7 @@ import {
   levelsActivityId,
 } from "@/lib/players.server"
 import { AppError } from "@/lib/errors"
+import { logger } from "@/lib/logger.server"
 
 // Context captured once per request in the chat route and closed over by the
 // tools, so they never depend on async request context during streaming.
@@ -111,7 +112,7 @@ export function buildAiTools(ctx: AiToolContext) {
 
           return { ok: true as const, count: rows.length, players: rows }
         } catch (error) {
-          console.error("[ai] searchPlayers failed", error)
+          logger.error({ err: error }, "ai searchPlayers failed")
           return { ok: false as const, error: readableError(error) }
         }
       },

@@ -2,6 +2,7 @@ import { gateway, transcribe } from "ai"
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "@/lib/auth"
 import { ApiError, apiErrorResponse } from "@/lib/api-auth"
+import { logger } from "@/lib/logger.server"
 import { isAcceptedAudioType, MAX_AUDIO_BYTES } from "@/lib/voice"
 
 // `||` (not `??`) so an empty AI_TRANSCRIPTION_MODEL="" in .env falls back.
@@ -60,7 +61,7 @@ export const Route = createFileRoute("/api/transcribe")({
             return Response.json({ text: text.trim() })
           } catch (error) {
             // Gateway/provider details stay in the server log.
-            console.error("Transcription failed:", error)
+            logger.error({ err: error }, "transcription failed")
             throw new ApiError(502, "Transcription failed.")
           }
         } catch (error) {

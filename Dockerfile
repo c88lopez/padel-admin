@@ -12,6 +12,8 @@ ENV NITRO_PRESET=node-server
 RUN bun run build
 # The migrate Job runs this with Node: src/db/migrate.ts and pg in one file.
 RUN bun build src/db/migrate.ts --target=node --outfile=dist/migrate.mjs
+# Tracing, preloaded with --import (see CMD), into .output/server.
+RUN bun run build:tracing
 
 # --- runtime stage: Node and the app, no shell or package manager, non-root ---
 FROM gcr.io/distroless/nodejs24-debian12:nonroot
@@ -25,5 +27,6 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
 # from a number, since it can't look up user names inside the image.
 USER 65532:65532
 EXPOSE 3000
-# The image's entrypoint is node.
-CMD [".output/server/index.mjs"]
+# The image's entrypoint is node. Tracing loads first so it can patch what it
+# instruments (src/tracing.ts); it's off without OTEL_EXPORTER_OTLP_ENDPOINT.
+CMD ["--import", "./.output/server/tracing.mjs", ".output/server/index.mjs"]

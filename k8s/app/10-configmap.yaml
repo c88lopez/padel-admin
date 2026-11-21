@@ -13,3 +13,5 @@ data:
   # Postgres connections per pod, through PgBouncer (max_db_connections 30
   # per database): 5 x the HPA's maxReplicas stays well under it.
   DB_POOL_MAX: "5"
+  # Send traces to Alloy, which forwards them to Tempo. Remove to turn tracing off.
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy.monitoring.svc:4318"
