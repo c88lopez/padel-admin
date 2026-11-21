@@ -25,7 +25,9 @@ export type PlayerRecord = typeof player.$inferSelect & {
   category: string | null
 }
 
-export async function levelsActivityId(clubId: string): Promise<string | undefined> {
+export async function levelsActivityId(
+  clubId: string
+): Promise<string | undefined> {
   return (await primaryActivityFor(clubId, "levels"))?.id
 }
 

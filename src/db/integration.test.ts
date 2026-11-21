@@ -135,10 +135,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
       expect(await db.select().from(player)).toHaveLength(1)
 
-      await db
-        .update(player)
-        .set({ age: 31 })
-        .where(eq(player.id, created.id))
+      await db.update(player).set({ age: 31 }).where(eq(player.id, created.id))
       const [updated] = await db
         .select()
         .from(player)
