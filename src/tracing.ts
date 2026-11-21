@@ -1,14 +1,13 @@
-// OpenTelemetry tracing, as in deny-list. It must load before anything it
-// instruments, so the server doesn't import it: `bun run build:tracing`
-// bundles it to .output/server/tracing.mjs and node runs it first with
+// OpenTelemetry tracing. It must load before anything it instruments, so the
+// server doesn't import it: `bun run build:tracing` bundles it to
+// .output/server/tracing.mjs and node runs it first with
 // `node --import ./.output/server/tracing.mjs .output/server/index.mjs`.
 //
 // Off when OTEL_EXPORTER_OTLP_ENDPOINT is unset (local dev). In the cluster
 // it's Alloy's OTLP/HTTP port (k8s/app/10-configmap.yaml), which forwards to
-// Tempo. HTTP rather than deny-list's gRPC: bundled, the gRPC exporter fails
-// with "Channel credentials must be a ChannelCredentials object". The SDK
-// reads the standard OTEL_* variables too (OTEL_SERVICE_NAME,
-// OTEL_TRACES_SAMPLER...).
+// Tempo. HTTP rather than gRPC: bundled, the gRPC exporter fails with
+// "Channel credentials must be a ChannelCredentials object". The SDK reads the
+// standard OTEL_* variables too (OTEL_SERVICE_NAME, OTEL_TRACES_SAMPLER...).
 //
 // pg is only patched because the Nitro build keeps it out of the bundle
 // (traceDeps in vite.config.ts): instrumentations hook module loading, and a
