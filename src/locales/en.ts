@@ -37,6 +37,7 @@ export const en = {
     clubContextRequired: "This action requires a club context.",
     activity: {
       notFound: "Activity not found.",
+      levelRequired: "Pick a level for this activity.",
     },
     club: {
       notFound: "Club not found.",
@@ -195,10 +196,32 @@ export const en = {
     padel: {
       name: "Padel",
       description: "Court bookings, lessons, tournaments and player levels.",
+      customers: {
+        title: "Players",
+        newButton: "New Player",
+        titleEdit: "Edit Player",
+        submitNew: "Add Player",
+        created: "Player created",
+        updated: "Player updated",
+        deleted: "Player deleted",
+        searchPlaceholder: "Search players...",
+        statsTotal: "Total Players",
+      },
     },
     pilates: {
       name: "Pilates",
       description: "Group classes with a limited number of spots.",
+      customers: {
+        title: "Students",
+        newButton: "New Student",
+        titleEdit: "Edit Student",
+        submitNew: "Add Student",
+        created: "Student created",
+        updated: "Student updated",
+        deleted: "Student deleted",
+        searchPlaceholder: "Search students...",
+        statsTotal: "Total Students",
+      },
     },
   },
   spaces: {
@@ -320,15 +343,10 @@ export const en = {
   },
   forms: {
     player: {
-      titleNew: "New Player",
-      titleEdit: "Edit Player",
-      emailPlaceholder: "player@email.com",
+      emailPlaceholder: "name@email.com",
       phonePlaceholder: "+34 600 000 000",
       agePlaceholder: "25",
-      submitNew: "Add Player",
-      created: "Player created",
-      updated: "Player updated",
-      errorDescription: "The player could not be saved. Please try again.",
+      errorDescription: "The customer could not be saved. Please try again.",
     },
     coach: {
       titleNew: "New Coach",
@@ -444,11 +462,8 @@ export const en = {
   },
   nav: {
     groups: {
-      courts: "Courts",
       inventory: "Inventory",
-      coaches: "Coaches",
-      players: "Players",
-      tournaments: "Tournaments",
+      customers: "Customers",
     },
     items: {
       dashboard: "Dashboard",
@@ -776,13 +791,8 @@ export const en = {
       deleteError: "Could not delete reservation",
     },
     players: {
-      title: "Players",
       description: "Manage club members.",
-      searchPlaceholder: "Search players...",
-      newButton: "New Player",
-      deleted: "Player deleted",
-      deleteError: "Could not delete player",
-      statsTotal: "Total Players",
+      deleteError: "Could not delete the customer",
       mf: "{{m}}M · {{f}}F",
       statsMostReservations: "Most Reservations",
       statsBusiestCourt: "Busiest Court",

@@ -653,6 +653,22 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await db.delete(club).where(eq(club.id, clubId))
     })
 
+    it("makes someone signing up a customer of the class's activity", async () => {
+      const { clubId, pilates, studio, base } = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+      })
+      const [a] = await customers(clubId, 1)
+      await classes.addAttendeeRecord(clubId, cls.id, a)
+      const profiles = await db
+        .select()
+        .from(customerActivityProfile)
+        .where(eq(customerActivityProfile.customerId, a))
+      expect(profiles.map((p) => p.activityId)).toEqual([pilates.id])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
     it("never gives the last place twice", async () => {
       const { clubId, studio, base } = await clubWithClasses()
       const cls = await classes.createClassRecord(clubId, {
@@ -1487,6 +1503,139 @@ describe.skipIf(!TEST_URL)("database integration", () => {
   // Exercises the DB-backed per-player concurrency rule in
   // reservation-settings.server.ts (the pure window/cutoff rules are unit-tested
   // separately in reservation-settings.test.ts).
+  describe("customer activities (players.server)", () => {
+    const loadPlayers = () => import("@/lib/players.server")
+    const loadActivities = () => import("@/lib/activities.server")
+    let players: Awaited<ReturnType<typeof loadPlayers>>
+    let activities: Awaited<ReturnType<typeof loadActivities>>
+
+    beforeAll(async () => {
+      players = await loadPlayers()
+      activities = await loadActivities()
+    })
+
+    const person = {
+      email: "c@example.com",
+      phone: "600000000",
+      age: 30,
+      gender: "Female" as const,
+    }
+
+    // A throwaway club with padel and pilates. Deleting the club cascades.
+    async function padelAndPilatesClub() {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      const [padel, pilates] = await db
+        .insert(activity)
+        .values([
+          { clubId, templateKey: "padel", sortOrder: 0 },
+          { clubId, templateKey: "pilates", sortOrder: 1 },
+        ])
+        .returning()
+      return { clubId, padelId: padel.id, pilatesId: pilates.id }
+    }
+
+    it("lists each activity's own customers", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      await players.createPlayerRecord(
+        clubId,
+        { ...person, fullName: "Padel Only", category: "D5" },
+        padelId
+      )
+      const student = await players.createPlayerRecord(
+        clubId,
+        // A level sent for an activity without levels is dropped.
+        { ...person, fullName: "Pilates Only", category: "D5" },
+        pilatesId
+      )
+      expect(student.category).toBeNull()
+
+      const names = async (activityId?: string) =>
+        (await players.listPlayerRecords(clubId, activityId)).map(
+          (p) => p.fullName
+        )
+      expect(await names(padelId)).toEqual(["Padel Only"])
+      expect(await names(pilatesId)).toEqual(["Pilates Only"])
+      // Without an activity: everyone, e.g. to sign someone up to a class.
+      expect(await names()).toEqual(["Padel Only", "Pilates Only"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("needs a level for an activity with levels, and an active activity", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      await expect(
+        players.createPlayerRecord(
+          clubId,
+          { ...person, fullName: "No Level", category: null },
+          padelId
+        )
+      ).rejects.toThrow("errors.activity.levelRequired")
+      await db
+        .update(activity)
+        .set({ active: false })
+        .where(eq(activity.id, pilatesId))
+      await expect(
+        players.createPlayerRecord(
+          clubId,
+          { ...person, fullName: "Off", category: null },
+          pilatesId
+        )
+      ).rejects.toThrow("errors.activity.notFound")
+      // Nothing was saved by either refusal.
+      expect(await players.listPlayerRecords(clubId)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("removes from one list, and deletes once in none", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      const both = await players.createPlayerRecord(
+        clubId,
+        { ...person, fullName: "Both", category: "D6" },
+        padelId
+      )
+      await players.updatePlayerRecord(
+        clubId,
+        { id: both.id, ...person, fullName: "Both", category: null },
+        pilatesId
+      )
+      // Saving from the students list keeps the padel level.
+      const [inPadel] = await players.listPlayerRecords(clubId, padelId)
+      expect(inPadel.category).toBe("D6")
+
+      expect(
+        await players.removePlayerFromActivity(clubId, both.id, pilatesId)
+      ).toEqual({ id: both.id, deleted: false })
+      expect(await players.listPlayerRecords(clubId, pilatesId)).toEqual([])
+      expect(await players.listPlayerRecords(clubId, padelId)).toHaveLength(1)
+
+      expect(
+        await players.removePlayerFromActivity(clubId, both.id, padelId)
+      ).toEqual({ id: both.id, deleted: true })
+      expect(await players.listPlayerRecords(clubId)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("puts a club's existing customers in the default activity it gets", async () => {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      await db
+        .insert(player)
+        .values({ ...person, fullName: "Legacy", clubId, gender: "Male" })
+      await activities.ensureDefaultActivities(clubId)
+      const [padel] = await activities.listActivityRecords(clubId)
+      expect(
+        (await players.listPlayerRecords(clubId, padel.id)).map(
+          (p) => p.fullName
+        )
+      ).toEqual(["Legacy"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+  })
+
   describe("per-player booking limit (reservation-settings.server)", () => {
     const loadSettings = () => import("@/lib/reservation-settings.server")
     let settingsServer: Awaited<ReturnType<typeof loadSettings>>

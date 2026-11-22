@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
+import { z } from "zod"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -36,7 +37,12 @@ import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
 import { useCan } from "@/hooks/use-permissions"
 
+// `?activity=<id>` preselects the activity filter (the sidebar's activity
+// groups link here with it).
+const activitySearchSchema = z.object({ activity: z.string().optional() })
+
 export const Route = createFileRoute("/_authenticated/coaches/classes")({
+  validateSearch: activitySearchSchema,
   loader: async () => {
     const activities = await listActivities()
     return {
@@ -226,7 +232,18 @@ function ClassesPage() {
     activityProvides(a, "sessions")
   )
   const showActivity = sessionActivities.length > 1
-  const [activityFilter, setActivityFilter] = useState("all")
+  const navigate = useNavigate({ from: Route.fullPath })
+  const { activity } = Route.useSearch()
+  const activityFilter =
+    showActivity && activity && sessionActivities.some((a) => a.id === activity)
+      ? activity
+      : "all"
+  function setActivityFilter(value: string) {
+    void navigate({
+      search: { activity: value === "all" ? undefined : value },
+      replace: true,
+    })
+  }
   const columns = useMemo(
     () => buildColumns(t, canManage, options, showActivity),
     [t, canManage, options, showActivity]

@@ -134,6 +134,13 @@
       "when": 1795239081572,
       "tag": "0018_class_attendees",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795363710017,
+      "tag": "0019_customer_activity_membership",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import type { CoachClass } from "@/db/schema"
 import { AppError } from "@/lib/errors"
 import { assertSpaceBookable, assertSpaceFree } from "@/lib/spaces.server"
 import { assertCoachTeaches } from "@/lib/coaches.server"
+import { joinActivity } from "@/lib/players.server"
 
 // Data access for classes (no auth). Server-only so the Postgres driver stays
 // out of the client bundle; wrapped by classes.functions.ts.
@@ -81,9 +82,12 @@ async function lockClass(
   tx: Tx,
   clubId: string,
   classId: string
-): Promise<{ capacity: number | null } | undefined> {
+): Promise<{ capacity: number | null; activityId: string | null } | undefined> {
   const rows = await tx
-    .select({ capacity: coachClass.capacity })
+    .select({
+      capacity: coachClass.capacity,
+      activityId: coachClass.activityId,
+    })
     .from(coachClass)
     .where(and(eq(coachClass.id, classId), eq(coachClass.clubId, clubId)))
     .for("update")
@@ -163,6 +167,10 @@ export async function addAttendeeRecord(
       throw new AppError("errors.class.full")
     }
     await tx.insert(coachClassAttendee).values({ classId, playerId })
+    // Taking a class makes them a customer of its activity (e.g. a student).
+    if (locked.activityId) {
+      await joinActivity(tx, clubId, playerId, locked.activityId)
+    }
   })
 }
 

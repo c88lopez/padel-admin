@@ -27,8 +27,8 @@ import {
   UI_ACCENT_EVENT,
 } from "@/lib/ui-settings"
 import type { TranslationKey } from "@/lib/i18n"
-import { SIDEBAR_GROUPS, sidebarItemsForGroup } from "@/lib/navigation"
-import { enabledBlocks } from "@/lib/activities/templates"
+import { sidebarGroups } from "@/lib/navigation"
+import { activityDisplayName } from "@/lib/activities/templates"
 import type { SidebarNavItem } from "@/lib/navigation"
 import { translateError } from "@/lib/errors"
 
@@ -55,19 +55,19 @@ function NavGroup({
   label,
   items,
 }: {
-  label: string
+  label?: string
   items: SidebarNavItem[]
 }) {
   const { t } = useTranslation()
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.to}>
+            <SidebarMenuItem key={`${item.to}:${item.search?.activity ?? ""}`}>
               <SidebarMenuButton asChild>
-                <Link to={item.to}>
+                <Link to={item.to} search={item.search}>
                   <item.icon />
                   <span>{t(item.labelKey)}</span>
                 </Link>
@@ -246,15 +246,11 @@ export function AppSidebar({
 }) {
   const router = useRouter()
   const { t } = useTranslation()
-  const blocks = useMemo(
-    () => enabledBlocks(clubContext.activities),
-    [clubContext.activities]
+  const groups = useMemo(
+    () =>
+      sidebarGroups(clubContext.activities, (a) => activityDisplayName(a, t)),
+    [clubContext.activities, t]
   )
-  const groups = SIDEBAR_GROUPS.map(({ group, labelKey }) => ({
-    group,
-    labelKey,
-    items: sidebarItemsForGroup(group, blocks),
-  })).filter(({ items }) => items.length > 0)
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -285,8 +281,12 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        {groups.map(({ group, labelKey, items }) => (
-          <NavGroup key={group} label={t(labelKey)} items={items} />
+        {groups.map(({ key, labelKey, label, items }) => (
+          <NavGroup
+            key={key}
+            label={labelKey ? t(labelKey) : label}
+            items={items}
+          />
         ))}
       </SidebarContent>
 

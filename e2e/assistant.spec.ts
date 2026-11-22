@@ -15,7 +15,8 @@ test("assistant panel overlays the page and survives navigation", async ({
   const draft = "players under 30"
   await panel.getByPlaceholder("Ask the assistant…").fill(draft)
   await page.getByRole("link", { name: "Players" }).first().click()
-  await expect(page).toHaveURL(/\/players$/)
+  // The sidebar links to the padel players (`?activity=<id>`).
+  await expect(page).toHaveURL(/\/players\?activity=/)
 
   await expect(panel).toBeVisible()
   await expect(panel.getByPlaceholder("Ask the assistant…")).toHaveValue(draft)

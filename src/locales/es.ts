@@ -41,6 +41,7 @@ export const es: DeepString<typeof en> = {
     clubContextRequired: "Esta acción requiere un club activo.",
     activity: {
       notFound: "Actividad no encontrada.",
+      levelRequired: "Elige un nivel para esta actividad.",
     },
     club: {
       notFound: "Club no encontrado.",
@@ -204,10 +205,32 @@ export const es: DeepString<typeof en> = {
       name: "Pádel",
       description:
         "Reservas de pistas, clases, torneos y niveles de jugadores.",
+      customers: {
+        title: "Jugadores",
+        newButton: "Nuevo jugador",
+        titleEdit: "Editar jugador",
+        submitNew: "Agregar jugador",
+        created: "Jugador creado",
+        updated: "Jugador actualizado",
+        deleted: "Jugador eliminado",
+        searchPlaceholder: "Buscar jugadores...",
+        statsTotal: "Total de jugadores",
+      },
     },
     pilates: {
       name: "Pilates",
       description: "Clases grupales con plazas limitadas.",
+      customers: {
+        title: "Alumnos",
+        newButton: "Nuevo alumno",
+        titleEdit: "Editar alumno",
+        submitNew: "Agregar alumno",
+        created: "Alumno creado",
+        updated: "Alumno actualizado",
+        deleted: "Alumno eliminado",
+        searchPlaceholder: "Buscar alumnos...",
+        statsTotal: "Total de alumnos",
+      },
     },
   },
   spaces: {
@@ -329,15 +352,10 @@ export const es: DeepString<typeof en> = {
   },
   forms: {
     player: {
-      titleNew: "Nuevo jugador",
-      titleEdit: "Editar jugador",
-      emailPlaceholder: "jugador@email.com",
+      emailPlaceholder: "nombre@email.com",
       phonePlaceholder: "+34 600 000 000",
       agePlaceholder: "25",
-      submitNew: "Agregar jugador",
-      created: "Jugador creado",
-      updated: "Jugador actualizado",
-      errorDescription: "No se pudo guardar el jugador. Inténtalo de nuevo.",
+      errorDescription: "No se pudo guardar el cliente. Inténtalo de nuevo.",
     },
     coach: {
       titleNew: "Nuevo entrenador",
@@ -456,11 +474,8 @@ export const es: DeepString<typeof en> = {
   },
   nav: {
     groups: {
-      courts: "Pistas",
       inventory: "Inventario",
-      coaches: "Entrenadores",
-      players: "Jugadores",
-      tournaments: "Torneos",
+      customers: "Clientes",
     },
     items: {
       dashboard: "Panel",
@@ -795,13 +810,8 @@ export const es: DeepString<typeof en> = {
       deleteError: "No se pudo eliminar la reserva",
     },
     players: {
-      title: "Jugadores",
       description: "Administra los socios del club.",
-      searchPlaceholder: "Buscar jugadores...",
-      newButton: "Nuevo jugador",
-      deleted: "Jugador eliminado",
-      deleteError: "No se pudo eliminar el jugador",
-      statsTotal: "Total de jugadores",
+      deleteError: "No se pudo eliminar el cliente",
       mf: "{{m}}H · {{f}}M",
       statsMostReservations: "Más reservas",
       statsBusiestCourt: "Pista más activa",
