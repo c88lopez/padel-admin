@@ -78,7 +78,7 @@ bun run dev        # Start dev server on port 3003
 bun run build      # Production build
 bun run preview    # Preview the production build
 bun run test       # Run tests with vitest
-bun run lint       # ESLint
+bun run lint       # oxlint
 bun run typecheck  # TypeScript type checking (tsc --noEmit)
 bun run format     # Prettier (write)
 bun run check      # Prettier (check only)
