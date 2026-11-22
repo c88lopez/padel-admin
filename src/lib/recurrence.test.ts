@@ -270,9 +270,10 @@ describe("presetRules", () => {
   })
 
   it("never ends", () => {
-    for (const { rule: r } of presetRules("2026-03-17")) {
-      if (r) expect([r.until, r.count]).toEqual([null, null])
-    }
+    const ends = presetRules("2026-03-17").flatMap(({ rule: r }) =>
+      r ? [[r.until, r.count]] : []
+    )
+    expect(ends).toEqual(Array(5).fill([null, null]))
   })
 })
 
