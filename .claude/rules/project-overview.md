@@ -23,7 +23,7 @@ bun run lint       # oxlint
 bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
 bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)
-make tunnel        # cluster Postgres on localhost:5432 (keep it running)
+make -C .. tunnel  # the workspace's tunnel: cluster Postgres on localhost:5432 (keep it running)
 make dev-reset     # empty padel_admin_dev and load demo data (first time too)
 make run           # migrate padel_admin_dev, then the dev server on it
 make test          # unit + integration (padel_admin_test)

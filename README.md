@@ -33,7 +33,7 @@ There's no local database: development uses its own databases on the cluster's P
 bun install
 cp .env.example .env   # add AI_GATEWAY_API_KEY for the assistant
 make dev-setup         # once: the dev, test and e2e databases
-make tunnel            # in its own terminal: Postgres on localhost:5432
+make -C .. tunnel      # the workspace's tunnel, in its own terminal: Postgres on localhost:5432
 make dev-reset         # once (and whenever you want a clean slate): demo data in padel_admin_dev
 make run               # dev server on http://localhost:3003, on padel_admin_dev
 ```
@@ -85,7 +85,7 @@ bun run check      # Prettier (check only)
 bun run db:generate # Generate a SQL migration from src/db/schema.ts
 ```
 
-Database and cluster tasks are Makefile targets, each described next to its definition (`tunnel`, `dev-setup`, `dev-reset`, `run`, `test`, `test-e2e`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
+Database and cluster tasks are Makefile targets, each described next to its definition (`dev-setup`, `dev-reset`, `run`, `test`, `test-e2e`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
 
 ## Routes
 
