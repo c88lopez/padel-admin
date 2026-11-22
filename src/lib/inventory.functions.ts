@@ -67,9 +67,7 @@ export const setStockLevel = createServerFn({ method: "POST" })
   })
 
 export const deleteStockItem = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("inventory:manage")
     await db

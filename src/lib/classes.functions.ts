@@ -90,9 +90,7 @@ export const updateClass = createServerFn({ method: "POST" })
   )
 
 export const deleteClass = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("coaches:manage")
     await db

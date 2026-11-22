@@ -112,9 +112,7 @@ export const updateReservation = createServerFn({ method: "POST" })
   })
 
 export const deleteReservation = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("reservations:manage")
     const existing = await db

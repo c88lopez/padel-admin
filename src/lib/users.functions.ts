@@ -274,9 +274,7 @@ export const updateUser = createServerFn({ method: "POST" })
   })
 
 export const resetUserPassword = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     await assertManageable(session.user, data.id)
@@ -314,9 +312,7 @@ export const setUserArchived = createServerFn({ method: "POST" })
   })
 
 export const deleteUser = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     await assertManageable(session.user, data.id)

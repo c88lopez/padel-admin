@@ -38,9 +38,7 @@ export const updatePlayer = createServerFn({ method: "POST" })
   )
 
 export const deletePlayer = createServerFn({ method: "POST" })
-  .validator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) =>
     deletePlayerRecord(await requireClubId("players:manage"), data.id)
   )
