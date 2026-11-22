@@ -1361,6 +1361,37 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       ).toHaveLength(1)
       await db.delete(club).where(eq(club.id, fixture.clubId))
     })
+
+    it("signs a customer up to the following classes, skipping full ones", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      const { clubId, created } = fixture
+      const [ana, ben] = await customers(clubId, 2)
+      await db
+        .update(coachClass)
+        .set({ capacity: 1 })
+        .where(eq(coachClass.id, created[2].id))
+      await classes.addAttendeeRecord(clubId, created[2].id, ben)
+
+      expect(
+        await classes.addSeriesAttendeeRecord(clubId, created[1].id, ana)
+      ).toEqual({ classes: 2, full: ["2026-03-16"] })
+      const signedUp = async (classId: string) =>
+        (await classes.listAttendeeRecords(clubId, classId)).map(
+          (a) => a.playerId
+        )
+      expect(await signedUp(created[0].id)).toEqual([])
+      expect(await signedUp(created[1].id)).toEqual([ana])
+      expect(await signedUp(created[2].id)).toEqual([ben])
+      expect(await signedUp(created[3].id)).toEqual([ana])
+
+      // Signing up again changes nothing; removing takes them off from there.
+      await classes.addSeriesAttendeeRecord(clubId, created[1].id, ana)
+      expect(await signedUp(created[3].id)).toEqual([ana])
+      await classes.removeSeriesAttendeeRecord(clubId, created[3].id, ana)
+      expect(await signedUp(created[1].id)).toEqual([ana])
+      expect(await signedUp(created[3].id)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
   })
 
   describe("coach activities (coaches.server)", () => {

@@ -12,12 +12,14 @@ import {
 import { currentClubId, requireClubId } from "@/lib/auth.server"
 import {
   addAttendeeRecord,
+  addSeriesAttendeeRecord,
   createClassRecord,
   createClassSeriesRecord,
   deleteClassRecord,
   fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
+  removeSeriesAttendeeRecord,
   seriesRule,
   updateClassRecord,
   updateClassSeriesRecord,
@@ -196,6 +198,8 @@ export const deleteClass = createServerFn({ method: "POST" })
 const attendeeInput = z.object({
   classId: z.string().min(1),
   playerId: z.string().min(1),
+  // Also every later class of the class's series.
+  following: z.boolean().default(false),
 })
 
 export const listClassAttendees = createServerFn({ method: "GET" })
@@ -206,22 +210,25 @@ export const listClassAttendees = createServerFn({ method: "GET" })
     listAttendeeRecords(await currentClubId(), data.classId)
   )
 
+// The classes signed up to, and the dates that were full.
 export const addClassAttendee = createServerFn({ method: "POST" })
   .validator((data: unknown) => attendeeInput.parse(data))
-  .handler(async ({ data }) =>
-    addAttendeeRecord(
-      await requireClubId("coaches:manage"),
-      data.classId,
-      data.playerId
-    )
-  )
+  .handler(async ({ data }) => {
+    const clubId = await requireClubId("coaches:manage")
+    if (data.following) {
+      return addSeriesAttendeeRecord(clubId, data.classId, data.playerId)
+    }
+    await addAttendeeRecord(clubId, data.classId, data.playerId)
+    return { classes: 1, full: [] as string[] }
+  })
 
 export const removeClassAttendee = createServerFn({ method: "POST" })
   .validator((data: unknown) => attendeeInput.parse(data))
-  .handler(async ({ data }) =>
-    removeAttendeeRecord(
-      await requireClubId("coaches:manage"),
+  .handler(async ({ data }) => {
+    const clubId = await requireClubId("coaches:manage")
+    await (data.following ? removeSeriesAttendeeRecord : removeAttendeeRecord)(
+      clubId,
       data.classId,
       data.playerId
     )
-  )
+  })

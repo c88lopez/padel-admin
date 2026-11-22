@@ -566,6 +566,11 @@ export const en = {
       remove: "Remove {{name}}",
       added: "{{name}} signed up",
       removed: "{{name}} removed",
+      following: "Also every following class of the series",
+      addedToSeries_one: "{{name}} signed up to {{count}} class",
+      addedToSeries_other: "{{name}} signed up to {{count}} classes",
+      fullDates: "Full, not signed up: {{dates}}",
+      removedFromSeries: "{{name}} removed from this and following classes",
     },
     class: {
       titleNew: "New Class",

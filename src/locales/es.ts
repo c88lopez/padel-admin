@@ -578,6 +578,11 @@ export const es: DeepString<typeof en> = {
       remove: "Quitar a {{name}}",
       added: "{{name}} inscrito",
       removed: "Se quitó a {{name}}",
+      following: "También todas las clases siguientes de la serie",
+      addedToSeries_one: "{{name}} inscrito en {{count}} clase",
+      addedToSeries_other: "{{name}} inscrito en {{count}} clases",
+      fullDates: "Completas, sin inscribir: {{dates}}",
+      removedFromSeries: "{{name}} quitado de esta clase y las siguientes",
     },
     class: {
       titleNew: "Nueva clase",

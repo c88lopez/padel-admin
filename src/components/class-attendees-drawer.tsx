@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { IconTrash } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import {
   Drawer,
   DrawerClose,
@@ -27,10 +29,13 @@ import {
 import type { AttendeeRecord } from "@/lib/classes.functions"
 import { listPlayers } from "@/lib/players.functions"
 import { translateError } from "@/lib/errors"
+import { fullDateLabel } from "@/lib/recurrence"
 
 interface Props {
   classId: string
   capacity: number | null
+  // A series' class can sign customers up to its following classes too.
+  inSeries?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   // On close, when anyone was added or removed, so the list's counts
@@ -43,6 +48,7 @@ interface Props {
 export function ClassAttendeesDrawer({
   classId,
   capacity,
+  inSeries = false,
   open,
   onOpenChange,
   onChanged,
@@ -56,6 +62,7 @@ export function ClassAttendeesDrawer({
   >(null)
   const [selected, setSelected] = useState("")
   const [busy, setBusy] = useState(false)
+  const [following, setFollowing] = useState(false)
   const changed = useRef(false)
 
   function handleOpenChange(next: boolean) {
@@ -73,6 +80,7 @@ export function ClassAttendeesDrawer({
   useEffect(() => {
     if (!open) return
     setSelected("")
+    setFollowing(false)
     setPlayers(null)
     void load()
     void listPlayers().then((rows) =>
@@ -85,11 +93,15 @@ export function ClassAttendeesDrawer({
     (p) => !attendees.some((a) => a.playerId === p.id)
   )
 
-  async function change(action: () => Promise<unknown>, success: string) {
+  async function change<T>(
+    action: () => Promise<T>,
+    success: string | ((result: T) => void)
+  ) {
     setBusy(true)
     try {
-      await action()
-      toast.success(success)
+      const result = await action()
+      if (typeof success === "string") toast.success(success)
+      else success(result)
       changed.current = true
       await load()
     } catch (err) {
@@ -103,8 +115,26 @@ export function ClassAttendeesDrawer({
   function add() {
     const name = choices.find((p) => p.id === selected)?.fullName ?? ""
     void change(
-      () => addClassAttendee({ data: { classId, playerId: selected } }),
-      t("forms.attendees.added", { name })
+      () =>
+        addClassAttendee({ data: { classId, playerId: selected, following } }),
+      following
+        ? ({ classes, full: fullDates }) => {
+            const message = t("forms.attendees.addedToSeries", {
+              name,
+              count: classes,
+            })
+            if (fullDates.length === 0) {
+              toast.success(message)
+              return
+            }
+            // Signed up to the rest; say which dates were full.
+            toast.warning(message, {
+              description: t("forms.attendees.fullDates", {
+                dates: fullDates.map((d) => fullDateLabel(d, t)).join(", "),
+              }),
+            })
+          }
+        : t("forms.attendees.added", { name })
     ).then(() => setSelected(""))
   }
 
@@ -112,9 +142,11 @@ export function ClassAttendeesDrawer({
     void change(
       () =>
         removeClassAttendee({
-          data: { classId, playerId: attendee.playerId },
+          data: { classId, playerId: attendee.playerId, following },
         }),
-      t("forms.attendees.removed", { name: attendee.fullName })
+      following
+        ? t("forms.attendees.removedFromSeries", { name: attendee.fullName })
+        : t("forms.attendees.removed", { name: attendee.fullName })
     )
   }
 
@@ -189,6 +221,20 @@ export function ClassAttendeesDrawer({
               <Button disabled={!selected || busy} onClick={add}>
                 {t("forms.attendees.add")}
               </Button>
+            </div>
+          )}
+
+          {/* Applies to adding and removing alike. */}
+          {inSeries && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="attendees-following"
+                checked={following}
+                onCheckedChange={(checked) => setFollowing(checked === true)}
+              />
+              <Label htmlFor="attendees-following" className="font-normal">
+                {t("forms.attendees.following")}
+              </Label>
             </div>
           )}
         </div>

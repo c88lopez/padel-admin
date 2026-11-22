@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, lt, sql } from "drizzle-orm"
+import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm"
 import { db } from "@/db"
 import {
   classSeries,
@@ -772,4 +772,70 @@ export async function removeAttendeeRecord(
         eq(coachClassAttendee.playerId, playerId)
       )
     )
+}
+
+// The series classes from this one on (or just it, for a one-off class).
+async function thisAndFollowing(
+  clubId: string,
+  classId: string
+): Promise<CoachClass[]> {
+  const found = await classWithSeries(clubId, classId)
+  if (!found) throw new AppError("errors.class.notFound")
+  const { cls } = found
+  if (!cls.seriesId || !cls.seriesDate) return [cls]
+  return db
+    .select()
+    .from(coachClass)
+    .where(
+      and(
+        eq(coachClass.seriesId, cls.seriesId),
+        eq(coachClass.clubId, clubId),
+        gte(coachClass.seriesDate, cls.seriesDate)
+      )
+    )
+    .orderBy(asc(coachClass.date))
+}
+
+/**
+ * Signs a customer up to this class and every later class of its series,
+ * each with addAttendeeRecord's lock and capacity check. Full classes are
+ * skipped and their dates returned, so one full date doesn't stop the rest.
+ */
+export async function addSeriesAttendeeRecord(
+  clubId: string,
+  classId: string,
+  playerId: string
+): Promise<{ classes: number; full: string[] }> {
+  const classes = await thisAndFollowing(clubId, classId)
+  const full: string[] = []
+  for (const c of classes) {
+    try {
+      await addAttendeeRecord(clubId, c.id, playerId)
+    } catch (err) {
+      if (err instanceof AppError && err.code === "errors.class.full") {
+        full.push(c.date)
+        continue
+      }
+      throw err
+    }
+  }
+  return { classes: classes.length - full.length, full }
+}
+
+/** Takes a customer off this class and every later class of its series. */
+export async function removeSeriesAttendeeRecord(
+  clubId: string,
+  classId: string,
+  playerId: string
+): Promise<void> {
+  const classes = await thisAndFollowing(clubId, classId)
+  await db.delete(coachClassAttendee).where(
+    and(
+      inArray(
+        coachClassAttendee.classId,
+        classes.map((c) => c.id)
+      ),
+      eq(coachClassAttendee.playerId, playerId)
+    )
+  )
 }

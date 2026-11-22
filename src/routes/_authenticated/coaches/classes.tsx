@@ -119,6 +119,7 @@ function ClassActions({
       <ClassAttendeesDrawer
         classId={coachClass.id}
         capacity={coachClass.capacity}
+        inSeries={!!coachClass.series}
         open={attendeesOpen}
         onOpenChange={setAttendeesOpen}
         onChanged={() => router.invalidate()}
