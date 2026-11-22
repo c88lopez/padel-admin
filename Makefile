@@ -6,10 +6,11 @@ NAMESPACE := padel-admin
 # Where Postgres runs (the platform repo's manifests/data/).
 DATA_NS   := data
 
-.PHONY: tunnel dev-setup dev-reset run test test-integration test-e2e seed admin-password image secrets status logs restart
+.PHONY: dev-setup dev-reset run test test-integration test-e2e seed admin-password image secrets status logs restart
 
 ## --- local ---
-# Local runs use the cluster's Postgres through `make tunnel`, as
+# Local runs use the cluster's Postgres through `make tunnel` in the
+# workspace's Makefile (one level up), on localhost:5432, as
 # padel_admin_dev: a user that owns only these three databases, and that
 # Postgres refuses on any other (platform repo, manifests/data/postgres.yaml).
 # Development never touches the deployed app's padel_admin database or holds
@@ -29,11 +30,6 @@ PG_PASS  = $(eval PG_PASS := $(call uri,$(call secret,padel-admin-postgres-role,
 LOCAL_DATABASE_URL      ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_dev
 LOCAL_TEST_DATABASE_URL ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_test
 LOCAL_E2E_DATABASE_URL  ?= postgres://padel_admin_dev:$(DEV_PASS)@localhost:5432/padel_admin_e2e
-
-# Leave it running in its own terminal. Postgres's default port: there's no
-# local Postgres to clash with (importer's and deny-list's tunnels use 5433).
-tunnel: ## forward the cluster's Postgres to localhost:5432
-	kubectl -n $(DATA_NS) port-forward svc/postgres-rw 5432:5432
 
 dev-setup: ## once: create the dev, test and e2e databases in the cluster (needs the padel_admin_dev role from the platform repo)
 	kubectl apply -f k8s/dev/
