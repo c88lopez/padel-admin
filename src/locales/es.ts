@@ -970,6 +970,8 @@ export const es: DeepString<typeof en> = {
       allActivities: "Todas las actividades",
       attendees: "Inscritos",
       hideCompleted: "Ocultar completadas",
+      todaysTimeline: "Cronograma de hoy",
+      allClasses: "Todas las clases",
     },
     stock: {
       title: "Stock",
