@@ -8,6 +8,7 @@ import { IconBallTennis, IconStretching } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import type { TFunction } from "i18next"
 import type { TranslationKey } from "@/lib/i18n"
+import type { en } from "@/locales/en"
 import { PADEL_LEVELS } from "./levels"
 import type { LevelScale } from "./levels"
 import type { SpaceTypeKey } from "./spaces"
@@ -43,10 +44,17 @@ export interface SpacesConfig {
   defaultCount: number
 }
 
+// What an activity calls its customers ("Players" for a sport, "Students"
+// for pilates): a full set of phrases under `activities.<key>.customers`, so
+// each language keeps its own grammar.
+export type CustomerTextKey =
+  keyof (typeof en)["activities"]["padel"]["customers"]
+
 export interface ActivityTemplate {
   key: string
   nameKey: TranslationKey
   descriptionKey: TranslationKey
+  customersKey: `activities.${string}.customers`
   icon: Icon
   // Whether clubs can use it yet. Templates are defined ahead of the features
   // they need and switched on once those blocks exist.
@@ -64,6 +72,7 @@ export const ACTIVITY_TEMPLATES = [
     key: "padel",
     nameKey: "activities.padel.name",
     descriptionKey: "activities.padel.description",
+    customersKey: "activities.padel.customers",
     icon: IconBallTennis,
     available: true,
     blocks: ["bookings", "sessions", "competitions", "levels"],
@@ -81,6 +90,7 @@ export const ACTIVITY_TEMPLATES = [
     key: "pilates",
     nameKey: "activities.pilates.name",
     descriptionKey: "activities.pilates.description",
+    customersKey: "activities.pilates.customers",
     icon: IconStretching,
     available: true,
     blocks: ["sessions"],
@@ -150,6 +160,14 @@ export function enabledBlocks(
     }
   }
   return blocks
+}
+
+/** One of the phrases the template uses for its customers. */
+export function customerTextKey(
+  template: Pick<ActivityTemplate, "customersKey">,
+  key: CustomerTextKey
+): TranslationKey {
+  return `${template.customersKey}.${key}` as TranslationKey
 }
 
 /** The club's name for an activity, else its template's translated name. */

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { calendarDaysBetween, todayInZone, zonedWallTimeToUtcMs } from "./tz"
+import {
+  calendarDaysBetween,
+  nowInZone,
+  todayInZone,
+  zonedWallTimeToUtcMs,
+} from "./tz"
 
 describe("zonedWallTimeToUtcMs", () => {
   it("treats UTC wall time as-is", () => {
@@ -43,5 +48,22 @@ describe("calendarDaysBetween", () => {
 
   it("is negative for past dates", () => {
     expect(calendarDaysBetween("2026-01-15", "2026-01-10")).toBe(-5)
+  })
+})
+
+describe("nowInZone", () => {
+  it("returns the local date and 24-hour time", () => {
+    const instant = new Date("2026-01-15T02:05:00Z")
+    expect(nowInZone("UTC", instant)).toEqual({
+      date: "2026-01-15",
+      time: "02:05",
+    })
+    expect(nowInZone("America/New_York", instant)).toEqual({
+      date: "2026-01-14",
+      time: "21:05",
+    })
+    expect(nowInZone("UTC", new Date("2026-01-15T00:30:00Z")).time).toBe(
+      "00:30"
+    )
   })
 })

@@ -128,3 +128,22 @@
     @apply font-sans;
     }
 }
+/* Table headers stand out from the rows: one rule for every shadcn table
+   (data tables, the dashboard, the sales log, the assistant), so the ui/
+   primitive stays as generated. The header row keeps its color on hover. */
+@layer components {
+  [data-slot="table-header"] {
+    @apply bg-muted;
+  }
+  [data-slot="table-header"] [data-slot="table-row"] {
+    @apply hover:bg-transparent;
+  }
+  /* Zebra body rows. Rows marked data-detail (the sales log's expanded
+     breakdown) are skipped in the count so expanding one doesn't flip the
+     stripes below it. Hover, selected and highlighted are utilities, so they
+     still win over the stripe. */
+  [data-slot="table-body"]
+    > [data-slot="table-row"]:nth-child(even of :not([data-detail])) {
+    @apply bg-muted/40;
+  }
+}

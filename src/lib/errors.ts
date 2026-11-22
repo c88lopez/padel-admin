@@ -44,6 +44,14 @@ function parsePayload(message: string): SerializedAppError | null {
   return null
 }
 
+/** The code and params of a thrown AppError, also after crossing to the client. */
+export function appErrorPayload(
+  error: unknown
+): { code: string; params?: ErrorParams } | null {
+  const payload = parsePayload(error instanceof Error ? error.message : "")
+  return payload && { code: payload.code, params: payload.params }
+}
+
 /**
  * Localizes a thrown error for display. Errors thrown as `AppError` carry a code
  * (+ params) that maps to an `errors.*` i18n key; anything else falls back to

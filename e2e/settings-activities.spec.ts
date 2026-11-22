@@ -18,8 +18,12 @@ test("lists padel as the club's enabled activity", async ({ page }) => {
     })
   ).toBeVisible()
 
-  // Padel provides every building block, so the full navigation is shown.
+  // Padel provides every building block, so its sidebar group has every
+  // activity section.
   const sidebar = page.locator('[data-sidebar="content"]')
+  await expect(
+    sidebar.locator('[data-sidebar="group-label"]', { hasText: "Padel" })
+  ).toBeVisible()
   for (const name of ["Reservations", "Coaches", "Classes", "Tournaments"]) {
     await expect(sidebar.getByRole("link", { name, exact: true })).toBeVisible()
   }

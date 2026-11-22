@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { TFunction } from "i18next"
-import { AppError, translateError } from "./errors"
+import { AppError, appErrorPayload, translateError } from "./errors"
 
 // Minimal fake translator: echoes the key plus any params so assertions can see
 // that the code and interpolation values were passed through.
@@ -45,5 +45,23 @@ describe("translateError", () => {
   it("uses a generic message for non-Error values with no fallback", () => {
     const generic = vi.fn(() => "generic") as unknown as TFunction
     expect(translateError("nope", generic)).toBe("generic")
+  })
+})
+
+describe("appErrorPayload", () => {
+  it("reads the code and params of a serialized AppError", () => {
+    const crossed = new Error(
+      new AppError("errors.class.seriesConflicts", { all: "2026-03-09" })
+        .message
+    )
+    expect(appErrorPayload(crossed)).toEqual({
+      code: "errors.class.seriesConflicts",
+      params: { all: "2026-03-09" },
+    })
+  })
+
+  it("is null for other errors", () => {
+    expect(appErrorPayload(new Error("boom"))).toBeNull()
+    expect(appErrorPayload("boom")).toBeNull()
   })
 })

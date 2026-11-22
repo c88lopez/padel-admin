@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 import {
   commandItems,
   NAV_ENTRIES,
-  SIDEBAR_GROUPS,
+  sidebarCustomerItems,
+  sidebarGroups,
+  sidebarItemsForActivity,
   sidebarItemsForGroup,
 } from "./navigation"
 import { BLOCK_KEYS } from "./activities/templates"
-import type { BlockKey } from "./activities/templates"
+import type { ActivitySummary, BlockKey } from "./activities/templates"
 
 const ALL_BLOCKS = new Set<BlockKey>(BLOCK_KEYS)
 const NO_BLOCKS = new Set<BlockKey>()
@@ -33,46 +35,106 @@ describe("navigation registry", () => {
   })
 })
 
+const padel: ActivitySummary = {
+  id: "padel-id",
+  templateKey: "padel",
+  name: null,
+  active: true,
+}
+const pilates: ActivitySummary = {
+  id: "pilates-id",
+  templateKey: "pilates",
+  name: "Reformer",
+  active: true,
+}
+const nameOf = (a: ActivitySummary) => a.name ?? a.templateKey
+
+function routesOf(items: { to: string }[]) {
+  return items.map((i) => i.to)
+}
+
 describe("sidebarItemsForGroup", () => {
-  it("returns the entries for a group in declaration order", () => {
-    const courts = sidebarItemsForGroup("courts", ALL_BLOCKS)
-    expect(courts.map((i) => i.to)).toEqual(["/", "/reservations"])
+  it("shows the shared sections regardless of activities", () => {
+    expect(routesOf(sidebarItemsForGroup("general", NO_BLOCKS))).toEqual(["/"])
+    expect(sidebarItemsForGroup("inventory", NO_BLOCKS)).toHaveLength(3)
   })
+})
 
-  it("only returns entries that belong to the requested group", () => {
-    for (const { group } of SIDEBAR_GROUPS) {
-      for (const item of sidebarItemsForGroup(group, ALL_BLOCKS)) {
-        const entry = NAV_ENTRIES.find((e) => e.to === item.to)
-        expect(entry?.sidebarGroup).toBe(group)
-      }
-    }
-  })
-
-  it("shows every sidebar entry when all blocks are enabled (padel)", () => {
-    const shown = SIDEBAR_GROUPS.flatMap(({ group }) =>
-      sidebarItemsForGroup(group, ALL_BLOCKS)
-    ).map((i) => i.to)
-    const all = NAV_ENTRIES.filter((e) => e.sidebarGroup).map((e) => e.to)
+describe("sidebarItemsForActivity", () => {
+  it("gives padel every activity section", () => {
+    const shown = routesOf(sidebarItemsForActivity(padel))
+    const all = NAV_ENTRIES.filter((e) => e.sidebarGroup === "activity").map(
+      (e) => e.to
+    )
     expect(shown).toEqual(all)
   })
 
-  it("hides entries whose building block no activity provides", () => {
-    expect(sidebarItemsForGroup("courts", NO_BLOCKS).map((i) => i.to)).toEqual([
-      "/",
+  it("only gives pilates the sections for its blocks", () => {
+    expect(routesOf(sidebarItemsForActivity(pilates))).toEqual([
+      "/coaches",
+      "/coaches/classes",
     ])
-    expect(sidebarItemsForGroup("coaches", NO_BLOCKS)).toEqual([])
-    expect(sidebarItemsForGroup("tournaments", NO_BLOCKS)).toEqual([])
-    // Shared sections don't depend on any activity.
-    expect(sidebarItemsForGroup("players", NO_BLOCKS)).toHaveLength(1)
-    expect(sidebarItemsForGroup("inventory", NO_BLOCKS)).toHaveLength(3)
   })
 
-  it("shows sessions entries for a sessions-only activity (pilates)", () => {
-    const sessionsOnly = new Set<BlockKey>(["sessions"])
-    expect(
-      sidebarItemsForGroup("coaches", sessionsOnly).map((i) => i.to)
-    ).toEqual(["/coaches", "/coaches/classes"])
-    expect(sidebarItemsForGroup("tournaments", sessionsOnly)).toEqual([])
+  it("links filterable pages to the activity", () => {
+    const items = sidebarItemsForActivity(pilates)
+    for (const item of items) {
+      expect(item.search).toEqual({ activity: "pilates-id" })
+    }
+    const reservations = sidebarItemsForActivity(padel).find(
+      (i) => i.to === "/reservations"
+    )
+    expect(reservations?.search).toBeUndefined()
+  })
+
+  it("gives an inactive activity nothing", () => {
+    expect(sidebarItemsForActivity({ ...padel, active: false })).toEqual([])
+  })
+})
+
+describe("sidebarCustomerItems", () => {
+  it("lists each active activity's customers under its own word", () => {
+    const items = sidebarCustomerItems([
+      padel,
+      pilates,
+      { ...pilates, id: "off", active: false },
+    ])
+    expect(items).toEqual([
+      expect.objectContaining({
+        to: "/players",
+        labelKey: "activities.padel.customers.title",
+        search: { activity: "padel-id" },
+      }),
+      expect.objectContaining({
+        to: "/players",
+        labelKey: "activities.pilates.customers.title",
+        search: { activity: "pilates-id" },
+      }),
+    ])
+  })
+})
+
+describe("sidebarGroups", () => {
+  it("puts one group per active activity between the dashboard and inventory", () => {
+    const groups = sidebarGroups(
+      [padel, pilates, { ...pilates, id: "off", active: false }],
+      nameOf
+    )
+    expect(groups.map((g) => g.key)).toEqual([
+      "general",
+      "activity:padel-id",
+      "activity:pilates-id",
+      "inventory",
+      "customers",
+    ])
+    expect(groups[1].label).toBe("padel")
+    expect(groups[2].label).toBe("Reformer")
+    expect(groups[0].label ?? groups[0].labelKey).toBeUndefined()
+  })
+
+  it("drops groups with nothing to show", () => {
+    const keys = sidebarGroups([], nameOf).map((g) => g.key)
+    expect(keys).toEqual(["general", "inventory"])
   })
 })
 

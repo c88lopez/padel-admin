@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { coach, coachClass, reservation, space } from "@/db/schema"
 import { AppError } from "@/lib/errors"
@@ -11,6 +11,7 @@ import { activityProvides, getTemplate } from "@/lib/activities/templates"
 import type { BlockKey } from "@/lib/activities/templates"
 import { defaultSpaceName } from "@/lib/activities/spaces"
 import { findOverlap } from "@/lib/reservation-overlap"
+import type { TimeSlot } from "@/lib/reservation-overlap"
 import { endTime } from "@/lib/classes"
 
 // Pure data-access helpers for spaces (no auth). Kept in a server-only module so
@@ -278,6 +279,49 @@ export interface SpaceConflict {
   who: string | null
 }
 
+// Reservations and classes on a space on the given dates.
+async function spaceOccupants(
+  clubId: string,
+  spaceId: string,
+  dates: string[]
+) {
+  const reservations = await db
+    .select({
+      id: reservation.id,
+      date: reservation.date,
+      startTime: reservation.startTime,
+      durationMinutes: reservation.durationMinutes,
+      who: reservation.player,
+    })
+    .from(reservation)
+    .where(
+      and(
+        eq(reservation.clubId, clubId),
+        eq(reservation.spaceId, spaceId),
+        inArray(reservation.date, dates)
+      )
+    )
+  const classes = await db
+    .select({
+      id: coachClass.id,
+      date: coachClass.date,
+      startTime: coachClass.startTime,
+      durationMinutes: coachClass.durationMinutes,
+      who: coach.name,
+      seriesId: coachClass.seriesId,
+    })
+    .from(coachClass)
+    .leftJoin(coach, eq(coach.id, coachClass.coachId))
+    .where(
+      and(
+        eq(coachClass.clubId, clubId),
+        eq(coachClass.spaceId, spaceId),
+        inArray(coachClass.date, dates)
+      )
+    )
+  return { reservations, classes }
+}
+
 /**
  * What already occupies a space at that time, if anything: a reservation or
  * a class. A space holds one thing at a time, whichever kind. `ignore` is the
@@ -288,43 +332,42 @@ export async function findSpaceConflict(
   slot: SpaceSlot,
   ignore: { reservationId?: string; classId?: string } = {}
 ): Promise<SpaceConflict | undefined> {
-  const reservations = await db
-    .select({
-      id: reservation.id,
-      startTime: reservation.startTime,
-      durationMinutes: reservation.durationMinutes,
-      who: reservation.player,
-    })
-    .from(reservation)
-    .where(
-      and(
-        eq(reservation.clubId, clubId),
-        eq(reservation.spaceId, slot.spaceId),
-        eq(reservation.date, slot.date)
-      )
-    )
+  const { reservations, classes } = await spaceOccupants(clubId, slot.spaceId, [
+    slot.date,
+  ])
   const booked = findOverlap(slot, reservations, ignore.reservationId)
   if (booked) return { kind: "reservation", ...booked }
-
-  const classes = await db
-    .select({
-      id: coachClass.id,
-      startTime: coachClass.startTime,
-      durationMinutes: coachClass.durationMinutes,
-      who: coach.name,
-    })
-    .from(coachClass)
-    .leftJoin(coach, eq(coach.id, coachClass.coachId))
-    .where(
-      and(
-        eq(coachClass.clubId, clubId),
-        eq(coachClass.spaceId, slot.spaceId),
-        eq(coachClass.date, slot.date)
-      )
-    )
   const taught = findOverlap(slot, classes, ignore.classId)
   if (taught) return { kind: "class", ...taught }
   return undefined
+}
+
+/**
+ * The dates on which the space is taken at that time (see findSpaceConflict),
+ * in one pair of queries for a whole series. `ignore.seriesId` leaves out the
+ * series' own classes, for edits that move them.
+ */
+export async function findSpaceConflicts(
+  clubId: string,
+  spaceId: string,
+  dates: string[],
+  slot: TimeSlot,
+  ignore: { seriesId?: string } = {}
+): Promise<string[]> {
+  if (dates.length === 0) return []
+  const { reservations, classes } = await spaceOccupants(clubId, spaceId, dates)
+  const occupants = [
+    ...reservations,
+    ...classes.filter(
+      (c) => !ignore.seriesId || c.seriesId !== ignore.seriesId
+    ),
+  ]
+  return dates.filter((date) =>
+    findOverlap(
+      slot,
+      occupants.filter((o) => o.date === date)
+    )
+  )
 }
 
 /** Throws when the space is taken at that time (see findSpaceConflict). */

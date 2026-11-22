@@ -1,6 +1,6 @@
 import { and, asc, count, eq, max, ne } from "drizzle-orm"
 import { db } from "@/db"
-import { activity } from "@/db/schema"
+import { activity, customerActivityProfile, player } from "@/db/schema"
 import { AppError } from "@/lib/errors"
 import {
   DEFAULT_TEMPLATE_KEY,
@@ -25,9 +25,10 @@ export interface ActivityRecord extends ActivitySummary {
 }
 
 /**
- * Idempotent: gives a club the default activity when it has none. Runs on club
- * creation and lazily on reads, which also covers databases that were
- * baselined without running migration 0011's backfill.
+ * Idempotent: gives a club the default activity when it has none, with the
+ * club's existing customers in it. Runs on club creation and lazily on reads,
+ * which also covers databases that were baselined without running the
+ * backfills of migrations 0011 and 0019.
  */
 export async function ensureDefaultActivities(clubId: string): Promise<void> {
   const existing = await db
@@ -36,9 +37,21 @@ export async function ensureDefaultActivities(clubId: string): Promise<void> {
     .where(eq(activity.clubId, clubId))
     .limit(1)
   if (existing.length > 0) return
-  await db
+  const created = await db
     .insert(activity)
     .values({ clubId, templateKey: DEFAULT_TEMPLATE_KEY })
+    .onConflictDoNothing()
+    .returning({ id: activity.id })
+  const activityId = created.at(0)?.id
+  if (!activityId) return
+  const customers = await db
+    .select({ id: player.id })
+    .from(player)
+    .where(eq(player.clubId, clubId))
+  if (customers.length === 0) return
+  await db
+    .insert(customerActivityProfile)
+    .values(customers.map((c) => ({ clubId, customerId: c.id, activityId })))
     .onConflictDoNothing()
 }
 
@@ -75,6 +88,30 @@ export async function primaryActivityFor(
   block: BlockKey
 ): Promise<ActivityRecord | undefined> {
   return primaryActivity(await listActivityRecords(clubId), block)
+}
+
+/** One of the club's active activities, or an `errors.activity.notFound`. */
+export async function requireActiveActivity(
+  clubId: string,
+  activityId: string
+): Promise<ActivityRecord> {
+  const found = (await listActivityRecords(clubId)).find(
+    (a) => a.id === activityId && a.active
+  )
+  if (!found) throw new AppError("errors.activity.notFound")
+  return found
+}
+
+/**
+ * The activity a customer joins when none is named (the AI assistant, the
+ * seed): the one with levels (padel), else the first active one.
+ */
+export async function defaultCustomerActivity(
+  clubId: string
+): Promise<ActivityRecord | undefined> {
+  const activities = await listActivityRecords(clubId)
+  const withLevels = primaryActivity(activities, "levels")
+  return withLevels?.active ? withLevels : activities.find((a) => a.active)
 }
 
 /** Renames an activity; an empty name falls back to the template's name. */

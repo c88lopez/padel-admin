@@ -180,7 +180,7 @@ function SalesLogPage() {
                     </TableRow>
 
                     {expanded && (
-                      <TableRow key={`${sale.id}-detail`}>
+                      <TableRow key={`${sale.id}-detail`} data-detail>
                         <TableCell colSpan={4} className="bg-muted/30 p-0">
                           <Table>
                             <TableHeader>

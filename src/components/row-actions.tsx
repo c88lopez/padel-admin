@@ -27,6 +27,9 @@ interface RowActionsProps {
   onDuplicate?: () => void
   onDelete?: () => void
   deleteLabel?: string
+  // Off when onDelete asks for confirmation itself (e.g. which classes of a
+  // series to delete).
+  confirmDelete?: boolean
 }
 
 export function RowActions({
@@ -35,6 +38,7 @@ export function RowActions({
   onDuplicate,
   onDelete,
   deleteLabel,
+  confirmDelete = true,
 }: RowActionsProps) {
   const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -63,7 +67,9 @@ export function RowActions({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => setConfirmOpen(true)}
+            onClick={() =>
+              confirmDelete ? setConfirmOpen(true) : onDelete?.()
+            }
           >
             {resolvedDeleteLabel}
           </DropdownMenuItem>

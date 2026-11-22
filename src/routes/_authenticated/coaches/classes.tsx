@@ -1,12 +1,20 @@
 import { useMemo, useState } from "react"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
+import { z } from "zod"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconRepeat } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Select,
   SelectContent,
@@ -17,9 +25,10 @@ import {
 import { DataTable } from "@/components/data-table"
 import { NewClassDrawer } from "@/components/new-class-drawer"
 import { ClassAttendeesDrawer } from "@/components/class-attendees-drawer"
+import { SeriesScopeDialog } from "@/components/series-scope-dialog"
 import { RowActions } from "@/components/row-actions"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
-import type { ClassRecord } from "@/lib/classes.functions"
+import type { ClassRecord, SeriesScope } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
 import type { CoachRecord } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
@@ -34,9 +43,15 @@ import {
 import { spaceNounKey, spaceNumberLabel } from "@/lib/activities/spaces"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
+import { describeRule } from "@/lib/recurrence"
 import { useCan } from "@/hooks/use-permissions"
 
+// `?activity=<id>` preselects the activity filter (the sidebar's activity
+// groups link here with it).
+const activitySearchSchema = z.object({ activity: z.string().optional() })
+
 export const Route = createFileRoute("/_authenticated/coaches/classes")({
+  validateSearch: activitySearchSchema,
   loader: async () => {
     const activities = await listActivities()
     return {
@@ -76,12 +91,14 @@ function ClassActions({
   const canManage = useCan("coaches:manage")
   const [editOpen, setEditOpen] = useState(false)
   const [attendeesOpen, setAttendeesOpen] = useState(false)
+  const [deleteScopeOpen, setDeleteScopeOpen] = useState(false)
 
-  async function handleDelete() {
+  async function handleDelete(scope: SeriesScope = "this") {
     try {
-      await deleteClass({ data: { id: coachClass.id } })
+      await deleteClass({ data: { id: coachClass.id, scope } })
+      // Reloaded first, so the toast shows with the list already updated.
+      await router.invalidate()
       toast.success(t("pages.classes.deleted"))
-      router.invalidate()
     } catch {
       toast.error(t("pages.classes.deleteError"), {
         description: t("common.tryAgain"),
@@ -103,6 +120,7 @@ function ClassActions({
       <ClassAttendeesDrawer
         classId={coachClass.id}
         capacity={coachClass.capacity}
+        inSeries={!!coachClass.series}
         open={attendeesOpen}
         onOpenChange={setAttendeesOpen}
         onChanged={() => router.invalidate()}
@@ -115,8 +133,22 @@ function ClassActions({
           },
         ]}
         onEdit={() => setEditOpen(true)}
-        onDelete={handleDelete}
+        // A series' class asks which classes to delete instead.
+        confirmDelete={!coachClass.series}
+        onDelete={() =>
+          coachClass.series ? setDeleteScopeOpen(true) : handleDelete()
+        }
       />
+      {coachClass.series && (
+        <SeriesScopeDialog
+          open={deleteScopeOpen}
+          onOpenChange={setDeleteScopeOpen}
+          title={t("recurrence.scope.deleteTitle")}
+          actionLabel={t("recurrence.scope.delete")}
+          destructive
+          onConfirm={(scope) => void handleDelete(scope)}
+        />
+      )}
     </>
   )
 }
@@ -163,6 +195,31 @@ function buildColumns(
     {
       accessorKey: "date",
       header: t("fields.date"),
+      cell: ({ row }) => {
+        const { date, series } = row.original
+        if (!series) return date
+        const skipped = series.rule.exdates.length
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            {date}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconRepeat
+                  className="size-4 text-muted-foreground"
+                  aria-label={t("recurrence.repeating")}
+                  role="img"
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{describeRule(series.rule, t)}</p>
+                {skipped > 0 && (
+                  <p>{t("recurrence.skipped", { count: skipped })}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </span>
+        )
+      },
     },
     {
       accessorKey: "startTime",
@@ -226,15 +283,32 @@ function ClassesPage() {
     activityProvides(a, "sessions")
   )
   const showActivity = sessionActivities.length > 1
-  const [activityFilter, setActivityFilter] = useState("all")
+  const navigate = useNavigate({ from: Route.fullPath })
+  const { activity } = Route.useSearch()
+  const activityFilter =
+    showActivity && activity && sessionActivities.some((a) => a.id === activity)
+      ? activity
+      : "all"
+  function setActivityFilter(value: string) {
+    void navigate({
+      search: { activity: value === "all" ? undefined : value },
+      replace: true,
+    })
+  }
   const columns = useMemo(
     () => buildColumns(t, canManage, options, showActivity),
     [t, canManage, options, showActivity]
   )
-  const visible =
-    activityFilter === "all"
-      ? classes
-      : classes.filter((c) => c.activityId === activityFilter)
+  // Series fill the list with classes, so finished ones can be hidden.
+  const [hideCompleted, setHideCompleted] = useState(false)
+  const visible = classes.filter(
+    (c) =>
+      (activityFilter === "all" || c.activityId === activityFilter) &&
+      !(
+        hideCompleted &&
+        classStatus(c.date, c.startTime, c.durationMinutes) === "Completed"
+      )
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -252,6 +326,16 @@ function ClassesPage() {
         exportFileName="classes"
         action={
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pr-2">
+              <Switch
+                id="hide-completed"
+                checked={hideCompleted}
+                onCheckedChange={setHideCompleted}
+              />
+              <Label htmlFor="hide-completed" className="font-normal">
+                {t("pages.classes.hideCompleted")}
+              </Label>
+            </div>
             {showActivity && (
               <Select value={activityFilter} onValueChange={setActivityFilter}>
                 <SelectTrigger

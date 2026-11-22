@@ -10,8 +10,15 @@ import {
   jsonb,
   unique,
   index,
+  check,
 } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 import type { DayHours, Weekday } from "@/lib/reservation-settings"
+import type {
+  Frequency,
+  MonthlyBy,
+  Weekday as IsoWeekday,
+} from "@/lib/recurrence"
 
 // Better Auth core tables. These match the schema Better Auth's drizzle adapter
 // expects for email/password auth. App-domain tables (players, reservations,
@@ -388,35 +395,126 @@ export const coachActivity = pgTable(
 
 export type CoachActivity = typeof coachActivity.$inferSelect
 
-export const coachClass = pgTable("coach_class", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  coachId: text("coach_id").references(() => coach.id, {
-    onDelete: "set null",
-  }),
-  spaceId: text("space_id")
-    .notNull()
-    .references(() => space.id, { onDelete: "restrict" }),
-  // The activity the class is for (padel lesson, pilates class). Its space
-  // must belong to the same activity.
-  // NO ACTION rather than RESTRICT, so a club delete can cascade to its
-  // classes and activities in any order.
-  activityId: text("activity_id")
-    .notNull()
-    .references(() => activity.id),
-  date: date("date").notNull(),
-  startTime: text("start_time").notNull(),
-  durationMinutes: integer("duration_minutes").notNull(),
-  // Most attendees allowed; null = no limit.
-  capacity: integer("capacity"),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+// A recurring class: the rule (see src/lib/recurrence.ts) and the fields its
+// classes share. Each occurrence is a normal coach_class row, created up to
+// generated_until.
+export const classSeries = pgTable(
+  "class_series",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    // NO ACTION, like coach_class.activity_id.
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id),
+    coachId: text("coach_id").references(() => coach.id, {
+      onDelete: "set null",
+    }),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => space.id, { onDelete: "restrict" }),
+    startTime: text("start_time").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    capacity: integer("capacity"),
+    frequency: text("frequency").$type<Frequency>().notNull(),
+    interval: integer("interval").notNull().default(1),
+    // ISO weekdays (1 = Monday), weekly rules only.
+    weekdays: integer("weekdays")
+      .array()
+      .$type<IsoWeekday[]>()
+      .notNull()
+      .default(sql`'{}'`),
+    monthlyBy: text("monthly_by").$type<MonthlyBy>(),
+    startDate: date("start_date").notNull(),
+    // At most one of until/count; both null = never ends.
+    until: date("until"),
+    count: integer("count"),
+    // Rule dates without a class (deleted on their own or skipped over a
+    // conflict), so filling ahead doesn't bring them back.
+    exdates: date("exdates")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    // Classes exist up to this date.
+    generatedUntil: date("generated_until").notNull(),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (t) => [
+    index("class_series_club_idx").on(t.clubId),
+    check(
+      "class_series_frequency_check",
+      sql`${t.frequency} IN ('daily', 'weekly', 'monthly', 'yearly')`
+    ),
+    check("class_series_interval_check", sql`${t.interval} >= 1`),
+    check(
+      "class_series_monthly_by_check",
+      sql`${t.monthlyBy} IN ('day_of_month', 'weekday_of_month', 'last_weekday_of_month')`
+    ),
+    check(
+      "class_series_weekdays_check",
+      sql`${t.weekdays} <@ ARRAY[1, 2, 3, 4, 5, 6, 7]`
+    ),
+    check(
+      "class_series_end_check",
+      sql`${t.until} IS NULL OR ${t.count} IS NULL`
+    ),
+    check(
+      "class_series_count_check",
+      sql`${t.count} IS NULL OR ${t.count} >= 1`
+    ),
+  ]
+)
+
+export type ClassSeries = typeof classSeries.$inferSelect
+export type NewClassSeries = typeof classSeries.$inferInsert
+
+export const coachClass = pgTable(
+  "coach_class",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    coachId: text("coach_id").references(() => coach.id, {
+      onDelete: "set null",
+    }),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => space.id, { onDelete: "restrict" }),
+    // The activity the class is for (padel lesson, pilates class). Its space
+    // must belong to the same activity.
+    // NO ACTION rather than RESTRICT, so a club delete can cascade to its
+    // classes and activities in any order.
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id),
+    date: date("date").notNull(),
+    startTime: text("start_time").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    // Most attendees allowed; null = no limit.
+    capacity: integer("capacity"),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    // The series the class belongs to (null = a one-off class), and the date
+    // the rule gave it: its identity in the series, kept when the class alone is
+    // moved to another day.
+    seriesId: text("series_id").references(() => classSeries.id, {
+      onDelete: "set null",
+    }),
+    seriesDate: date("series_date"),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  // One class per series date, so concurrent fills can't double up.
+  (t) => [unique("coach_class_series_date_unique").on(t.seriesId, t.seriesDate)]
+)
 
 export type CoachClass = typeof coachClass.$inferSelect
 export type NewCoachClass = typeof coachClass.$inferInsert

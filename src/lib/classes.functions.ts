@@ -1,28 +1,88 @@
 import { createServerFn } from "@tanstack/react-start"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
-import { coach, coachClass, coachClassAttendee, space } from "@/db/schema"
+import {
+  classSeries,
+  coach,
+  coachClass,
+  coachClassAttendee,
+  space,
+} from "@/db/schema"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
 import {
   addAttendeeRecord,
+  addSeriesAttendeeRecord,
   createClassRecord,
+  createClassSeriesRecord,
+  deleteClassRecord,
+  fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
+  removeSeriesAttendeeRecord,
+  seriesRule,
   updateClassRecord,
+  updateClassSeriesRecord,
+} from "@/lib/classes.server"
+import { monthlyOptions } from "@/lib/recurrence"
+import type { RecurrenceRule } from "@/lib/recurrence"
+
+export type {
+  AttendeeRecord,
+  SeriesEditResult,
+  SeriesScope,
 } from "@/lib/classes.server"
 
-export type { AttendeeRecord } from "@/lib/classes.server"
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 const classInput = z.object({
   coachId: z.string().min(1),
   spaceId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: isoDate,
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   durationMinutes: z.coerce.number().int().min(15).max(360),
   // See ClassInput (classes.server.ts).
   capacity: z.coerce.number().int().min(1).max(500).nullable().optional(),
 })
+
+const recurrenceRule = z
+  .object({
+    frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+    interval: z.number().int().min(1).max(99),
+    weekdays: z
+      .array(
+        z.union([
+          z.literal(1),
+          z.literal(2),
+          z.literal(3),
+          z.literal(4),
+          z.literal(5),
+          z.literal(6),
+          z.literal(7),
+        ])
+      )
+      .max(7),
+    monthlyBy: z
+      .enum(["day_of_month", "weekday_of_month", "last_weekday_of_month"])
+      .nullable(),
+    startDate: isoDate,
+    until: isoDate.nullable(),
+    count: z.number().int().min(1).max(1000).nullable(),
+    exdates: z.array(isoDate).max(400),
+  })
+  .refine((r) => r.until === null || r.count === null)
+  .refine((r) => r.until === null || r.until >= r.startDate)
+  .refine((r) => r.frequency === "weekly" || r.weekdays.length === 0)
+  .refine(
+    (r) =>
+      r.monthlyBy === null ||
+      (r.frequency === "monthly" &&
+        monthlyOptions(r.startDate).includes(r.monthlyBy))
+  )
+
+const classSeriesInput = classInput
+  .omit({ date: true })
+  .extend({ rule: recurrenceRule })
 
 export interface ClassRecord {
   id: string
@@ -38,11 +98,14 @@ export interface ClassRecord {
   durationMinutes: number
   capacity: number | null
   attendeeCount: number
+  // The series the class belongs to; null for a one-off class.
+  series: { id: string; rule: RecurrenceRule } | null
 }
 
 export const listClasses = createServerFn({ method: "GET" }).handler(
   async (): Promise<ClassRecord[]> => {
     const clubId = await currentClubId()
+    await fillSeriesAhead(clubId)
     const rows = await db
       .select({
         id: coachClass.id,
@@ -61,16 +124,19 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
           select count(*)::int from ${coachClassAttendee}
           where ${coachClassAttendee.classId} = ${coachClass.id}
         )`,
+        series: classSeries,
       })
       .from(coachClass)
       .innerJoin(space, eq(coachClass.spaceId, space.id))
       .leftJoin(coach, eq(coachClass.coachId, coach.id))
+      .leftJoin(classSeries, eq(coachClass.seriesId, classSeries.id))
       .where(eq(coachClass.clubId, clubId))
       .orderBy(asc(coachClass.date), asc(coachClass.startTime))
 
-    return rows.map((row) => ({
+    return rows.map(({ series, ...row }) => ({
       ...row,
       coachName: row.coachName ?? "—",
+      series: series && { id: series.id, rule: seriesRule(series) },
     }))
   }
 )
@@ -79,6 +145,28 @@ export const createClass = createServerFn({ method: "POST" })
   .validator((data: unknown) => classInput.parse(data))
   .handler(async ({ data }) =>
     createClassRecord(await requireClubId("coaches:manage"), data)
+  )
+
+export const createClassSeries = createServerFn({ method: "POST" })
+  .validator((data: unknown) => classSeriesInput.parse(data))
+  .handler(async ({ data }) =>
+    createClassSeriesRecord(await requireClubId("coaches:manage"), data)
+  )
+
+export const updateClassSeries = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    classInput
+      .extend({
+        id: z.string().min(1),
+        scope: z.enum(["following", "all"]),
+        capacity: classInput.shape.capacity.unwrap(),
+        rule: recurrenceRule,
+        confirmed: z.boolean(),
+      })
+      .parse(data)
+  )
+  .handler(async ({ data }) =>
+    updateClassSeriesRecord(await requireClubId("coaches:manage"), data)
   )
 
 export const updateClass = createServerFn({ method: "POST" })
@@ -90,18 +178,28 @@ export const updateClass = createServerFn({ method: "POST" })
   )
 
 export const deleteClass = createServerFn({ method: "POST" })
-  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
+  .validator((data: unknown) =>
+    z
+      .object({
+        id: z.string().min(1),
+        scope: z.enum(["this", "following", "all"]).default("this"),
+      })
+      .parse(data)
+  )
   .handler(async ({ data }) => {
-    const clubId = await requireClubId("coaches:manage")
-    await db
-      .delete(coachClass)
-      .where(and(eq(coachClass.id, data.id), eq(coachClass.clubId, clubId)))
+    await deleteClassRecord(
+      await requireClubId("coaches:manage"),
+      data.id,
+      data.scope
+    )
     return { id: data.id }
   })
 
 const attendeeInput = z.object({
   classId: z.string().min(1),
   playerId: z.string().min(1),
+  // Also every later class of the class's series.
+  following: z.boolean().default(false),
 })
 
 export const listClassAttendees = createServerFn({ method: "GET" })
@@ -112,22 +210,25 @@ export const listClassAttendees = createServerFn({ method: "GET" })
     listAttendeeRecords(await currentClubId(), data.classId)
   )
 
+// The classes signed up to, and the dates that were full.
 export const addClassAttendee = createServerFn({ method: "POST" })
   .validator((data: unknown) => attendeeInput.parse(data))
-  .handler(async ({ data }) =>
-    addAttendeeRecord(
-      await requireClubId("coaches:manage"),
-      data.classId,
-      data.playerId
-    )
-  )
+  .handler(async ({ data }) => {
+    const clubId = await requireClubId("coaches:manage")
+    if (data.following) {
+      return addSeriesAttendeeRecord(clubId, data.classId, data.playerId)
+    }
+    await addAttendeeRecord(clubId, data.classId, data.playerId)
+    return { classes: 1, full: [] as string[] }
+  })
 
 export const removeClassAttendee = createServerFn({ method: "POST" })
   .validator((data: unknown) => attendeeInput.parse(data))
-  .handler(async ({ data }) =>
-    removeAttendeeRecord(
-      await requireClubId("coaches:manage"),
+  .handler(async ({ data }) => {
+    const clubId = await requireClubId("coaches:manage")
+    await (data.following ? removeSeriesAttendeeRecord : removeAttendeeRecord)(
+      clubId,
       data.classId,
       data.playerId
     )
-  )
+  })

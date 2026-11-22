@@ -34,10 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { levelsFor } from "@/lib/activities/levels"
-import type { LevelScale } from "@/lib/activities/levels"
+import { levelsFor, NO_LEVELS } from "@/lib/activities/levels"
+import type { CustomerView } from "@/hooks/use-customer-view"
 
-function makeSchema(t: TFunction) {
+function makeSchema(t: TFunction, hasLevels: boolean) {
   return z.object({
     fullName: z.string().min(1, t("validation.fullNameRequired")),
     email: z.string().email(t("validation.emailInvalid")),
@@ -46,7 +46,9 @@ function makeSchema(t: TFunction) {
     gender: z.enum(["Male", "Female"], {
       error: t("validation.genderRequired"),
     }),
-    category: z.string().min(1, t("validation.categoryRequired")),
+    category: hasLevels
+      ? z.string().min(1, t("validation.categoryRequired"))
+      : z.string(),
   })
 }
 
@@ -66,8 +68,9 @@ export interface PlayerData {
 }
 
 interface Props {
-  // Levels offered in the category picker (the club's levels activity).
-  levelScale: LevelScale
+  // The activity whose customer this is: its words, and its levels (the
+  // category picker is shown only when it has levels).
+  view: CustomerView
   trigger?: React.ReactNode
   player?: PlayerData & { id?: string }
   open?: boolean
@@ -76,7 +79,7 @@ interface Props {
 }
 
 export function NewPlayerDrawer({
-  levelScale,
+  view,
   trigger,
   player,
   open: controlledOpen,
@@ -90,7 +93,9 @@ export function NewPlayerDrawer({
   const isEditing = !!player
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  const { levelScale } = view
+  const hasLevels = levelScale !== NO_LEVELS
+  const schema = useMemo(() => makeSchema(t, hasLevels), [t, hasLevels])
 
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
@@ -134,7 +139,8 @@ export function NewPlayerDrawer({
       phone: values.phone,
       age: values.age as number,
       gender: values.gender as "Male" | "Female",
-      category: values.category,
+      category: hasLevels ? values.category : null,
+      activityId: view.activity.id,
     }
     run({
       action: () =>
@@ -142,12 +148,9 @@ export function NewPlayerDrawer({
           ? updatePlayer({ data: { id: player.id, ...payload } })
           : createPlayer({ data: payload }),
       onSuccess: () => {
-        toast.success(
-          isEditing ? t("forms.player.updated") : t("forms.player.created"),
-          {
-            description: t("common.savedSuccess", { name: values.fullName }),
-          }
-        )
+        toast.success(isEditing ? view.text("updated") : view.text("created"), {
+          description: t("common.savedSuccess", { name: values.fullName }),
+        })
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
@@ -165,9 +168,7 @@ export function NewPlayerDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing
-              ? t("forms.player.titleEdit")
-              : t("forms.player.titleNew")}
+            {isEditing ? view.text("titleEdit") : view.text("newButton")}
           </DrawerTitle>
         </DrawerHeader>
         <Form {...form}>
@@ -280,49 +281,49 @@ export function NewPlayerDrawer({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("fields.category")}</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!gender}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            gender
-                              ? t("placeholders.selectCategory")
-                              : t("placeholders.selectGenderFirst")
-                          }
-                        />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {hasLevels && (
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("fields.category")}</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!gender}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              gender
+                                ? t("placeholders.selectCategory")
+                                : t("placeholders.selectGenderFirst")
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DrawerFooter className="px-0 pt-4">
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
                 label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.player.submitNew")
+                  isEditing ? t("common.saveChanges") : view.text("submitNew")
                 }
               />
               <DrawerClose asChild>

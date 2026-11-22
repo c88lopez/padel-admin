@@ -6,13 +6,18 @@ import {
   ACTIVITY_TEMPLATES,
   activityDisplayName,
   BLOCK_KEYS,
+  customerTextKey,
   DEFAULT_TEMPLATE_KEY,
   enableRefusal,
   enabledBlocks,
   getTemplate,
   spacesForBlock,
 } from "./templates"
-import type { ActivitySummary, ActivityTemplate } from "./templates"
+import type {
+  ActivitySummary,
+  ActivityTemplate,
+  CustomerTextKey,
+} from "./templates"
 import { getSpaceType } from "./spaces"
 
 function lookup(resources: object, key: string): unknown {
@@ -88,6 +93,19 @@ describe("activity templates", () => {
   it("are translated in every locale", () => {
     for (const template of ACTIVITY_TEMPLATES) {
       for (const key of [template.nameKey, template.descriptionKey]) {
+        expect(lookup(en, key), `en ${key}`).toEqual(expect.any(String))
+        expect(lookup(es, key), `es ${key}`).toEqual(expect.any(String))
+      }
+    }
+  })
+
+  it("name their customers with every phrase, in every locale", () => {
+    const phrases = Object.keys(
+      en.activities.padel.customers
+    ) as CustomerTextKey[]
+    for (const template of ACTIVITY_TEMPLATES) {
+      for (const phrase of phrases) {
+        const key = customerTextKey(template, phrase)
         expect(lookup(en, key), `en ${key}`).toEqual(expect.any(String))
         expect(lookup(es, key), `es ${key}`).toEqual(expect.any(String))
       }

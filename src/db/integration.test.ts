@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import * as schema from "@/db/schema"
 import {
   activity,
+  classSeries,
   club,
   clubReservationSettings,
   customerActivityProfile,
@@ -26,6 +27,8 @@ import { DEFAULT_RESERVATION_SETTINGS } from "@/lib/reservation-settings"
 import { findOverlap } from "@/lib/reservation-overlap"
 import { findStockShortages } from "@/lib/inventory"
 import { classStatus } from "@/lib/classes"
+import type { RecurrenceRule } from "@/lib/recurrence"
+import type { ClassSeriesEdit } from "@/lib/classes.server"
 
 // Integration tests that exercise the real schema/migrations against a live
 // Postgres. They only run when DATABASE_URL_TEST points at a throwaway database
@@ -653,6 +656,22 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await db.delete(club).where(eq(club.id, clubId))
     })
 
+    it("makes someone signing up a customer of the class's activity", async () => {
+      const { clubId, pilates, studio, base } = await clubWithClasses()
+      const cls = await classes.createClassRecord(clubId, {
+        ...base,
+        spaceId: studio.id,
+      })
+      const [a] = await customers(clubId, 1)
+      await classes.addAttendeeRecord(clubId, cls.id, a)
+      const profiles = await db
+        .select()
+        .from(customerActivityProfile)
+        .where(eq(customerActivityProfile.customerId, a))
+      expect(profiles.map((p) => p.activityId)).toEqual([pilates.id])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
     it("never gives the last place twice", async () => {
       const { clubId, studio, base } = await clubWithClasses()
       const cls = await classes.createClassRecord(clubId, {
@@ -841,6 +860,536 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       await expect(
         classes.createClassRecord(clubId, { ...base, spaceId: studio.id })
       ).rejects.toThrow("errors.space.wrongActivity")
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    // Class series (recurring classes). `today` is pinned, so the 12-month
+    // horizon is 2027-03-01.
+    const TODAY = "2026-03-01"
+
+    function weeklyRule(
+      overrides: Partial<RecurrenceRule> = {}
+    ): RecurrenceRule {
+      return {
+        frequency: "weekly",
+        interval: 1,
+        weekdays: [1],
+        monthlyBy: null,
+        startDate: "2026-03-02", // a Monday
+        until: null,
+        count: null,
+        exdates: [],
+        ...overrides,
+      }
+    }
+
+    function seriesInput(
+      fixture: Awaited<ReturnType<typeof clubWithClasses>>,
+      rule: RecurrenceRule
+    ) {
+      const { date: _date, ...fields } = fixture.base
+      return { ...fields, spaceId: fixture.studio.id, rule }
+    }
+
+    async function seriesClasses(seriesId: string) {
+      return db
+        .select()
+        .from(coachClass)
+        .where(eq(coachClass.seriesId, seriesId))
+        .orderBy(coachClass.date)
+    }
+
+    async function bookStudio(clubId: string, spaceId: string, date: string) {
+      await db.insert(reservation).values({
+        spaceId,
+        player: "Booked Player",
+        bookedBy: "Front Desk",
+        date,
+        startTime: "10:30",
+        durationMinutes: 60,
+        paymentStatus: "paid",
+        clubId,
+      })
+    }
+
+    it("creates one class per date of a series", async () => {
+      const fixture = await clubWithClasses()
+      const { clubId, pilates } = fixture
+      const series = await classes.createClassSeriesRecord(
+        clubId,
+        seriesInput(fixture, weeklyRule({ weekdays: [1, 3], count: 4 })),
+        TODAY
+      )
+      expect(series).toMatchObject({
+        activityId: pilates.id,
+        capacity: 8,
+        generatedUntil: "2027-03-01",
+      })
+      const created = await seriesClasses(series.id)
+      expect(created.map((c) => [c.date, c.seriesDate])).toEqual([
+        ["2026-03-02", "2026-03-02"],
+        ["2026-03-04", "2026-03-04"],
+        ["2026-03-09", "2026-03-09"],
+        ["2026-03-11", "2026-03-11"],
+      ])
+      expect(created.every((c) => c.capacity === 8)).toBe(true)
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("refuses a series over a taken date, then skips it", async () => {
+      const fixture = await clubWithClasses()
+      const { clubId, studio } = fixture
+      await bookStudio(clubId, studio.id, "2026-03-09")
+      await classes.createClassRecord(clubId, {
+        ...fixture.base,
+        spaceId: studio.id,
+        date: "2026-03-23",
+      })
+      const input = seriesInput(fixture, weeklyRule({ count: 4 }))
+      await expect(
+        classes.createClassSeriesRecord(clubId, input, TODAY)
+      ).rejects.toMatchObject({
+        code: "errors.class.seriesConflicts",
+        params: {
+          dates: "2026-03-09, 2026-03-23",
+          all: "2026-03-09,2026-03-23",
+        },
+      })
+      expect(
+        await db
+          .select()
+          .from(classSeries)
+          .where(eq(classSeries.clubId, clubId))
+      ).toEqual([])
+
+      const series = await classes.createClassSeriesRecord(
+        clubId,
+        {
+          ...input,
+          rule: { ...input.rule, exdates: ["2026-03-09", "2026-03-23"] },
+        },
+        TODAY
+      )
+      expect(series.exdates).toEqual(["2026-03-09", "2026-03-23"])
+      expect((await seriesClasses(series.id)).map((c) => c.date)).toEqual([
+        "2026-03-02",
+        "2026-03-16",
+      ])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("names the first conflicts and counts the rest", async () => {
+      const fixture = await clubWithClasses()
+      const { clubId, studio } = fixture
+      for (const date of [
+        "2026-03-02",
+        "2026-03-09",
+        "2026-03-16",
+        "2026-03-23",
+        "2026-03-30",
+      ]) {
+        await bookStudio(clubId, studio.id, date)
+      }
+      await expect(
+        classes.createClassSeriesRecord(
+          clubId,
+          seriesInput(fixture, weeklyRule({ count: 6 })),
+          TODAY
+        )
+      ).rejects.toMatchObject({
+        code: "errors.class.seriesConflictsMore",
+        params: { dates: "2026-03-02, 2026-03-09, 2026-03-16", count: 2 },
+      })
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("refuses a series with no dates in the next 12 months", async () => {
+      const fixture = await clubWithClasses()
+      await expect(
+        classes.createClassSeriesRecord(
+          fixture.clubId,
+          seriesInput(fixture, weeklyRule({ startDate: "2027-06-07" })),
+          TODAY
+        )
+      ).rejects.toMatchObject({ code: "errors.class.seriesEmpty" })
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("fills a never-ending series ahead, skipping taken dates", async () => {
+      const fixture = await clubWithClasses()
+      const { clubId, studio } = fixture
+      const series = await classes.createClassSeriesRecord(
+        clubId,
+        seriesInput(fixture, weeklyRule()),
+        TODAY
+      )
+      // Every Monday from 2026-03-02 to 2027-03-01.
+      expect(await seriesClasses(series.id)).toHaveLength(53)
+
+      await bookStudio(clubId, studio.id, "2027-03-15")
+      await classes.fillSeriesAhead(clubId, "2026-03-20")
+      await classes.fillSeriesAhead(clubId, "2026-03-20")
+      const filled = await seriesClasses(series.id)
+      expect(filled.slice(-2).map((c) => c.date)).toEqual([
+        "2027-03-01",
+        "2027-03-08",
+      ])
+      expect(filled).toHaveLength(54)
+      const [updated] = await db
+        .select()
+        .from(classSeries)
+        .where(eq(classSeries.id, series.id))
+      expect(updated).toMatchObject({
+        generatedUntil: "2027-03-20",
+        exdates: ["2027-03-15"],
+      })
+
+      // The skipped date doesn't come back once the space is free again.
+      await db.delete(reservation).where(eq(reservation.clubId, clubId))
+      await classes.fillSeriesAhead(clubId, "2026-03-30")
+      expect(
+        (await seriesClasses(series.id)).slice(-4).map((c) => c.date)
+      ).toEqual(["2027-03-01", "2027-03-08", "2027-03-22", "2027-03-29"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("stops filling a series at its end", async () => {
+      const fixture = await clubWithClasses()
+      const series = await classes.createClassSeriesRecord(
+        fixture.clubId,
+        seriesInput(fixture, weeklyRule({ until: "2027-03-31" })),
+        TODAY
+      )
+      await classes.fillSeriesAhead(fixture.clubId, "2026-09-01")
+      const filled = await seriesClasses(series.id)
+      expect(filled.at(-1)?.date).toBe("2027-03-29")
+      expect(filled).toHaveLength(57)
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    // Editing and deleting with a scope. By NOW the classes of 2 and 9 March
+    // have ended.
+    const NOW = { date: "2026-03-10", time: "12:00" }
+
+    async function weeklySeries(overrides: Partial<RecurrenceRule> = {}) {
+      const fixture = await clubWithClasses()
+      const series = await classes.createClassSeriesRecord(
+        fixture.clubId,
+        seriesInput(fixture, weeklyRule(overrides)),
+        TODAY
+      )
+      const created = await seriesClasses(series.id)
+      return { ...fixture, series, created }
+    }
+
+    async function seriesRow(id: string) {
+      const rows = await db
+        .select()
+        .from(classSeries)
+        .where(eq(classSeries.id, id))
+      return rows.at(0)
+    }
+
+    function editOf(
+      fixture: Awaited<ReturnType<typeof weeklySeries>>,
+      classIndex: number,
+      overrides: Partial<ClassSeriesEdit> = {}
+    ): ClassSeriesEdit {
+      const cls = fixture.created[classIndex]
+      return {
+        id: cls.id,
+        scope: "following",
+        coachId: fixture.base.coachId,
+        spaceId: fixture.studio.id,
+        date: cls.date,
+        startTime: cls.startTime,
+        durationMinutes: cls.durationMinutes,
+        capacity: cls.capacity,
+        rule: seriesRuleOf(fixture.series),
+        confirmed: false,
+        ...overrides,
+      }
+    }
+
+    function seriesRuleOf(row: schema.ClassSeries): RecurrenceRule {
+      return {
+        frequency: row.frequency,
+        interval: row.interval,
+        weekdays: row.weekdays,
+        monthlyBy: row.monthlyBy,
+        startDate: row.startDate,
+        until: row.until,
+        count: row.count,
+        exdates: row.exdates,
+      }
+    }
+
+    it("deletes one class of a series for good", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      await classes.deleteClassRecord(
+        fixture.clubId,
+        fixture.created[1].id,
+        "this"
+      )
+      expect((await seriesRow(fixture.series.id))?.exdates).toEqual([
+        "2026-03-09",
+      ])
+      await db
+        .update(classSeries)
+        .set({ generatedUntil: "2026-03-01" })
+        .where(eq(classSeries.id, fixture.series.id))
+      await classes.fillSeriesAhead(fixture.clubId, TODAY)
+      expect(
+        (await seriesClasses(fixture.series.id)).map((c) => c.date)
+      ).toEqual(["2026-03-02", "2026-03-16", "2026-03-23"])
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("deletes this and following classes, ending the series", async () => {
+      const fixture = await weeklySeries()
+      await classes.deleteClassRecord(
+        fixture.clubId,
+        fixture.created[2].id,
+        "following"
+      )
+      expect(
+        (await seriesClasses(fixture.series.id)).map((c) => c.date)
+      ).toEqual(["2026-03-02", "2026-03-09"])
+      expect(await seriesRow(fixture.series.id)).toMatchObject({
+        until: "2026-03-15",
+        count: null,
+      })
+
+      // From the first class, nothing is left: the series goes too.
+      await classes.deleteClassRecord(
+        fixture.clubId,
+        fixture.created[0].id,
+        "following"
+      )
+      expect(await seriesRow(fixture.series.id)).toBeUndefined()
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("deletes all classes that haven't ended, keeping the history", async () => {
+      const fixture = await weeklySeries()
+      await classes.deleteClassRecord(
+        fixture.clubId,
+        fixture.created[5].id,
+        "all",
+        NOW
+      )
+      expect(
+        (await seriesClasses(fixture.series.id)).map((c) => c.date)
+      ).toEqual(["2026-03-02", "2026-03-09"])
+      expect((await seriesRow(fixture.series.id))?.until).toBe("2026-03-09")
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("edits this and following classes in place, keeping attendees", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      const [customer] = await customers(fixture.clubId, 1)
+      await classes.addAttendeeRecord(
+        fixture.clubId,
+        fixture.created[2].id,
+        customer
+      )
+      const result = await classes.updateClassSeriesRecord(
+        fixture.clubId,
+        editOf(fixture, 2, { startTime: "18:00", capacity: 5 }),
+        NOW
+      )
+      expect(result).toEqual({ saved: true })
+      const after = await seriesClasses(fixture.series.id)
+      expect(after.map((c) => [c.date, c.startTime, c.capacity])).toEqual([
+        ["2026-03-02", "10:00", 8],
+        ["2026-03-09", "10:00", 8],
+        ["2026-03-16", "18:00", 5],
+        ["2026-03-23", "18:00", 5],
+      ])
+      expect(after[2].id).toBe(fixture.created[2].id)
+      expect(
+        await classes.listAttendeeRecords(fixture.clubId, after[2].id)
+      ).toHaveLength(1)
+      expect((await seriesRow(fixture.series.id))?.startTime).toBe("18:00")
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("refuses an edit over a taken date or below the sign-ups", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      await db.insert(reservation).values({
+        spaceId: fixture.studio.id,
+        player: "Booked Player",
+        bookedBy: "Front Desk",
+        date: "2026-03-23",
+        startTime: "18:00",
+        durationMinutes: 60,
+        paymentStatus: "paid",
+        clubId: fixture.clubId,
+      })
+      await expect(
+        classes.updateClassSeriesRecord(
+          fixture.clubId,
+          editOf(fixture, 2, { startTime: "18:00" }),
+          NOW
+        )
+      ).rejects.toMatchObject({
+        code: "errors.class.seriesConflicts",
+        params: { all: "2026-03-23" },
+      })
+
+      const [a, b] = await customers(fixture.clubId, 2)
+      await classes.addAttendeeRecord(fixture.clubId, fixture.created[3].id, a)
+      await classes.addAttendeeRecord(fixture.clubId, fixture.created[3].id, b)
+      await expect(
+        classes.updateClassSeriesRecord(
+          fixture.clubId,
+          editOf(fixture, 2, { capacity: 1 }),
+          NOW
+        )
+      ).rejects.toMatchObject({
+        code: "errors.class.capacityBelowAttendees",
+        params: { count: 2 },
+      })
+      const unchanged = await seriesClasses(fixture.series.id)
+      expect(unchanged.every((c) => c.startTime === "10:00")).toBe(true)
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("splits the series on a rule change, after confirming removals", async () => {
+      const fixture = await weeklySeries({ count: 6 })
+      const [customer] = await customers(fixture.clubId, 1)
+      // 23 March survives "every 2 weeks" from 9 March; 16 March doesn't.
+      await classes.addAttendeeRecord(
+        fixture.clubId,
+        fixture.created[2].id,
+        customer
+      )
+      await classes.addAttendeeRecord(
+        fixture.clubId,
+        fixture.created[3].id,
+        customer
+      )
+      const edit = editOf(fixture, 1, {
+        rule: { ...seriesRuleOf(fixture.series), interval: 2, count: 3 },
+      })
+      expect(
+        await classes.updateClassSeriesRecord(fixture.clubId, edit, NOW)
+      ).toEqual({ saved: false, removedClasses: 2, removedSignUps: 1 })
+      expect(await seriesClasses(fixture.series.id)).toHaveLength(6)
+
+      expect(
+        await classes.updateClassSeriesRecord(
+          fixture.clubId,
+          { ...edit, confirmed: true },
+          NOW
+        )
+      ).toEqual({ saved: true })
+      expect(await seriesRow(fixture.series.id)).toMatchObject({
+        until: "2026-03-08",
+        count: null,
+      })
+      expect(
+        (await seriesClasses(fixture.series.id)).map((c) => c.date)
+      ).toEqual(["2026-03-02"])
+      const [next] = await db
+        .select()
+        .from(classSeries)
+        .where(
+          and(
+            eq(classSeries.clubId, fixture.clubId),
+            eq(classSeries.startDate, "2026-03-09")
+          )
+        )
+      expect(next).toMatchObject({ interval: 2, count: 3 })
+      const moved = await seriesClasses(next.id)
+      expect(moved.map((c) => c.date)).toEqual([
+        "2026-03-09",
+        "2026-03-23",
+        "2026-04-06",
+      ])
+      // The surviving class is the same row, with its attendee.
+      expect(moved[1].id).toBe(fixture.created[3].id)
+      expect(
+        await classes.listAttendeeRecords(fixture.clubId, moved[1].id)
+      ).toHaveLength(1)
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("moves all classes to another day, keeping attendees and history", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      const [customer] = await customers(fixture.clubId, 1)
+      await classes.addAttendeeRecord(
+        fixture.clubId,
+        fixture.created[3].id,
+        customer
+      )
+      // Edit the 23 March class, moving it to Tuesday with "all events".
+      const result = await classes.updateClassSeriesRecord(
+        fixture.clubId,
+        editOf(fixture, 3, {
+          scope: "all",
+          date: "2026-03-24",
+          rule: { ...seriesRuleOf(fixture.series), weekdays: [2] },
+        }),
+        NOW
+      )
+      expect(result).toEqual({ saved: true })
+      // The ended classes stay in the old series, unchanged.
+      expect(
+        (await seriesClasses(fixture.series.id)).map((c) => c.date)
+      ).toEqual(["2026-03-02", "2026-03-09"])
+      const [next] = await db
+        .select()
+        .from(classSeries)
+        .where(
+          and(
+            eq(classSeries.clubId, fixture.clubId),
+            eq(classSeries.startDate, "2026-03-17")
+          )
+        )
+      const moved = await seriesClasses(next.id)
+      // `count` now counts from the new start: four more Tuesdays.
+      expect(moved.map((c) => [c.date, c.seriesDate])).toEqual([
+        ["2026-03-17", "2026-03-17"],
+        ["2026-03-24", "2026-03-24"],
+        ["2026-03-31", "2026-03-31"],
+        ["2026-04-07", "2026-04-07"],
+      ])
+      expect(moved[1].id).toBe(fixture.created[3].id)
+      expect(
+        await classes.listAttendeeRecords(fixture.clubId, moved[1].id)
+      ).toHaveLength(1)
+      await db.delete(club).where(eq(club.id, fixture.clubId))
+    })
+
+    it("signs a customer up to the following classes, skipping full ones", async () => {
+      const fixture = await weeklySeries({ count: 4 })
+      const { clubId, created } = fixture
+      const [ana, ben] = await customers(clubId, 2)
+      await db
+        .update(coachClass)
+        .set({ capacity: 1 })
+        .where(eq(coachClass.id, created[2].id))
+      await classes.addAttendeeRecord(clubId, created[2].id, ben)
+
+      expect(
+        await classes.addSeriesAttendeeRecord(clubId, created[1].id, ana)
+      ).toEqual({ classes: 2, full: ["2026-03-16"] })
+      const signedUp = async (classId: string) =>
+        (await classes.listAttendeeRecords(clubId, classId)).map(
+          (a) => a.playerId
+        )
+      expect(await signedUp(created[0].id)).toEqual([])
+      expect(await signedUp(created[1].id)).toEqual([ana])
+      expect(await signedUp(created[2].id)).toEqual([ben])
+      expect(await signedUp(created[3].id)).toEqual([ana])
+
+      // Signing up again changes nothing; removing takes them off from there.
+      await classes.addSeriesAttendeeRecord(clubId, created[1].id, ana)
+      expect(await signedUp(created[3].id)).toEqual([ana])
+      await classes.removeSeriesAttendeeRecord(clubId, created[3].id, ana)
+      expect(await signedUp(created[1].id)).toEqual([ana])
+      expect(await signedUp(created[3].id)).toEqual([])
       await db.delete(club).where(eq(club.id, clubId))
     })
   })
@@ -1487,6 +2036,139 @@ describe.skipIf(!TEST_URL)("database integration", () => {
   // Exercises the DB-backed per-player concurrency rule in
   // reservation-settings.server.ts (the pure window/cutoff rules are unit-tested
   // separately in reservation-settings.test.ts).
+  describe("customer activities (players.server)", () => {
+    const loadPlayers = () => import("@/lib/players.server")
+    const loadActivities = () => import("@/lib/activities.server")
+    let players: Awaited<ReturnType<typeof loadPlayers>>
+    let activities: Awaited<ReturnType<typeof loadActivities>>
+
+    beforeAll(async () => {
+      players = await loadPlayers()
+      activities = await loadActivities()
+    })
+
+    const person = {
+      email: "c@example.com",
+      phone: "600000000",
+      age: 30,
+      gender: "Female" as const,
+    }
+
+    // A throwaway club with padel and pilates. Deleting the club cascades.
+    async function padelAndPilatesClub() {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      const [padel, pilates] = await db
+        .insert(activity)
+        .values([
+          { clubId, templateKey: "padel", sortOrder: 0 },
+          { clubId, templateKey: "pilates", sortOrder: 1 },
+        ])
+        .returning()
+      return { clubId, padelId: padel.id, pilatesId: pilates.id }
+    }
+
+    it("lists each activity's own customers", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      await players.createPlayerRecord(
+        clubId,
+        { ...person, fullName: "Padel Only", category: "D5" },
+        padelId
+      )
+      const student = await players.createPlayerRecord(
+        clubId,
+        // A level sent for an activity without levels is dropped.
+        { ...person, fullName: "Pilates Only", category: "D5" },
+        pilatesId
+      )
+      expect(student.category).toBeNull()
+
+      const names = async (activityId?: string) =>
+        (await players.listPlayerRecords(clubId, activityId)).map(
+          (p) => p.fullName
+        )
+      expect(await names(padelId)).toEqual(["Padel Only"])
+      expect(await names(pilatesId)).toEqual(["Pilates Only"])
+      // Without an activity: everyone, e.g. to sign someone up to a class.
+      expect(await names()).toEqual(["Padel Only", "Pilates Only"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("needs a level for an activity with levels, and an active activity", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      await expect(
+        players.createPlayerRecord(
+          clubId,
+          { ...person, fullName: "No Level", category: null },
+          padelId
+        )
+      ).rejects.toThrow("errors.activity.levelRequired")
+      await db
+        .update(activity)
+        .set({ active: false })
+        .where(eq(activity.id, pilatesId))
+      await expect(
+        players.createPlayerRecord(
+          clubId,
+          { ...person, fullName: "Off", category: null },
+          pilatesId
+        )
+      ).rejects.toThrow("errors.activity.notFound")
+      // Nothing was saved by either refusal.
+      expect(await players.listPlayerRecords(clubId)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("removes from one list, and deletes once in none", async () => {
+      const { clubId, padelId, pilatesId } = await padelAndPilatesClub()
+      const both = await players.createPlayerRecord(
+        clubId,
+        { ...person, fullName: "Both", category: "D6" },
+        padelId
+      )
+      await players.updatePlayerRecord(
+        clubId,
+        { id: both.id, ...person, fullName: "Both", category: null },
+        pilatesId
+      )
+      // Saving from the students list keeps the padel level.
+      const [inPadel] = await players.listPlayerRecords(clubId, padelId)
+      expect(inPadel.category).toBe("D6")
+
+      expect(
+        await players.removePlayerFromActivity(clubId, both.id, pilatesId)
+      ).toEqual({ id: both.id, deleted: false })
+      expect(await players.listPlayerRecords(clubId, pilatesId)).toEqual([])
+      expect(await players.listPlayerRecords(clubId, padelId)).toHaveLength(1)
+
+      expect(
+        await players.removePlayerFromActivity(clubId, both.id, padelId)
+      ).toEqual({ id: both.id, deleted: true })
+      expect(await players.listPlayerRecords(clubId)).toEqual([])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+
+    it("puts a club's existing customers in the default activity it gets", async () => {
+      const clubId = randomUUID()
+      await db
+        .insert(club)
+        .values({ id: clubId, name: `Club ${clubId}`, slug: `club-${clubId}` })
+      await db
+        .insert(player)
+        .values({ ...person, fullName: "Legacy", clubId, gender: "Male" })
+      await activities.ensureDefaultActivities(clubId)
+      const [padel] = await activities.listActivityRecords(clubId)
+      expect(
+        (await players.listPlayerRecords(clubId, padel.id)).map(
+          (p) => p.fullName
+        )
+      ).toEqual(["Legacy"])
+      await db.delete(club).where(eq(club.id, clubId))
+    })
+  })
+
   describe("per-player booking limit (reservation-settings.server)", () => {
     const loadSettings = () => import("@/lib/reservation-settings.server")
     let settingsServer: Awaited<ReturnType<typeof loadSettings>>
