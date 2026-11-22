@@ -951,6 +951,8 @@ export const en = {
       allActivities: "All activities",
       attendees: "Attendees",
       hideCompleted: "Hide completed",
+      todaysTimeline: "Today's Timeline",
+      allClasses: "All Classes",
     },
     stock: {
       title: "Stock",

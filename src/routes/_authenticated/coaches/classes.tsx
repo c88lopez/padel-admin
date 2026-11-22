@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconPlus, IconRepeat } from "@tabler/icons-react"
+import { format } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,11 +28,14 @@ import { NewClassDrawer } from "@/components/new-class-drawer"
 import { ClassAttendeesDrawer } from "@/components/class-attendees-drawer"
 import { SeriesScopeDialog } from "@/components/series-scope-dialog"
 import { RowActions } from "@/components/row-actions"
+import { SpaceTimeline } from "@/components/space-timeline"
+import type { TimelineItem } from "@/components/space-timeline"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
 import type { ClassRecord, SeriesScope } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
 import type { CoachRecord } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
+import { getReservationSettings } from "@/lib/reservation-settings.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { listActivities } from "@/lib/activities.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
@@ -59,6 +63,7 @@ export const Route = createFileRoute("/_authenticated/coaches/classes")({
       coaches: await listCoaches(),
       // Only spaces whose activity runs classes.
       courts: spacesForBlock(await listSpaces(), activities, "sessions"),
+      settings: await getReservationSettings(),
       activities,
     }
   },
@@ -273,7 +278,8 @@ function ClassesPage() {
   const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
-  const { classes, coaches, courts, activities } = Route.useLoaderData()
+  const { classes, coaches, courts, settings, activities } =
+    Route.useLoaderData()
   const options = useMemo(
     () => ({ coaches, courts, activities }),
     [coaches, courts, activities]
@@ -299,19 +305,49 @@ function ClassesPage() {
     () => buildColumns(t, canManage, options, showActivity),
     [t, canManage, options, showActivity]
   )
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const filtered = classes.filter(
+    (c) => activityFilter === "all" || c.activityId === activityFilter
+  )
   // Series fill the list with classes, so finished ones can be hidden.
   const [hideCompleted, setHideCompleted] = useState(false)
-  const visible = classes.filter(
+  const visible = filtered.filter(
     (c) =>
-      (activityFilter === "all" || c.activityId === activityFilter) &&
       !(
         hideCompleted &&
         classStatus(c.date, c.startTime, c.durationMinutes) === "Completed"
       )
   )
 
+  const todayISO = format(new Date(), "yyyy-MM-dd")
+  const todayClasses: TimelineItem[] = filtered
+    .filter((c) => c.date === todayISO)
+    .map((c) => ({
+      id: c.id,
+      spaceId: c.spaceId,
+      label: c.coachName,
+      startTime: c.startTime,
+      durationMinutes: c.durationMinutes,
+      detail: `${t("pages.classes.attendees")}: ${
+        c.capacity === null
+          ? c.attendeeCount
+          : `${c.attendeeCount} / ${c.capacity}`
+      }`,
+    }))
+  // Courts and studios are both numbered "# N", so with several activities
+  // each one gets its own timeline.
+  const timelines = showActivity
+    ? sessionActivities
+        .filter((a) => activityFilter === "all" || a.id === activityFilter)
+        .map((a) => ({
+          key: a.id,
+          title: activityDisplayName(a, t),
+          spaces: courts.filter((s) => s.activityId === a.id),
+        }))
+    : [{ key: "all", title: null, spaces: courts }]
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold">{t("pages.classes.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -319,59 +355,87 @@ function ClassesPage() {
         </p>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={visible}
-        searchPlaceholder={t("pages.classes.searchPlaceholder")}
-        exportFileName="classes"
-        action={
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 pr-2">
-              <Switch
-                id="hide-completed"
-                checked={hideCompleted}
-                onCheckedChange={setHideCompleted}
-              />
-              <Label htmlFor="hide-completed" className="font-normal">
-                {t("pages.classes.hideCompleted")}
-              </Label>
-            </div>
-            {showActivity && (
-              <Select value={activityFilter} onValueChange={setActivityFilter}>
-                <SelectTrigger
-                  size="sm"
-                  className="w-44"
-                  aria-label={t("fields.activity")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {t("pages.classes.allActivities")}
-                  </SelectItem>
-                  {sessionActivities.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {activityDisplayName(a, t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">
+          {t("pages.classes.todaysTimeline")}
+        </h2>
+        {timelines.map((timeline) => (
+          <div key={timeline.key} className="flex flex-col gap-2">
+            {timeline.title && (
+              <h3 className="text-sm font-medium">{timeline.title}</h3>
             )}
-            {canManage && (
-              <NewClassDrawer
-                {...options}
-                onSaved={() => router.invalidate()}
-                trigger={
-                  <Button size="sm">
-                    <IconPlus className="size-4" />
-                    {t("pages.classes.newButton")}
-                  </Button>
-                }
-              />
-            )}
+            <SpaceTimeline
+              items={todayClasses}
+              spaces={timeline.spaces}
+              settings={settings}
+              hoveredId={hoveredId}
+              onHover={setHoveredId}
+            />
           </div>
-        }
-      />
+        ))}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">{t("pages.classes.allClasses")}</h2>
+        <DataTable
+          columns={columns}
+          data={visible}
+          searchPlaceholder={t("pages.classes.searchPlaceholder")}
+          exportFileName="classes"
+          onRowHover={(c) => setHoveredId(c ? c.id : null)}
+          isRowHighlighted={(c) => c.id === hoveredId}
+          action={
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pr-2">
+                <Switch
+                  id="hide-completed"
+                  checked={hideCompleted}
+                  onCheckedChange={setHideCompleted}
+                />
+                <Label htmlFor="hide-completed" className="font-normal">
+                  {t("pages.classes.hideCompleted")}
+                </Label>
+              </div>
+              {showActivity && (
+                <Select
+                  value={activityFilter}
+                  onValueChange={setActivityFilter}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="w-44"
+                    aria-label={t("fields.activity")}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {t("pages.classes.allActivities")}
+                    </SelectItem>
+                    {sessionActivities.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {activityDisplayName(a, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {canManage && (
+                <NewClassDrawer
+                  {...options}
+                  onSaved={() => router.invalidate()}
+                  trigger={
+                    <Button size="sm">
+                      <IconPlus className="size-4" />
+                      {t("pages.classes.newButton")}
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+          }
+        />
+      </section>
     </div>
   )
 }

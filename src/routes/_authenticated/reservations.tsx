@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
-import { IconMinus, IconPlus, IconZoomIn } from "@tabler/icons-react"
+import { IconPlus } from "@tabler/icons-react"
 import { format, parseISO } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/data-table"
 import { NewReservationDrawer } from "@/components/new-reservation-drawer"
+import { SpaceTimeline } from "@/components/space-timeline"
+import type { TimelineItem } from "@/components/space-timeline"
 import { listActivities } from "@/lib/activities.functions"
 import { spacesForBlock } from "@/lib/activities/templates"
-import { spaceNounKey, spaceShortName } from "@/lib/activities/spaces"
+import { spaceNounKey } from "@/lib/activities/spaces"
 import { RowActions } from "@/components/row-actions"
-import { cn } from "@/lib/utils"
 import {
   deleteReservation,
   listReservations,
@@ -23,11 +24,9 @@ import type { ReservationListItem } from "@/lib/reservations.functions"
 import { listSpaces } from "@/lib/spaces.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { getReservationSettings } from "@/lib/reservation-settings.functions"
-import { todayHours } from "@/lib/reservation-settings"
-import type { ReservationSettingsData } from "@/lib/reservation-settings.functions"
 import type { TranslationKey } from "@/lib/i18n"
 import { useCan } from "@/hooks/use-permissions"
-import { formatHour, formatTimeRange, useAppSettings } from "@/lib/app-settings"
+import { formatTimeRange, useAppSettings } from "@/lib/app-settings"
 
 export const Route = createFileRoute("/_authenticated/reservations")({
   loader: async () => {
@@ -46,14 +45,6 @@ export const Route = createFileRoute("/_authenticated/reservations")({
 // Table/timeline row: a reservation plus a derived "HH:MM – HH:MM" range.
 type ReservationRow = ReservationListItem & { timeRange: string }
 
-interface TimelineReservation {
-  id: string
-  spaceId: string
-  reservedTo: string
-  time: string
-  paid: boolean
-}
-
 function endTime(startTime: string, durationMinutes: number): string {
   const [h, m] = startTime.split(":").map(Number)
   const total = h * 60 + m + durationMinutes
@@ -64,236 +55,6 @@ function endTime(startTime: string, durationMinutes: number): string {
 
 function buildRange(r: ReservationListItem): string {
   return `${r.startTime} – ${endTime(r.startTime, r.durationMinutes)}`
-}
-
-// --- Timeline ---
-
-// px per hour → roughly how many hours fit in a ~800px viewport
-const ZOOM_STEPS = [52, 80, 120, 160, 200, 260]
-const DEFAULT_ZOOM = 3 // index 3 → 160 px/h → ~5 h visible
-const SIDE_PAD = 24 // px of breathing room before open and after close
-const LABEL_COL = 64 // w-16 in px — sized to fit the "Court" header / "# N" rows
-const BLOCK_GAP = 5 // px horizontal gap between adjacent reservation blocks
-
-function parseTimeRange(time: string): { startMin: number; endMin: number } {
-  const [startStr, endStr] = time.split(" – ")
-  const [sh, sm] = startStr.split(":").map(Number)
-  const [eh, em] = endStr.split(":").map(Number)
-  return { startMin: sh * 60 + sm, endMin: eh * 60 + em }
-}
-
-// Returns px offset from the left edge of the track area
-function toPx(minutes: number, pxPerHour: number, startHour: number): number {
-  return SIDE_PAD + ((minutes - startHour * 60) / 60) * pxPerHour
-}
-
-function CourtTimeline({
-  reservations,
-  courts: allCourts,
-  settings,
-  hoveredId,
-  onHover,
-}: {
-  reservations: TimelineReservation[]
-  courts: SpaceRecord[]
-  settings: ReservationSettingsData
-  hoveredId: string | null
-  onHover: (id: string | null) => void
-}) {
-  const { t, i18n } = useTranslation()
-  const { general } = useAppSettings()
-  const dayHours = todayHours(settings)
-  const fallback = dayHours.closed
-  const startHour = fallback ? 8 : Number(dayHours.open.split(":")[0])
-  // Round the close time up to the next hour so the final label is visible.
-  const closeParts = dayHours.close.split(":").map(Number)
-  const endHour = fallback
-    ? 23
-    : closeParts[1] > 0
-      ? closeParts[0] + 1
-      : closeParts[0]
-  const totalHours = Math.max(1, endHour - startHour)
-  const courts = allCourts.filter((c) => c.active)
-  const hours = Array.from({ length: totalHours + 1 }, (_, i) => startHour + i)
-
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM)
-  const pxPerHour = ZOOM_STEPS[zoomIdx]
-  const innerWidth = LABEL_COL + 2 * SIDE_PAD + totalHours * pxPerHour
-
-  const [now, setNow] = useState(() => new Date())
-  const nowMin = now.getHours() * 60 + now.getMinutes()
-  const nowInRange = nowMin >= startHour * 60 && nowMin <= endHour * 60
-
-  // Tick the "now" indicator forward, aligned to each minute boundary, so it
-  // stays in sync without requiring a page refresh.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const scheduleNextTick = () => {
-      timer = setTimeout(
-        () => {
-          setNow(new Date())
-          scheduleNextTick()
-        },
-        60_000 - (Date.now() % 60_000)
-      )
-    }
-    scheduleNextTick()
-    return () => clearTimeout(timer)
-  }, [])
-
-  // Center the view on the current time on mount and whenever zoom changes.
-  // Reads the time fresh here (instead of depending on the ticking `now`) so the
-  // per-minute updates don't yank the user's scroll position.
-  useEffect(() => {
-    if (!scrollRef.current) return
-    const current = new Date()
-    const currentMin = current.getHours() * 60 + current.getMinutes()
-    if (currentMin < startHour * 60 || currentMin > endHour * 60) return
-    const el = scrollRef.current
-    requestAnimationFrame(() => {
-      // LABEL_COL is sticky so add it to reach the track's coordinate space
-      el.scrollLeft =
-        LABEL_COL + toPx(currentMin, pxPerHour, startHour) - el.clientWidth / 2
-    })
-  }, [pxPerHour, startHour, endHour])
-
-  const dateLocale = i18n.language === "es" ? "es-ES" : "en-GB"
-  const rawTodayLabel = now.toLocaleDateString(dateLocale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
-  // Spanish locale lowercases the weekday/month; capitalize the first letter
-  // so the subtitle reads e.g. "Jueves 11 de junio de 2026".
-  const todayLabel =
-    rawTodayLabel.charAt(0).toUpperCase() + rawTodayLabel.slice(1)
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {todayLabel}
-          {fallback && ` · ${t("pages.reservations.closedToday")}`}
-        </p>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-7"
-            onClick={() => setZoomIdx((i) => Math.max(0, i - 1))}
-            disabled={zoomIdx === 0}
-          >
-            <IconMinus className="size-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-7"
-            onClick={() =>
-              setZoomIdx((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))
-            }
-            disabled={zoomIdx === ZOOM_STEPS.length - 1}
-          >
-            <IconZoomIn className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <div ref={scrollRef} className="overflow-x-auto rounded-md border">
-        <div style={{ width: innerWidth }}>
-          {/* Hour header */}
-          <div className="flex border-b">
-            <div className="sticky left-0 z-30 flex w-16 shrink-0 items-center border-r bg-background px-3 text-xs font-bold">
-              {t(spaceNounKey(courts))}
-            </div>
-            <div className="relative h-8 flex-1 overflow-visible">
-              {hours.map((h) => (
-                <span
-                  key={h}
-                  className="absolute top-1 -translate-x-1/2 text-[11px] font-bold text-muted-foreground select-none"
-                  style={{ left: toPx(h * 60, pxPerHour, startHour) }}
-                >
-                  {formatHour(h, general.timeFormat)}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Court rows */}
-          {courts.map((court, courtIdx) => {
-            const courtReservations = reservations.filter(
-              (r) => r.spaceId === court.id
-            )
-            return (
-              <div
-                key={court.id}
-                className={cn(
-                  "flex",
-                  courtIdx < courts.length - 1 && "border-b"
-                )}
-              >
-                {/* Label */}
-                <div className="sticky left-0 z-30 flex w-16 shrink-0 items-center border-r bg-background px-3 text-xs font-bold text-muted-foreground">
-                  {spaceShortName(court)}
-                </div>
-
-                {/* Track */}
-                <div className="relative h-12 flex-1">
-                  {/* Hour grid lines */}
-                  {hours.map((h) => (
-                    <div
-                      key={h}
-                      className="absolute top-0 bottom-0 w-px bg-border"
-                      style={{ left: toPx(h * 60, pxPerHour, startHour) }}
-                    />
-                  ))}
-
-                  {/* Now indicator */}
-                  {nowInRange && (
-                    <div
-                      className="absolute top-0 bottom-0 z-20 w-0.5 bg-destructive"
-                      style={{ left: toPx(nowMin, pxPerHour, startHour) }}
-                    />
-                  )}
-
-                  {/* Reservation blocks */}
-                  {courtReservations.map((r) => {
-                    const { startMin, endMin } = parseTimeRange(r.time)
-                    const highlighted = hoveredId === r.id
-                    return (
-                      <div
-                        key={r.id}
-                        title={`${r.reservedTo} · ${formatTimeRange(r.time, general.timeFormat)}${r.paid ? "" : ` · ${t("options.unpaid")}`}`}
-                        onMouseEnter={() => onHover(r.id)}
-                        onMouseLeave={() => onHover(null)}
-                        className={cn(
-                          "absolute top-2.5 bottom-2.5 z-10 flex items-center overflow-hidden rounded bg-primary px-2 text-primary-foreground ring-offset-2 ring-offset-background transition-shadow",
-                          highlighted && "z-20 ring-2 ring-ring"
-                        )}
-                        style={{
-                          left:
-                            toPx(startMin, pxPerHour, startHour) +
-                            BLOCK_GAP / 2,
-                          width:
-                            ((endMin - startMin) / 60) * pxPerHour - BLOCK_GAP,
-                        }}
-                      >
-                        <span className="truncate text-[11px] font-medium">
-                          {r.reservedTo}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // --- Table columns ---
@@ -436,14 +197,15 @@ function ReservationsPage() {
   }))
 
   const todayISO = format(new Date(), "yyyy-MM-dd")
-  const todayReservations: TimelineReservation[] = rows
+  const todayReservations: TimelineItem[] = rows
     .filter((r) => r.date === todayISO)
     .map((r) => ({
       id: r.id,
       spaceId: r.spaceId,
-      reservedTo: r.player,
-      time: r.timeRange,
-      paid: r.paymentStatus === "paid",
+      label: r.player,
+      startTime: r.startTime,
+      durationMinutes: r.durationMinutes,
+      detail: r.paymentStatus === "paid" ? undefined : t("options.unpaid"),
     }))
 
   return (
@@ -476,9 +238,9 @@ function ReservationsPage() {
         <h2 className="text-lg font-medium">
           {t("pages.reservations.todaysTimeline")}
         </h2>
-        <CourtTimeline
-          reservations={todayReservations}
-          courts={courts}
+        <SpaceTimeline
+          items={todayReservations}
+          spaces={courts}
           settings={settings}
           hoveredId={hoveredId}
           onHover={setHoveredId}
