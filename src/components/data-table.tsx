@@ -55,6 +55,18 @@ interface DataTableProps<TData, TValue> {
   exportFileName?: string
 }
 
+// Rows keyed by their record's id when they have one, so a row (and a
+// dialog it has open) stays mounted when the list reloads and rows before it
+// come or go. Rows without an id fall back to their position.
+function rowId(row: unknown, index: number): string {
+  return typeof row === "object" &&
+    row !== null &&
+    "id" in row &&
+    typeof row.id === "string"
+    ? row.id
+    : String(index)
+}
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -76,6 +88,7 @@ export function DataTable<TData, TValue>({
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    getRowId: rowId,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

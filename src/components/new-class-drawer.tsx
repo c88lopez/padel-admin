@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -231,8 +231,14 @@ export function NewClassDrawer({
     defaultValues: initialValues,
   })
 
+  // Resets when the drawer opens, not when the page reloads its data while
+  // it's open (saving does that): a reset then would cancel the scheduled
+  // close and empty the form.
+  const wasOpen = useRef(false)
   useEffect(() => {
-    if (open) {
+    const opening = open && !wasOpen.current
+    wasOpen.current = open
+    if (opening) {
       form.reset(initialValues)
       reset()
       setRepeat(series ? "custom" : "none")

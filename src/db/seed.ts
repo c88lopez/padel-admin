@@ -21,8 +21,14 @@ import {
 import { seedDefaultSpaces } from "@/lib/spaces.server"
 import {
   ensureDefaultActivities,
+  listActivityRecords,
   primaryActivityFor,
 } from "@/lib/activities.server"
+import { activityProvides } from "@/lib/activities/templates"
+import { createClassSeriesRecord } from "@/lib/classes.server"
+import type { ClassSeriesInput } from "@/lib/classes.server"
+import { appErrorPayload } from "@/lib/errors"
+import { isoWeekday } from "@/lib/recurrence"
 import { createPlayerRecord } from "@/lib/players.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
@@ -308,6 +314,65 @@ async function seedCoaching() {
     })
   )
   console.log(`✓ Seeded ${classSeeds.length} classes`)
+  await seedClassSeries()
+}
+
+// One weekly series per activity that runs classes, from tomorrow for 12
+// weeks, on its last space at 07:00: a slot the other demo rows and the e2e
+// tests leave free. Dates the space is taken on are skipped, as the drawer
+// does.
+async function seedClassSeries() {
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+  const coaches = await db
+    .select({
+      coachId: coachActivity.coachId,
+      activityId: coachActivity.activityId,
+    })
+    .from(coachActivity)
+  const spaces = await db
+    .select({
+      id: space.id,
+      activityId: space.activityId,
+      sortOrder: space.sortOrder,
+    })
+    .from(space)
+    .where(eq(space.clubId, DEFAULT_CLUB_ID))
+  for (const activity of await listActivityRecords(DEFAULT_CLUB_ID)) {
+    if (!activityProvides(activity, "sessions")) continue
+    const coachId = coaches.find((c) => c.activityId === activity.id)?.coachId
+    const last = spaces
+      .filter((s) => s.activityId === activity.id)
+      .sort((a, b) => b.sortOrder - a.sortOrder)
+      .at(0)
+    if (!coachId || !last) continue
+    const input: ClassSeriesInput = {
+      coachId,
+      spaceId: last.id,
+      startTime: "07:00",
+      durationMinutes: 60,
+      rule: {
+        frequency: "weekly",
+        interval: 1,
+        weekdays: [isoWeekday(tomorrow)],
+        monthlyBy: null,
+        startDate: tomorrow,
+        until: null,
+        count: 12,
+        exdates: [],
+      },
+    }
+    try {
+      await createClassSeriesRecord(DEFAULT_CLUB_ID, input)
+    } catch (err) {
+      const taken = appErrorPayload(err)?.params?.all
+      if (typeof taken !== "string") throw err
+      await createClassSeriesRecord(DEFAULT_CLUB_ID, {
+        ...input,
+        rule: { ...input.rule, exdates: taken.split(",") },
+      })
+    }
+  }
+  console.log("✓ Seeded a weekly class series per activity")
 }
 
 async function seedTournaments() {

@@ -399,7 +399,7 @@ describe("NewClassDrawer editing a series' class", () => {
     scope: string
   ) {
     await u.click(screen.getByRole("button", { name: "Save Changes" }))
-    const dialog = await screen.findByRole("dialog", {
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Edit repeating class",
     })
     await u.click(within(dialog).getByRole("radio", { name: scope }))
@@ -449,7 +449,7 @@ describe("NewClassDrawer editing a series' class", () => {
     await u.click(screen.getByRole("combobox", { name: "Repeat" }))
     await u.click(await screen.findByRole("option", { name: "Daily" }))
     await u.click(screen.getByRole("button", { name: "Save Changes" }))
-    const dialog = await screen.findByRole("dialog", {
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Edit repeating class",
     })
     expect(

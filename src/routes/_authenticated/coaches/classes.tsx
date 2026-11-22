@@ -96,8 +96,9 @@ function ClassActions({
   async function handleDelete(scope: SeriesScope = "this") {
     try {
       await deleteClass({ data: { id: coachClass.id, scope } })
+      // Reloaded first, so the toast shows with the list already updated.
+      await router.invalidate()
       toast.success(t("pages.classes.deleted"))
-      router.invalidate()
     } catch {
       toast.error(t("pages.classes.deleteError"), {
         description: t("common.tryAgain"),

@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { SeriesScope } from "@/lib/classes.functions"
@@ -24,7 +24,11 @@ interface Props {
   onConfirm: (scope: SeriesScope) => void
 }
 
-/** Calendar's "This event / This and following / All events" choice. */
+/**
+ * Calendar's "This event / This and following / All events" choice. An alert
+ * dialog, which nothing outside dismisses: opened from a row's menu, a plain
+ * dialog can close itself as the menu hands focus back to its trigger.
+ */
 export function SeriesScopeDialog({
   open,
   onOpenChange,
@@ -46,11 +50,11 @@ export function SeriesScopeDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent aria-describedby={undefined}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+        </AlertDialogHeader>
         <RadioGroup
           value={scope}
           onValueChange={(v) => setScope(v as SeriesScope)}
@@ -78,21 +82,20 @@ export function SeriesScopeDialog({
             </div>
           ))}
         </RadioGroup>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">{t("common.cancel")}</Button>
-          </DialogClose>
-          <Button
-            variant={destructive ? "destructive" : "default"}
-            onClick={() => {
-              onOpenChange(false)
-              onConfirm(scope)
-            }}
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            className={
+              destructive
+                ? "text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                : undefined
+            }
+            onClick={() => onConfirm(scope)}
           >
             {actionLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
