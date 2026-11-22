@@ -19,7 +19,7 @@ A database-backed admin dashboard for managing padel clubs (court reservations, 
 bun run dev        # Dev server on port 3003
 bun run build      # Production build
 bun run test       # Unit/component tests (vitest)
-bun run lint       # ESLint
+bun run lint       # oxlint
 bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
 bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)

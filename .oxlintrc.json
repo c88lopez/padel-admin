@@ -1,0 +1,69 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import", "unicorn", "vitest"],
+  "jsPlugins": ["@stylistic/eslint-plugin"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "src/components/ui/**",
+    "src/routeTree.gen.ts",
+    ".output/**",
+    "dist/**",
+    "drizzle/**",
+    ".claude/**"
+  ],
+  "rules": {
+    "no-case-declarations": "error",
+    "no-constant-condition": "error",
+    "no-empty-static-block": "error",
+    "no-fallthrough": "error",
+    "no-regex-spaces": "error",
+    "no-shadow": "warn",
+    "no-useless-catch": "error",
+    "no-useless-escape": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "typescript/consistent-type-imports": [
+      "error",
+      {
+        "prefer": "type-imports"
+      }
+    ],
+    "typescript/method-signature-style": ["error", "property"],
+    "typescript/no-for-in-array": "error",
+    "typescript/no-inferrable-types": [
+      "error",
+      {
+        "ignoreParameters": true
+      }
+    ],
+    "typescript/no-namespace": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/prefer-for-of": "warn",
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/first": "error",
+    "import/no-commonjs": "error",
+    "import/no-duplicates": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "@stylistic/spaced-comment": "error",
+    "react/set-state-in-effect": "off",
+    "react/incompatible-library": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/exhaustive-deps": "off",
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/require-to-throw-message": "off",
+    "vitest/no-conditional-expect": "off",
+    "vitest/valid-expect": "off",
+    "typescript/no-implied-eval": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/no-floating-promises": "off",
+    "no-unused-expressions": "off"
+  }
+}
