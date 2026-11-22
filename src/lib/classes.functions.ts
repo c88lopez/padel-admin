@@ -7,22 +7,66 @@ import { currentClubId, requireClubId } from "@/lib/auth.server"
 import {
   addAttendeeRecord,
   createClassRecord,
+  createClassSeriesRecord,
+  fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
   updateClassRecord,
 } from "@/lib/classes.server"
+import { monthlyOptions } from "@/lib/recurrence"
 
 export type { AttendeeRecord } from "@/lib/classes.server"
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 const classInput = z.object({
   coachId: z.string().min(1),
   spaceId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: isoDate,
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   durationMinutes: z.coerce.number().int().min(15).max(360),
   // See ClassInput (classes.server.ts).
   capacity: z.coerce.number().int().min(1).max(500).nullable().optional(),
 })
+
+const recurrenceRule = z
+  .object({
+    frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+    interval: z.number().int().min(1).max(99),
+    weekdays: z
+      .array(
+        z.union([
+          z.literal(1),
+          z.literal(2),
+          z.literal(3),
+          z.literal(4),
+          z.literal(5),
+          z.literal(6),
+          z.literal(7),
+        ])
+      )
+      .max(7),
+    monthlyBy: z
+      .enum(["day_of_month", "weekday_of_month", "last_weekday_of_month"])
+      .nullable(),
+    startDate: isoDate,
+    until: isoDate.nullable(),
+    count: z.number().int().min(1).max(1000).nullable(),
+    exdates: z.array(isoDate).max(400),
+  })
+  .refine((r) => r.until === null || r.count === null)
+  .refine((r) => r.until === null || r.until >= r.startDate)
+  .refine((r) => r.frequency === "weekly" || r.weekdays.length === 0)
+  .refine(
+    (r) =>
+      r.monthlyBy === null ||
+      (r.frequency === "monthly" &&
+        monthlyOptions(r.startDate).includes(r.monthlyBy))
+  )
+
+const classSeriesInput = classInput
+  .omit({ date: true })
+  .extend({ rule: recurrenceRule })
 
 export interface ClassRecord {
   id: string
@@ -43,6 +87,7 @@ export interface ClassRecord {
 export const listClasses = createServerFn({ method: "GET" }).handler(
   async (): Promise<ClassRecord[]> => {
     const clubId = await currentClubId()
+    await fillSeriesAhead(clubId)
     const rows = await db
       .select({
         id: coachClass.id,
@@ -79,6 +124,12 @@ export const createClass = createServerFn({ method: "POST" })
   .validator((data: unknown) => classInput.parse(data))
   .handler(async ({ data }) =>
     createClassRecord(await requireClubId("coaches:manage"), data)
+  )
+
+export const createClassSeries = createServerFn({ method: "POST" })
+  .validator((data: unknown) => classSeriesInput.parse(data))
+  .handler(async ({ data }) =>
+    createClassSeriesRecord(await requireClubId("coaches:manage"), data)
   )
 
 export const updateClass = createServerFn({ method: "POST" })

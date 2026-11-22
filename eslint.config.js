@@ -23,6 +23,7 @@ export default [
       ".output/**",
       "dist/**",
       "drizzle/**",
+      ".claude/**",
     ],
   },
 ]

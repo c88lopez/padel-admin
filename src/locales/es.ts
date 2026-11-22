@@ -66,6 +66,14 @@ export const es: DeepString<typeof en> = {
       full: "Esta clase está completa.",
       capacityBelowAttendees:
         "Ya hay {{count}} clientes inscritos. Pon una capacidad de al menos {{count}}, o quita algunos primero.",
+      seriesEmpty:
+        "Esta repetición no da ninguna fecha en los próximos 12 meses. Cambia el inicio o el final.",
+      seriesTooLong:
+        "Son más de {{max}} clases de una vez. Elige una serie más corta.",
+      seriesConflicts:
+        "El espacio está ocupado a esa hora el {{dates}}. Omite esas fechas, o elige otra hora u otro espacio.",
+      seriesConflictsMore:
+        "El espacio está ocupado a esa hora el {{dates}} y {{count}} fechas más. Omite esas fechas, o elige otra hora u otro espacio.",
     },
     coach: {
       activityRequired:
@@ -349,6 +357,67 @@ export const es: DeepString<typeof en> = {
     twoHours: "2 horas",
     twoPointFiveHours: "2,5 horas",
     threeHours: "3 horas",
+  },
+  recurrence: {
+    doesNotRepeat: "No se repite",
+    everyWeekdayMonToFri: "Todos los días hábiles (de lunes a viernes)",
+    daily: "Todos los días",
+    everyNDays: "Cada {{count}} días",
+    weeklyOn: "Semanalmente el {{days}}",
+    everyNWeeksOn: "Cada {{count}} semanas el {{days}}",
+    everyWeekday: "Todos los días hábiles",
+    monthlyOn: "Mensualmente {{on}}",
+    everyNMonthsOn: "Cada {{count}} meses {{on}}",
+    onDay: "el día {{day}}",
+    onWeekdayOfMonth: "el {{ordinal}} {{weekday}}",
+    annuallyOn: "Anualmente el {{date}}",
+    everyNYearsOn: "Cada {{count}} años el {{date}}",
+    dayMonth: "{{day}} de {{month}}",
+    fullDate: "{{day}} de {{month}} de {{year}}",
+    withEnd: "{{rule}}, {{end}}",
+    times_one: "1 vez",
+    times_other: "{{count}} veces",
+    until: "hasta el {{date}}",
+    ordinals: {
+      first: "primer",
+      second: "segundo",
+      third: "tercer",
+      fourth: "cuarto",
+      fifth: "quinto",
+      last: "último",
+    },
+    weekdays: {
+      mon: "lunes",
+      tue: "martes",
+      wed: "miércoles",
+      thu: "jueves",
+      fri: "viernes",
+      sat: "sábado",
+      sun: "domingo",
+    },
+    weekdaysShort: {
+      mon: "lun.",
+      tue: "mar.",
+      wed: "mié.",
+      thu: "jue.",
+      fri: "vie.",
+      sat: "sáb.",
+      sun: "dom.",
+    },
+    months: {
+      jan: "enero",
+      feb: "febrero",
+      mar: "marzo",
+      apr: "abril",
+      may: "mayo",
+      jun: "junio",
+      jul: "julio",
+      aug: "agosto",
+      sep: "septiembre",
+      oct: "octubre",
+      nov: "noviembre",
+      dec: "diciembre",
+    },
   },
   forms: {
     player: {
