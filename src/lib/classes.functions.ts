@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
-import { coach, coachClass, coachClassAttendee, space } from "@/db/schema"
+import {
+  classSeries,
+  coach,
+  coachClass,
+  coachClassAttendee,
+  space,
+} from "@/db/schema"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
 import {
   addAttendeeRecord,
@@ -11,9 +17,11 @@ import {
   fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
+  seriesRule,
   updateClassRecord,
 } from "@/lib/classes.server"
 import { monthlyOptions } from "@/lib/recurrence"
+import type { RecurrenceRule } from "@/lib/recurrence"
 
 export type { AttendeeRecord } from "@/lib/classes.server"
 
@@ -82,6 +90,8 @@ export interface ClassRecord {
   durationMinutes: number
   capacity: number | null
   attendeeCount: number
+  // The series the class belongs to; null for a one-off class.
+  series: { id: string; rule: RecurrenceRule } | null
 }
 
 export const listClasses = createServerFn({ method: "GET" }).handler(
@@ -106,16 +116,19 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
           select count(*)::int from ${coachClassAttendee}
           where ${coachClassAttendee.classId} = ${coachClass.id}
         )`,
+        series: classSeries,
       })
       .from(coachClass)
       .innerJoin(space, eq(coachClass.spaceId, space.id))
       .leftJoin(coach, eq(coachClass.coachId, coach.id))
+      .leftJoin(classSeries, eq(coachClass.seriesId, classSeries.id))
       .where(eq(coachClass.clubId, clubId))
       .orderBy(asc(coachClass.date), asc(coachClass.startTime))
 
-    return rows.map((row) => ({
+    return rows.map(({ series, ...row }) => ({
       ...row,
       coachName: row.coachName ?? "—",
+      series: series && { id: series.id, rule: seriesRule(series) },
     }))
   }
 )

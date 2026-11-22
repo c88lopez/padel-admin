@@ -4,12 +4,15 @@ import {
   addDays,
   addMonths,
   describeRule,
+  fullDateLabel,
   isLastWeekdayOfMonth,
   isoWeekday,
+  monthlyOptionLabel,
   monthlyOptions,
   occurrences,
   presetLabel,
   presetRules,
+  seriesPreview,
   weekdayOrdinal,
 } from "./recurrence"
 import type { RecurrenceRule } from "./recurrence"
@@ -319,5 +322,57 @@ describe("describeRule", () => {
     expect(
       describeRule(rule({ frequency: "yearly", until: "2030-06-30" }), es)
     ).toBe("Anualmente el 17 de marzo, hasta el 30 de junio de 2030")
+  })
+})
+
+describe("monthlyOptionLabel", () => {
+  it("labels each monthly option for the date", () => {
+    expect(
+      monthlyOptions("2026-03-25").map((by) =>
+        monthlyOptionLabel(by, "2026-03-25", en)
+      )
+    ).toEqual(["on day 25", "on the fourth Wednesday", "on the last Wednesday"])
+    expect(monthlyOptionLabel("weekday_of_month", "2026-03-25", es)).toBe(
+      "el cuarto miércoles"
+    )
+  })
+})
+
+describe("fullDateLabel", () => {
+  it("writes the date out in the language", () => {
+    expect(fullDateLabel("2027-06-30", en)).toBe("30 June 2027")
+    expect(fullDateLabel("2027-06-30", es)).toBe("30 de junio de 2027")
+  })
+})
+
+describe("seriesPreview", () => {
+  const today = "2026-03-01"
+
+  it("counts every class of a series that ends within 12 months", () => {
+    expect(seriesPreview(rule({ count: 10 }), today)).toEqual({
+      count: 10,
+      capped: false,
+    })
+    expect(seriesPreview(rule({ until: "2026-04-01" }), today)).toEqual({
+      count: 3,
+      capped: false,
+    })
+  })
+
+  it("leaves out exdates, which still count towards the end", () => {
+    expect(
+      seriesPreview(rule({ count: 3, exdates: ["2026-03-24"] }), today)
+    ).toEqual({ count: 2, capped: false })
+  })
+
+  it("counts only the first 12 months of a longer series", () => {
+    expect(seriesPreview(rule({}), today)).toEqual({
+      count: 50,
+      capped: true,
+    })
+    expect(seriesPreview(rule({ count: 60 }), today).capped).toBe(true)
+    expect(seriesPreview(rule({ until: "2027-06-30" }), today).capped).toBe(
+      true
+    )
   })
 })

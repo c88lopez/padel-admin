@@ -29,6 +29,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -42,7 +43,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { createClass, updateClass } from "@/lib/classes.functions"
+import {
+  createClass,
+  createClassSeries,
+  updateClass,
+} from "@/lib/classes.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
@@ -52,8 +57,18 @@ import {
 } from "@/lib/activities/templates"
 import { sessionDurations } from "@/lib/activities/config"
 import { durationLabel } from "@/lib/duration-label"
-import { translateError } from "@/lib/errors"
+import { appErrorPayload, translateError } from "@/lib/errors"
 import type { CoachRecord } from "@/lib/coaches.functions"
+import {
+  describeRule,
+  fullDateLabel,
+  monthlyOptions,
+  presetLabel,
+  presetRules,
+  seriesPreview,
+} from "@/lib/recurrence"
+import type { PresetId, RecurrenceRule } from "@/lib/recurrence"
+import { RecurrenceDialog } from "@/components/recurrence-dialog"
 
 // "" = no limit; otherwise a whole number of places.
 function isCapacity(value: string): boolean {
@@ -115,6 +130,23 @@ function emptyValues(activity: ActivityRecord | undefined): FormInput {
   }
 }
 
+// The Repeat select's value: a preset, or the rule from Custom….
+type Repeat = PresetId | "custom"
+const CUSTOMIZE = "customize"
+
+// A custom rule follows the start date; a monthly option that the new date
+// doesn't have falls back to its day of the month.
+function withStartDate(rule: RecurrenceRule, date: string): RecurrenceRule {
+  return {
+    ...rule,
+    startDate: date,
+    monthlyBy:
+      rule.monthlyBy && !monthlyOptions(date).includes(rule.monthlyBy)
+        ? "day_of_month"
+        : rule.monthlyBy,
+  }
+}
+
 function toFormValues(c: ClassData): FormInput {
   return {
     activityId: c.activityId,
@@ -151,6 +183,13 @@ export function NewClassDrawer({
     sessionActivities.length === 1 ? sessionActivities[0] : undefined
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
+  const [repeat, setRepeat] = useState<Repeat>("none")
+  const [customRule, setCustomRule] = useState<RecurrenceRule | null>(null)
+  const [customOpen, setCustomOpen] = useState(false)
+  // Dates the space is taken on, from the last refused series, and the ones
+  // the admin chose to skip.
+  const [conflicts, setConflicts] = useState<string[]>([])
+  const [skipped, setSkipped] = useState<string[]>([])
   const schema = useMemo(() => makeSchema(t), [t])
 
   const initialValues = useMemo(
@@ -166,10 +205,43 @@ export function NewClassDrawer({
     if (open) {
       form.reset(initialValues)
       reset()
+      setRepeat("none")
+      setCustomRule(null)
+      setConflicts([])
+      setSkipped([])
     }
   }, [open, initialValues, form, reset])
 
   const activityId = form.watch("activityId")
+  const pickedDate = form.watch("date")
+  const startDate = pickedDate ? format(pickedDate, "yyyy-MM-dd") : null
+  const presets = useMemo(
+    () => (startDate ? presetRules(startDate) : []),
+    [startDate]
+  )
+  const baseRule =
+    !startDate || isEditing
+      ? null
+      : repeat === "custom"
+        ? customRule && withStartDate(customRule, startDate)
+        : (presets.find((p) => p.id === repeat)?.rule ?? null)
+  const rule = baseRule && {
+    ...baseRule,
+    exdates: [...new Set([...baseRule.exdates, ...skipped])],
+  }
+  const preview = rule && seriesPreview(rule, format(new Date(), "yyyy-MM-dd"))
+
+  function changeRepeat(value: string) {
+    // Radix's hidden native select reports "" when the value switches to
+    // "custom" in the same render that adds that option.
+    if (!value) return
+    if (value === CUSTOMIZE) {
+      setCustomOpen(true)
+      return
+    }
+    setRepeat(value as Repeat)
+    setConflicts([])
+  }
   // The chosen activity's active spaces, plus this class's current space even
   // if since deactivated.
   const courts = allCourts.filter(
@@ -218,26 +290,36 @@ export function NewClassDrawer({
     )
   }
 
-  function onSubmit(values: FormInput) {
-    const payload = {
+  function onSubmit(values: FormInput, seriesRule = rule) {
+    const fields = {
       coachId: values.coachId,
       spaceId: values.spaceId,
-      date: format(values.date as Date, "yyyy-MM-dd"),
       startTime: values.time,
       durationMinutes: Number(values.duration),
       capacity: values.capacity === "" ? null : Number(values.capacity),
     }
+    const payload = {
+      ...fields,
+      date: format(values.date as Date, "yyyy-MM-dd"),
+    }
+    setConflicts([])
     run({
       action: () =>
         coachClass?.id
           ? updateClass({ data: { id: coachClass.id, ...payload } })
-          : createClass({ data: payload }),
+          : seriesRule
+            ? createClassSeries({ data: { ...fields, rule: seriesRule } })
+            : createClass({ data: payload }),
       onSuccess: () => {
         const coachName =
           coaches.find((c) => c.id === values.coachId)?.name ??
           t("forms.class.fallbackCoach")
         toast.success(
-          isEditing ? t("forms.class.updated") : t("forms.class.created"),
+          isEditing
+            ? t("forms.class.updated")
+            : seriesRule
+              ? t("forms.class.seriesCreated")
+              : t("forms.class.created"),
           {
             description: t("forms.class.savedDescription", {
               coach: coachName,
@@ -248,6 +330,15 @@ export function NewClassDrawer({
         schedule(() => setOpen(false), 900)
       },
       onError: (err) => {
+        // The series' space is taken on some dates: offer to skip them.
+        const refused = appErrorPayload(err)
+        if (
+          refused?.code.startsWith("errors.class.seriesConflicts") &&
+          typeof refused.params?.all === "string"
+        ) {
+          setConflicts(refused.params.all.split(","))
+          return
+        }
         toast.error(t("common.genericError"), {
           // Why it was refused (e.g. the space is taken), when the server
           // says so.
@@ -261,6 +352,19 @@ export function NewClassDrawer({
     })
   }
 
+  // Resends the series with the conflicting dates left out.
+  function skipConflicts() {
+    if (!rule) return
+    const next = [...skipped, ...conflicts]
+    setSkipped(next)
+    void form.handleSubmit((values) =>
+      onSubmit(values, {
+        ...rule,
+        exdates: [...new Set([...rule.exdates, ...next])],
+      })
+    )()
+  }
+
   return (
     <Drawer direction="right" open={open} onOpenChange={setOpen}>
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
@@ -272,7 +376,7 @@ export function NewClassDrawer({
         </DrawerHeader>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={form.handleSubmit((values) => onSubmit(values))}
             className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-2"
           >
             {/* Only clubs with several activities that run classes pick one. */}
@@ -372,7 +476,9 @@ export function NewClassDrawer({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.date")}</FormLabel>
+                  <FormLabel>
+                    {rule ? t("recurrence.starts") : t("fields.date")}
+                  </FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -402,6 +508,60 @@ export function NewClassDrawer({
                 </FormItem>
               )}
             />
+
+            {/* Repeating applies to new classes; a series' own classes are
+                edited with their scope choice. */}
+            {!isEditing && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="class-repeat">{t("recurrence.repeat")}</Label>
+                <Select
+                  value={repeat}
+                  onValueChange={changeRepeat}
+                  disabled={!startDate}
+                >
+                  <SelectTrigger id="class-repeat">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {presets.map((preset) => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        {presetLabel(preset, t)}
+                      </SelectItem>
+                    ))}
+                    {startDate && customRule && (
+                      <SelectItem value="custom">
+                        {describeRule(withStartDate(customRule, startDate), t)}
+                      </SelectItem>
+                    )}
+                    <SelectItem value={CUSTOMIZE}>
+                      {t("recurrence.custom")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* The select already shows the rule; this says what it
+                    creates. */}
+                {preview && (
+                  <p className="text-sm text-muted-foreground">
+                    {preview.capped
+                      ? t("recurrence.firstYearCount", { count: preview.count })
+                      : t("recurrence.classCount", { count: preview.count })}
+                  </p>
+                )}
+                {startDate && (
+                  <RecurrenceDialog
+                    open={customOpen}
+                    onOpenChange={setCustomOpen}
+                    startDate={startDate}
+                    initial={rule}
+                    onSave={(saved) => {
+                      setCustomRule(saved)
+                      setRepeat("custom")
+                      setConflicts([])
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -464,6 +624,30 @@ export function NewClassDrawer({
                 </FormItem>
               )}
             />
+
+            {conflicts.length > 0 && (
+              <div
+                role="alert"
+                className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              >
+                <p>{t("recurrence.conflictsTitle")}</p>
+                <ul className="max-h-32 list-disc overflow-y-auto pl-5">
+                  {conflicts.map((date) => (
+                    <li key={date}>{fullDateLabel(date, t)}</li>
+                  ))}
+                </ul>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  disabled={status === "submitting"}
+                  onClick={skipConflicts}
+                >
+                  {t("recurrence.skipConflicts")}
+                </Button>
+              </div>
+            )}
 
             <DrawerFooter className="px-0 pt-4">
               <DrawerSubmitButton

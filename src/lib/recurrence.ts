@@ -192,6 +192,31 @@ export function monthlyOptions(date: string): MonthlyBy[] {
   return options
 }
 
+// Series have classes up to this many months ahead (filling ahead tops them
+// up as time passes).
+export const SERIES_HORIZON_MONTHS = 12
+
+/**
+ * How many classes creating the series makes, and whether that's only its
+ * first 12 months (it never ends, or ends later).
+ */
+export function seriesPreview(
+  rule: RecurrenceRule,
+  today: string
+): { count: number; capped: boolean } {
+  const horizon = addMonths(today, SERIES_HORIZON_MONTHS)
+  const count = occurrences(rule, rule.startDate, horizon).length
+  if (rule.until !== null) return { count, capped: rule.until > horizon }
+  if (rule.count === null) return { count, capped: true }
+  // `count` includes exdates, so compare it with every rule date.
+  const allDates = occurrences(
+    { ...rule, exdates: [] },
+    rule.startDate,
+    horizon
+  ).length
+  return { count, capped: allDates < rule.count }
+}
+
 export type PresetId =
   | "none"
   | "daily"
@@ -268,6 +293,32 @@ function monthName(month: number, t: TFunction): string {
   return t(`recurrence.months.${MONTH_KEYS[month - 1]}`)
 }
 
+/** "18 March 2027" / "18 de marzo de 2027". */
+export function fullDateLabel(date: string, t: TFunction): string {
+  const { year, month, day } = parts(date)
+  return t("recurrence.fullDate", { day, month: monthName(month, t), year })
+}
+
+/** "on day 18", "on the third Tuesday", "on the last Tuesday". */
+export function monthlyOptionLabel(
+  by: MonthlyBy,
+  date: string,
+  t: TFunction
+): string {
+  if (by === "day_of_month")
+    return t("recurrence.onDay", { day: parts(date).day })
+  return t("recurrence.onWeekdayOfMonth", {
+    ordinal: t(
+      `recurrence.ordinals.${
+        by === "last_weekday_of_month"
+          ? "last"
+          : ORDINAL_KEYS[weekdayOrdinal(date) - 1]
+      }`
+    ),
+    weekday: weekdayName(isoWeekday(date), t),
+  })
+}
+
 function isWorkweek(weekdays: Weekday[]): boolean {
   const set = new Set(weekdays)
   return set.size === 5 && [1, 2, 3, 4, 5].every((d) => set.has(d as Weekday))
@@ -301,20 +352,11 @@ function describeFrequency(rule: RecurrenceRule, t: TFunction): string {
     }
 
     case "monthly": {
-      const by = rule.monthlyBy ?? "day_of_month"
-      const on =
-        by === "day_of_month"
-          ? t("recurrence.onDay", { day })
-          : t("recurrence.onWeekdayOfMonth", {
-              ordinal: t(
-                `recurrence.ordinals.${
-                  by === "last_weekday_of_month"
-                    ? "last"
-                    : ORDINAL_KEYS[weekdayOrdinal(rule.startDate) - 1]
-                }`
-              ),
-              weekday: weekdayName(isoWeekday(rule.startDate), t),
-            })
+      const on = monthlyOptionLabel(
+        rule.monthlyBy ?? "day_of_month",
+        rule.startDate,
+        t
+      )
       return every
         ? t("recurrence.everyNMonthsOn", { count, on })
         : t("recurrence.monthlyOn", { on })
@@ -344,19 +386,11 @@ export function describeRule(rule: RecurrenceRule, t: TFunction): string {
       rule: frequency,
       end: t("recurrence.times", { count: rule.count }),
     })
-  if (rule.until !== null) {
-    const { year, month, day } = parts(rule.until)
+  if (rule.until !== null)
     return t("recurrence.withEnd", {
       rule: frequency,
-      end: t("recurrence.until", {
-        date: t("recurrence.fullDate", {
-          day,
-          month: monthName(month, t),
-          year,
-        }),
-      }),
+      end: t("recurrence.until", { date: fullDateLabel(rule.until, t) }),
     })
-  }
   return frequency
 }
 

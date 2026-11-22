@@ -1,10 +1,15 @@
 import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { NewClassDrawer } from "./new-class-drawer"
 import type { ClassData } from "./new-class-drawer"
-import { createClass, updateClass } from "@/lib/classes.functions"
+import {
+  createClass,
+  createClassSeries,
+  updateClass,
+} from "@/lib/classes.functions"
+import { AppError } from "@/lib/errors"
 import { resolveActivityConfig } from "@/lib/activities/config"
 import { getTemplate } from "@/lib/activities/templates"
 import type { ActivityTemplate } from "@/lib/activities/templates"
@@ -29,6 +34,7 @@ vi.mock("@/components/ui/drawer", () => {
 
 vi.mock("@/lib/classes.functions", () => ({
   createClass: vi.fn(() => Promise.resolve({})),
+  createClassSeries: vi.fn(() => Promise.resolve({})),
   updateClass: vi.fn(() => Promise.resolve({})),
 }))
 
@@ -185,5 +191,176 @@ describe("NewClassDrawer", () => {
       )
     ).toBeInTheDocument()
     expect(updateClass).not.toHaveBeenCalled()
+  })
+})
+
+describe("NewClassDrawer repeat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Only Date is faked, so the calendar opens on March 2026 and the
+    // 12-month count is stable, while user-event's timers stay real.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-03-01T09:00:00"))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const user = () => userEvent.setup()
+
+  // A pilates class on Monday 2 March 2026 at 10:00 for 50 minutes.
+  async function fillClass(u: ReturnType<typeof user>) {
+    renderDrawer([pilates])
+    await u.click(screen.getByRole("combobox", { name: "Coach" }))
+    await u.click(await screen.findByRole("option", { name: "Coach K" }))
+    await u.click(screen.getByRole("combobox", { name: "Studio" }))
+    await u.click(await screen.findByRole("option", { name: "Studio 1" }))
+    await u.click(screen.getByRole("button", { name: "Date" }))
+    await u.click(
+      document.querySelector<HTMLElement>(
+        '[data-day="3/2/2026"]'
+      ) as HTMLElement
+    )
+    await u.type(screen.getByLabelText("Start Time"), "10:00")
+    await u.click(screen.getByRole("combobox", { name: "Duration" }))
+    await u.click(await screen.findByRole("option", { name: "50 min" }))
+  }
+
+  async function chooseRepeat(u: ReturnType<typeof user>, name: string) {
+    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
+    await u.click(await screen.findByRole("option", { name }))
+  }
+
+  it("needs a date before it can repeat", () => {
+    renderDrawer([pilates])
+    expect(screen.getByRole("combobox", { name: "Repeat" })).toBeDisabled()
+  })
+
+  it("offers Calendar's presets for the date", async () => {
+    const u = user()
+    await fillClass(u)
+    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
+    expect(
+      (await screen.findAllByRole("option")).map((o) => o.textContent)
+    ).toEqual([
+      "Does not repeat",
+      "Daily",
+      "Weekly on Monday",
+      "Monthly on the first Monday",
+      "Annually on 2 March",
+      "Every weekday (Monday to Friday)",
+      "Custom…",
+    ])
+  })
+
+  it("schedules a single class when it doesn't repeat", async () => {
+    const u = user()
+    await fillClass(u)
+    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+    await waitFor(() =>
+      expect(createClass).toHaveBeenCalledWith({
+        data: expect.objectContaining({ date: "2026-03-02" }),
+      })
+    )
+    expect(createClassSeries).not.toHaveBeenCalled()
+  })
+
+  it("creates a weekly series", async () => {
+    const u = user()
+    await fillClass(u)
+    await chooseRepeat(u, "Weekly on Monday")
+    expect(screen.getByText("Starts")).toBeInTheDocument()
+    expect(screen.getByText("First 12 months: 53 classes")).toBeInTheDocument()
+
+    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+    await waitFor(() =>
+      expect(createClassSeries).toHaveBeenCalledWith({
+        data: {
+          coachId: "coach-1",
+          spaceId: "studio-1",
+          startTime: "10:00",
+          durationMinutes: 50,
+          capacity: 8,
+          rule: expect.objectContaining({
+            frequency: "weekly",
+            weekdays: [1],
+            startDate: "2026-03-02",
+            until: null,
+            count: null,
+          }),
+        },
+      })
+    )
+    expect(createClass).not.toHaveBeenCalled()
+  })
+
+  it("builds a custom rule", async () => {
+    const u = user()
+    await fillClass(u)
+    await chooseRepeat(u, "Custom…")
+    const dialog = await screen.findByRole("dialog", {
+      name: "Custom recurrence",
+    })
+    const interval = within(dialog).getByLabelText("Repeat every")
+    await u.clear(interval)
+    await u.type(interval, "2")
+    await u.click(within(dialog).getByRole("button", { name: "Wednesday" }))
+    await u.click(within(dialog).getByRole("radio", { name: "After" }))
+    const count = within(dialog).getByRole("spinbutton", { name: "After" })
+    await u.clear(count)
+    await u.type(count, "4")
+    await u.click(within(dialog).getByRole("button", { name: "Done" }))
+
+    expect(screen.getByText("4 classes will be created")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
+      "Every 2 weeks on Mon, Wed, 4 times"
+    )
+  })
+
+  it("keeps at least one weekday on", async () => {
+    const u = user()
+    await fillClass(u)
+    await chooseRepeat(u, "Custom…")
+    const dialog = await screen.findByRole("dialog")
+    const monday = within(dialog).getByRole("button", { name: "Monday" })
+    expect(monday).toHaveAttribute("aria-pressed", "true")
+    await u.click(monday)
+    expect(monday).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("offers to skip the dates the space is taken on", async () => {
+    vi.mocked(createClassSeries).mockRejectedValueOnce(
+      // As it arrives from the server: only the message survives.
+      new Error(
+        new AppError("errors.class.seriesConflicts", {
+          dates: "2026-03-09, 2026-03-16",
+          count: -1,
+          all: "2026-03-09,2026-03-16",
+        }).message
+      )
+    )
+    const u = user()
+    await fillClass(u)
+    await chooseRepeat(u, "Weekly on Monday")
+    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(within(alert).getByText("9 March 2026")).toBeInTheDocument()
+    expect(within(alert).getByText("16 March 2026")).toBeInTheDocument()
+
+    await u.click(
+      within(alert).getByRole("button", { name: "Skip these dates" })
+    )
+    await waitFor(() =>
+      expect(createClassSeries).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({
+          rule: expect.objectContaining({
+            exdates: ["2026-03-09", "2026-03-16"],
+          }),
+        }),
+      })
+    )
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 })

@@ -17,7 +17,12 @@ import { assertCoachTeaches } from "@/lib/coaches.server"
 import { joinActivity } from "@/lib/players.server"
 import { getReservationSettingsRecord } from "@/lib/reservation-settings.server"
 import { logger } from "@/lib/logger.server"
-import { addDays, addMonths, occurrences } from "@/lib/recurrence"
+import {
+  SERIES_HORIZON_MONTHS,
+  addDays,
+  addMonths,
+  occurrences,
+} from "@/lib/recurrence"
 import type { RecurrenceRule } from "@/lib/recurrence"
 import { todayInZone } from "@/lib/tz"
 
@@ -88,8 +93,6 @@ export async function updateClassRecord(
   })
 }
 
-// Series have classes up to this far ahead; filling ahead tops them up.
-const SERIES_HORIZON_MONTHS = 12
 // Most classes one request creates (a daily series' first year fits).
 const MAX_SERIES_CLASSES = 400
 // Conflicting dates named in the error before "and n more".
@@ -107,7 +110,7 @@ function seriesHorizon(today: string): string {
   return addMonths(today, SERIES_HORIZON_MONTHS)
 }
 
-function seriesRule(row: ClassSeries): RecurrenceRule {
+export function seriesRule(row: ClassSeries): RecurrenceRule {
   return {
     frequency: row.frequency,
     interval: row.interval,
