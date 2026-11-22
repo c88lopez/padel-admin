@@ -359,6 +359,22 @@ export const es: DeepString<typeof en> = {
     threeHours: "3 horas",
   },
   recurrence: {
+    scope: {
+      editTitle: "Editar clase recurrente",
+      deleteTitle: "Eliminar clase recurrente",
+      this: "Esta clase",
+      following: "Esta clase y las siguientes",
+      all: "Todas las clases",
+      allHint: "Las clases que ya terminaron no cambian.",
+      delete: "Eliminar",
+      ok: "Aceptar",
+    },
+    removeConfirm: {
+      title: "¿Eliminar clases?",
+      description:
+        "Se eliminarán las clases que no encajan con la nueva repetición: {{classes}} clases y {{signUps}} inscripciones.",
+      action: "Eliminar y guardar",
+    },
     repeat: "Repetir",
     starts: "Empieza",
     custom: "Personalizar…",

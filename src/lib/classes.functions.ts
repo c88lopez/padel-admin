@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
 import {
@@ -14,16 +14,22 @@ import {
   addAttendeeRecord,
   createClassRecord,
   createClassSeriesRecord,
+  deleteClassRecord,
   fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
   seriesRule,
   updateClassRecord,
+  updateClassSeriesRecord,
 } from "@/lib/classes.server"
 import { monthlyOptions } from "@/lib/recurrence"
 import type { RecurrenceRule } from "@/lib/recurrence"
 
-export type { AttendeeRecord } from "@/lib/classes.server"
+export type {
+  AttendeeRecord,
+  SeriesEditResult,
+  SeriesScope,
+} from "@/lib/classes.server"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -145,6 +151,22 @@ export const createClassSeries = createServerFn({ method: "POST" })
     createClassSeriesRecord(await requireClubId("coaches:manage"), data)
   )
 
+export const updateClassSeries = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    classInput
+      .extend({
+        id: z.string().min(1),
+        scope: z.enum(["following", "all"]),
+        capacity: classInput.shape.capacity.unwrap(),
+        rule: recurrenceRule,
+        confirmed: z.boolean(),
+      })
+      .parse(data)
+  )
+  .handler(async ({ data }) =>
+    updateClassSeriesRecord(await requireClubId("coaches:manage"), data)
+  )
+
 export const updateClass = createServerFn({ method: "POST" })
   .validator((data: unknown) =>
     classInput.extend({ id: z.string().min(1) }).parse(data)
@@ -154,12 +176,20 @@ export const updateClass = createServerFn({ method: "POST" })
   )
 
 export const deleteClass = createServerFn({ method: "POST" })
-  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
+  .validator((data: unknown) =>
+    z
+      .object({
+        id: z.string().min(1),
+        scope: z.enum(["this", "following", "all"]).default("this"),
+      })
+      .parse(data)
+  )
   .handler(async ({ data }) => {
-    const clubId = await requireClubId("coaches:manage")
-    await db
-      .delete(coachClass)
-      .where(and(eq(coachClass.id, data.id), eq(coachClass.clubId, clubId)))
+    await deleteClassRecord(
+      await requireClubId("coaches:manage"),
+      data.id,
+      data.scope
+    )
     return { id: data.id }
   })
 

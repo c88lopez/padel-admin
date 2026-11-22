@@ -8,6 +8,7 @@ import {
   createClass,
   createClassSeries,
   updateClass,
+  updateClassSeries,
 } from "@/lib/classes.functions"
 import { AppError } from "@/lib/errors"
 import { resolveActivityConfig } from "@/lib/activities/config"
@@ -35,6 +36,7 @@ vi.mock("@/components/ui/drawer", () => {
 vi.mock("@/lib/classes.functions", () => ({
   createClass: vi.fn(() => Promise.resolve({})),
   createClassSeries: vi.fn(() => Promise.resolve({})),
+  updateClassSeries: vi.fn(() => Promise.resolve({ saved: true })),
   updateClass: vi.fn(() => Promise.resolve({})),
 }))
 
@@ -362,5 +364,135 @@ describe("NewClassDrawer repeat", () => {
       })
     )
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+})
+
+describe("NewClassDrawer editing a series' class", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-03-01T09:00:00"))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const weeklyOnMonday = {
+    frequency: "weekly" as const,
+    interval: 1,
+    weekdays: [1 as const],
+    monthlyBy: null,
+    startDate: "2026-03-02",
+    until: null,
+    count: 6,
+    exdates: [],
+  }
+  const seriesClass: ClassData = {
+    ...pilatesClass,
+    date: "2026-03-09",
+    series: { id: "series-1", rule: weeklyOnMonday },
+  }
+
+  async function saveWithScope(
+    u: ReturnType<typeof userEvent.setup>,
+    scope: string
+  ) {
+    await u.click(screen.getByRole("button", { name: "Save Changes" }))
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit repeating class",
+    })
+    await u.click(within(dialog).getByRole("radio", { name: scope }))
+    await u.click(within(dialog).getByRole("button", { name: "OK" }))
+  }
+
+  it("shows the series' repeat", () => {
+    renderDrawer([pilates], seriesClass)
+    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
+      "Weekly on Monday, 6 times"
+    )
+  })
+
+  it("saves only this class", async () => {
+    const u = userEvent.setup()
+    renderDrawer([pilates], seriesClass)
+    await saveWithScope(u, "This class")
+    await waitFor(() =>
+      expect(updateClass).toHaveBeenCalledWith({
+        data: expect.objectContaining({ id: "class-1", date: "2026-03-09" }),
+      })
+    )
+    expect(updateClassSeries).not.toHaveBeenCalled()
+  })
+
+  it("saves this and following classes with the rule", async () => {
+    const u = userEvent.setup()
+    renderDrawer([pilates], seriesClass)
+    await saveWithScope(u, "This and following classes")
+    await waitFor(() =>
+      expect(updateClassSeries).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: "class-1",
+          scope: "following",
+          date: "2026-03-09",
+          confirmed: false,
+          rule: expect.objectContaining({ weekdays: [1], count: 6 }),
+        }),
+      })
+    )
+    expect(updateClass).not.toHaveBeenCalled()
+  })
+
+  it("doesn't offer this class alone for a new repeat", async () => {
+    const u = userEvent.setup()
+    renderDrawer([pilates], seriesClass)
+    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
+    await u.click(await screen.findByRole("option", { name: "Daily" }))
+    await u.click(screen.getByRole("button", { name: "Save Changes" }))
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit repeating class",
+    })
+    expect(
+      within(dialog).queryByRole("radio", { name: "This class" })
+    ).not.toBeInTheDocument()
+    expect(
+      within(dialog).getByRole("radio", { name: "This and following classes" })
+    ).toBeChecked()
+  })
+
+  it("asks before removing classes, then confirms", async () => {
+    vi.mocked(updateClassSeries).mockResolvedValueOnce({
+      saved: false,
+      removedClasses: 2,
+      removedSignUps: 3,
+    })
+    const u = userEvent.setup()
+    renderDrawer([pilates], seriesClass)
+    await saveWithScope(u, "All classes")
+
+    const confirm = await screen.findByRole("alertdialog")
+    expect(confirm).toHaveTextContent("2 classes and 3 sign-ups")
+    await u.click(
+      within(confirm).getByRole("button", { name: "Remove and save" })
+    )
+    await waitFor(() =>
+      expect(updateClassSeries).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({ scope: "all", confirmed: true }),
+      })
+    )
+  })
+
+  it("moves the series' weekday with the date", async () => {
+    const u = userEvent.setup()
+    renderDrawer([pilates], seriesClass)
+    await u.click(screen.getByRole("button", { name: "Date" }))
+    await u.click(
+      document.querySelector<HTMLElement>(
+        '[data-day="3/10/2026"]'
+      ) as HTMLElement
+    )
+    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
+      "Weekly on Tuesday, 6 times"
+    )
   })
 })

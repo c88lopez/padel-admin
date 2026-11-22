@@ -184,6 +184,40 @@ export function occurrences(
   return result
 }
 
+/**
+ * True when two rules repeat the same way and end the same way, wherever they
+ * start and whatever dates they skip.
+ */
+export function sameRecurrence(a: RecurrenceRule, b: RecurrenceRule): boolean {
+  const days = (r: RecurrenceRule) =>
+    [...new Set(r.weekdays)].sort((x, y) => x - y).join(",")
+  return (
+    a.frequency === b.frequency &&
+    a.interval === b.interval &&
+    days(a) === days(b) &&
+    (a.monthlyBy ?? "day_of_month") === (b.monthlyBy ?? "day_of_month") &&
+    a.until === b.until &&
+    a.count === b.count
+  )
+}
+
+/**
+ * A weekly rule's weekdays moved by `days`, for a series moved to other days
+ * (Monday and Wednesday, a day later, are Tuesday and Thursday).
+ */
+export function shiftWeekdays(
+  rule: RecurrenceRule,
+  days: number
+): RecurrenceRule {
+  if (rule.frequency !== "weekly" || days % 7 === 0) return rule
+  return {
+    ...rule,
+    weekdays: rule.weekdays.map(
+      (w) => ((((w - 1 + days) % 7) + 7) % 7) + 1
+    ) as Weekday[],
+  }
+}
+
 /** The monthly options Calendar offers for a start date. */
 export function monthlyOptions(date: string): MonthlyBy[] {
   const options: MonthlyBy[] = ["day_of_month"]

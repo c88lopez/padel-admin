@@ -25,9 +25,10 @@ import {
 import { DataTable } from "@/components/data-table"
 import { NewClassDrawer } from "@/components/new-class-drawer"
 import { ClassAttendeesDrawer } from "@/components/class-attendees-drawer"
+import { SeriesScopeDialog } from "@/components/series-scope-dialog"
 import { RowActions } from "@/components/row-actions"
 import { listClasses, deleteClass } from "@/lib/classes.functions"
-import type { ClassRecord } from "@/lib/classes.functions"
+import type { ClassRecord, SeriesScope } from "@/lib/classes.functions"
 import { listCoaches } from "@/lib/coaches.functions"
 import type { CoachRecord } from "@/lib/coaches.functions"
 import { listSpaces } from "@/lib/spaces.functions"
@@ -90,10 +91,11 @@ function ClassActions({
   const canManage = useCan("coaches:manage")
   const [editOpen, setEditOpen] = useState(false)
   const [attendeesOpen, setAttendeesOpen] = useState(false)
+  const [deleteScopeOpen, setDeleteScopeOpen] = useState(false)
 
-  async function handleDelete() {
+  async function handleDelete(scope: SeriesScope = "this") {
     try {
-      await deleteClass({ data: { id: coachClass.id } })
+      await deleteClass({ data: { id: coachClass.id, scope } })
       toast.success(t("pages.classes.deleted"))
       router.invalidate()
     } catch {
@@ -129,8 +131,22 @@ function ClassActions({
           },
         ]}
         onEdit={() => setEditOpen(true)}
-        onDelete={handleDelete}
+        // A series' class asks which classes to delete instead.
+        confirmDelete={!coachClass.series}
+        onDelete={() =>
+          coachClass.series ? setDeleteScopeOpen(true) : handleDelete()
+        }
       />
+      {coachClass.series && (
+        <SeriesScopeDialog
+          open={deleteScopeOpen}
+          onOpenChange={setDeleteScopeOpen}
+          title={t("recurrence.scope.deleteTitle")}
+          actionLabel={t("recurrence.scope.delete")}
+          destructive
+          onConfirm={(scope) => void handleDelete(scope)}
+        />
+      )}
     </>
   )
 }

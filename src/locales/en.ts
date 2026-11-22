@@ -350,6 +350,22 @@ export const en = {
     threeHours: "3 hours",
   },
   recurrence: {
+    scope: {
+      editTitle: "Edit repeating class",
+      deleteTitle: "Delete repeating class",
+      this: "This class",
+      following: "This and following classes",
+      all: "All classes",
+      allHint: "Classes that have ended stay as they were.",
+      delete: "Delete",
+      ok: "OK",
+    },
+    removeConfirm: {
+      title: "Remove classes?",
+      description:
+        "Classes that don't fit the new repeat will be removed: {{classes}} classes and {{signUps}} sign-ups.",
+      action: "Remove and save",
+    },
     repeat: "Repeat",
     starts: "Starts",
     custom: "Custom…",

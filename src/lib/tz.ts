@@ -60,6 +60,20 @@ export function todayInZone(timeZone: string, now: Date = new Date()): string {
   return dtf.format(now) // en-CA formats as YYYY-MM-DD
 }
 
+/** The wall-clock date ("YYYY-MM-DD") and time ("HH:MM") in the timezone. */
+export function nowInZone(
+  timeZone: string,
+  now: Date = new Date()
+): { date: string; time: string } {
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(now)
+  return { date: todayInZone(timeZone, now), time }
+}
+
 /** Whole calendar days from `fromDate` to `toDate` (both "YYYY-MM-DD"). */
 export function calendarDaysBetween(fromDate: string, toDate: string): number {
   const [fy, fm, fd] = fromDate.split("-").map(Number)

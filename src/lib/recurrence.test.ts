@@ -12,7 +12,9 @@ import {
   occurrences,
   presetLabel,
   presetRules,
+  sameRecurrence,
   seriesPreview,
+  shiftWeekdays,
   weekdayOrdinal,
 } from "./recurrence"
 import type { RecurrenceRule } from "./recurrence"
@@ -374,5 +376,44 @@ describe("seriesPreview", () => {
     expect(seriesPreview(rule({ until: "2027-06-30" }), today).capped).toBe(
       true
     )
+  })
+})
+
+describe("sameRecurrence", () => {
+  it("ignores the start, exdates and weekday order", () => {
+    expect(
+      sameRecurrence(
+        rule({ weekdays: [3, 1] }),
+        rule({ weekdays: [1, 3], startDate: "2026-04-06", exdates: ["x"] })
+      )
+    ).toBe(true)
+  })
+
+  it("tells apart how it repeats and ends", () => {
+    expect(sameRecurrence(rule({}), rule({ interval: 2 }))).toBe(false)
+    expect(sameRecurrence(rule({}), rule({ count: 4 }))).toBe(false)
+    expect(sameRecurrence(rule({}), rule({ until: "2026-12-31" }))).toBe(false)
+    expect(
+      sameRecurrence(
+        rule({ frequency: "monthly" }),
+        rule({ frequency: "monthly", monthlyBy: "day_of_month" })
+      )
+    ).toBe(true)
+  })
+})
+
+describe("shiftWeekdays", () => {
+  it("moves a weekly rule's days, wrapping around the week", () => {
+    expect(shiftWeekdays(rule({ weekdays: [1, 3] }), 1).weekdays).toEqual([
+      2, 4,
+    ])
+    expect(shiftWeekdays(rule({ weekdays: [7] }), 2).weekdays).toEqual([2])
+    expect(shiftWeekdays(rule({ weekdays: [1] }), -1).weekdays).toEqual([7])
+  })
+
+  it("leaves other rules and whole weeks alone", () => {
+    const monthly = rule({ frequency: "monthly" })
+    expect(shiftWeekdays(monthly, 3)).toBe(monthly)
+    expect(shiftWeekdays(rule({ weekdays: [1] }), 14).weekdays).toEqual([1])
   })
 })
