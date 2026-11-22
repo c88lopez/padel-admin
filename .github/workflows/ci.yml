@@ -11,9 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Detects whether any non-docs, non-workflow file changed. The heavy jobs
-  # (build, integration, e2e) gate on this so edits to `.github/**` or markdown
-  # docs don't spin up Postgres / Playwright. Jobs skipped via `if:` still
+  # Detects whether anything that reaches the build or the running app changed.
+  # The heavy jobs (build, integration, e2e, image) gate on this so edits to
+  # `.github/**`, markdown docs, or lint/format/editor config don't spin up
+  # Postgres / Playwright or cut a release. The quality job always runs, so
+  # lint and format config is still checked. Jobs skipped via `if:` still
   # satisfy their required status check, so auto-merge isn't blocked (unlike
   # skipping the whole workflow with `on.paths`, which leaves required checks
   # pending forever).
@@ -31,12 +33,22 @@ jobs:
         id: filter
         with:
           # `every`: a file counts as "code" only if it matches ALL patterns
-          # below (i.e. it is neither under .github/ nor a markdown doc).
+          # below (i.e. it is none of the paths excluded here).
+          # package.json and bun.lock stay code even for devDependency-only
+          # changes: the image installs from the lockfile.
           predicate-quantifier: every
           filters: |
             code:
               - '!.github/**'
               - '!**/*.md'
+              - '!.oxlintrc.json'
+              - '!.prettierrc'
+              - '!.prettierignore'
+              - '!.claude/**'
+              - '!.cursor/**'
+              - '!.idea/**'
+              - '!httpRequests/**'
+              - '!LICENSE'
 
   quality:
     name: Typecheck, lint, format & test
