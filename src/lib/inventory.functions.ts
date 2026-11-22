@@ -25,7 +25,7 @@ export const listStockItems = createServerFn({ method: "GET" }).handler(
 )
 
 export const createStockItem = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => stockItemInput.parse(data))
+  .validator((data: unknown) => stockItemInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("inventory:manage")
     const [created] = await db
@@ -36,7 +36,7 @@ export const createStockItem = createServerFn({ method: "POST" })
   })
 
 export const updateStockItem = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     stockItemInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -51,7 +51,7 @@ export const updateStockItem = createServerFn({ method: "POST" })
   })
 
 export const setStockLevel = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({ id: z.string().min(1), stock: z.coerce.number().int().min(0) })
       .parse(data)
@@ -67,9 +67,7 @@ export const setStockLevel = createServerFn({ method: "POST" })
   })
 
 export const deleteStockItem = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("inventory:manage")
     await db

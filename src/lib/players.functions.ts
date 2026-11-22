@@ -24,13 +24,13 @@ export const listPlayers = createServerFn({ method: "GET" }).handler(async () =>
 )
 
 export const createPlayer = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => playerInput.parse(data))
+  .validator((data: unknown) => playerInput.parse(data))
   .handler(async ({ data }) =>
     createPlayerRecord(await requireClubId("players:manage"), data)
   )
 
 export const updatePlayer = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     playerInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) =>
@@ -38,9 +38,7 @@ export const updatePlayer = createServerFn({ method: "POST" })
   )
 
 export const deletePlayer = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) =>
     deletePlayerRecord(await requireClubId("players:manage"), data.id)
   )

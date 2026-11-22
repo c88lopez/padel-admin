@@ -70,7 +70,7 @@ export const listSales = createServerFn({ method: "GET" }).handler(
 )
 
 export const createSale = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => saleInput.parse(data))
+  .validator((data: unknown) => saleInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("inventory:manage")
     const clubId = await resolveActiveClubId(session.user)

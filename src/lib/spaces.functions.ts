@@ -40,28 +40,28 @@ export const listSpaces = createServerFn({ method: "GET" }).handler(
 )
 
 export const createSpace = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => createInput.parse(data))
+  .validator((data: unknown) => createInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
     return createSpaceRecord(clubId, data)
   })
 
 export const updateSpace = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => updateInput.parse(data))
+  .validator((data: unknown) => updateInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
     return updateSpaceRecord(clubId, data)
   })
 
 export const countSpaceUsage = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => idInput.parse(data))
+  .validator((data: unknown) => idInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await currentClubId()
     return countSpaceUsageRecord(clubId, data.id)
   })
 
 export const deleteSpace = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => idInput.parse(data))
+  .validator((data: unknown) => idInput.parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("settings:manage")
     return deleteSpaceRecord(clubId, data.id)

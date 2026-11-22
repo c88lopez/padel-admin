@@ -57,14 +57,14 @@ export const listClubOptions = createServerFn({ method: "GET" }).handler(
 )
 
 export const createClub = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => clubInput.parse(data))
+  .validator((data: unknown) => clubInput.parse(data))
   .handler(async ({ data }) => {
     await requirePermission("clubs:manage")
     return createClubRecord(data)
   })
 
 export const updateClub = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => clubUpdateInput.parse(data))
+  .validator((data: unknown) => clubUpdateInput.parse(data))
   .handler(async ({ data }) => {
     await requirePermission("clubs:manage")
     return updateClubRecord(data)
@@ -74,7 +74,7 @@ export const updateClub = createServerFn({ method: "POST" })
 // clubs:manage), this lets a club's own Owner/Admin edit their club profile from
 // Settings → General. Scoped to the active club so it can't touch other clubs.
 export const renameActiveClub = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ name: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -147,7 +147,7 @@ export const getClubContext = createServerFn({ method: "GET" }).handler(
 // users may pick their home club or any club they're a member of. Persists in
 // an http-only cookie.
 export const setActiveClub = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ clubId: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) => {
@@ -186,7 +186,7 @@ export const setActiveClub = createServerFn({ method: "POST" })
   })
 
 export const deleteClub = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => clubIdSchema.parse(data))
+  .validator((data: unknown) => clubIdSchema.parse(data))
   .handler(async ({ data }) => {
     await requirePermission("clubs:manage")
     return deleteClubRecord(data.id)

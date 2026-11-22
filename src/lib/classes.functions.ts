@@ -76,13 +76,13 @@ export const listClasses = createServerFn({ method: "GET" }).handler(
 )
 
 export const createClass = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => classInput.parse(data))
+  .validator((data: unknown) => classInput.parse(data))
   .handler(async ({ data }) =>
     createClassRecord(await requireClubId("coaches:manage"), data)
   )
 
 export const updateClass = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     classInput.extend({ id: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) =>
@@ -90,9 +90,7 @@ export const updateClass = createServerFn({ method: "POST" })
   )
 
 export const deleteClass = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().min(1) }).parse(data)
-  )
+  .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const clubId = await requireClubId("coaches:manage")
     await db
@@ -107,7 +105,7 @@ const attendeeInput = z.object({
 })
 
 export const listClassAttendees = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ classId: z.string().min(1) }).parse(data)
   )
   .handler(async ({ data }) =>
@@ -115,7 +113,7 @@ export const listClassAttendees = createServerFn({ method: "GET" })
   )
 
 export const addClassAttendee = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => attendeeInput.parse(data))
+  .validator((data: unknown) => attendeeInput.parse(data))
   .handler(async ({ data }) =>
     addAttendeeRecord(
       await requireClubId("coaches:manage"),
@@ -125,7 +123,7 @@ export const addClassAttendee = createServerFn({ method: "POST" })
   )
 
 export const removeClassAttendee = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => attendeeInput.parse(data))
+  .validator((data: unknown) => attendeeInput.parse(data))
   .handler(async ({ data }) =>
     removeAttendeeRecord(
       await requireClubId("coaches:manage"),
