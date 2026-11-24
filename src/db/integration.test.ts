@@ -29,7 +29,7 @@ import { findOverlap } from "@/lib/reservation-overlap"
 import { findStockShortages } from "@/lib/inventory"
 import { classStatus } from "@/lib/classes"
 import type { RecurrenceRule } from "@/lib/recurrence"
-import type { ClassSeriesEdit } from "@/lib/classes.server"
+import type { ClassSeriesEdit } from "@/lib/class-series-edit.server"
 
 // Integration tests that exercise the real schema/migrations against a live
 // Postgres. They only run when DATABASE_URL_TEST points at a throwaway database
@@ -728,8 +728,13 @@ describe.skipIf(!TEST_URL)("database integration", () => {
     })
   })
 
-  describe("classes (classes.server)", () => {
-    const loadClasses = () => import("@/lib/classes.server")
+  describe("classes (classes, class-series, class-attendees)", () => {
+    const loadClasses = async () => ({
+      ...(await import("@/lib/classes.server")),
+      ...(await import("@/lib/class-series.server")),
+      ...(await import("@/lib/class-series-edit.server")),
+      ...(await import("@/lib/class-attendees.server")),
+    })
     const loadSpaces = () => import("@/lib/spaces.server")
     let classes: Awaited<ReturnType<typeof loadClasses>>
     let spaces: Awaited<ReturnType<typeof loadSpaces>>

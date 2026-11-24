@@ -64,7 +64,7 @@ export type CoachClass = typeof coachClass.$inferSelect
 export type NewCoachClass = typeof coachClass.$inferInsert
 
 // Customers signed up to a class. Their count can't exceed the class's
-// capacity (checked under a row lock on the class, see classes.server.ts).
+// capacity (checked under a row lock on the class, see class-attendees.server.ts).
 export const coachClassAttendee = pgTable(
   "coach_class_attendee",
   {
