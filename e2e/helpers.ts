@@ -109,11 +109,26 @@ export async function selectFirstOption(
   await option.waitFor({ state: "hidden" })
 }
 
-// A distinct court per Playwright worker so parallel reservation/class tests never
-// double-book the same court+time slot.
+// Opens a table row's actions menu (its last button). A toast from the action
+// before can sit over the row's button, and Sonner pauses toasts while the
+// pointer is over them, so a click retrying on it would hold the toast open for
+// good: move the pointer away and let toasts close first.
+export async function openRowMenu(page: Page, row: Locator): Promise<void> {
+  await page.mouse.move(0, 0)
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, {
+    timeout: 10_000,
+  })
+  await row.getByRole("button").last().click()
+}
+
+// A distinct court per parallel Playwright worker so reservation/class tests
+// never double-book the same court+time slot. The parallel index (unlike the
+// worker index) stays below the worker count and is reused by a worker that
+// replaces a failed one, so it never wraps onto a court another live worker
+// uses. The Default Club has 4 courts, one per local worker.
 export function workerCourt(): string {
-  const worker = Number(process.env.TEST_WORKER_INDEX ?? 0)
-  return `Court ${(worker % 6) + 1}`
+  const worker = Number(process.env.TEST_PARALLEL_INDEX ?? 0)
+  return `Court ${(worker % 4) + 1}`
 }
 
 // Computes the locale date string (matching the calendar's data-day attribute) a

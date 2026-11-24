@@ -13,14 +13,17 @@ ALTER TABLE "reservation" ADD COLUMN "court_id" text;--> statement-breakpoint
 ALTER TABLE "court" ADD CONSTRAINT "court_club_id_club_id_fk" FOREIGN KEY ("club_id") REFERENCES "public"."club"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "coach_class" ADD CONSTRAINT "coach_class_court_id_court_id_fk" FOREIGN KEY ("court_id") REFERENCES "public"."court"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reservation" ADD CONSTRAINT "reservation_court_id_court_id_fk" FOREIGN KEY ("court_id") REFERENCES "public"."court"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
--- Backfill: give every existing club a default set of 6 courts (numbered 1..6).
+-- Backfill: give every existing club a default set of 4 courts (numbered 1..4),
+-- matching the padel template's defaultCount. (Originally 6; changed so a fresh
+-- database's Default Club, created by 0004, starts with 4. Databases that
+-- already ran this keep theirs.)
 -- sort_order doubles as the human court number used to map existing rows.
 INSERT INTO "court" ("id", "name", "type", "active", "sort_order", "club_id", "created_at")
 SELECT gen_random_uuid()::text, 'Court ' || n.num, 'indoor', true, n.num, c.id, now()
 FROM "club" c
-CROSS JOIN generate_series(1, 6) AS n(num);--> statement-breakpoint
+CROSS JOIN generate_series(1, 4) AS n(num);--> statement-breakpoint
 -- Ensure courts exist for any court numbers already referenced by data that
--- fall outside the default 1..6 range.
+-- fall outside the default 1..4 range.
 INSERT INTO "court" ("id", "name", "type", "active", "sort_order", "club_id", "created_at")
 SELECT gen_random_uuid()::text, 'Court ' || x.num, 'indoor', true, x.num, x.club_id, now()
 FROM (

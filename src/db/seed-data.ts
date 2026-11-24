@@ -7,7 +7,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Carlos López",
     email: "carlos.lopez@email.com",
-    phone: "+34 623 456 789",
+    phone: "+54 9 11 2345 6789",
     age: 35,
     gender: "Male",
     category: "C6",
@@ -15,7 +15,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Pedro Sánchez",
     email: "pedro.sanchez@email.com",
-    phone: "+34 645 678 901",
+    phone: "+54 9 11 4567 8901",
     age: 41,
     gender: "Male",
     category: "C5",
@@ -23,7 +23,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Diego Ruiz",
     email: "diego.ruiz@email.com",
-    phone: "+34 667 890 123",
+    phone: "+54 9 11 6789 0123",
     age: 25,
     gender: "Male",
     category: "C8",
@@ -31,7 +31,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Javier Moreno",
     email: "javier.moreno@email.com",
-    phone: "+34 689 012 345",
+    phone: "+54 9 11 8901 2345",
     age: 38,
     gender: "Male",
     category: "C5",
@@ -39,7 +39,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Miguel Álvarez",
     email: "miguel.alvarez@email.com",
-    phone: "+34 601 234 567",
+    phone: "+54 9 11 5123 4567",
     age: 45,
     gender: "Male",
     category: "C4",
@@ -47,7 +47,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Antonio Díaz",
     email: "antonio.diaz@email.com",
-    phone: "+34 623 456 780",
+    phone: "+54 9 11 2345 6780",
     age: 52,
     gender: "Male",
     category: "C7",
@@ -55,7 +55,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Francisco Pérez",
     email: "francisco.perez@email.com",
-    phone: "+34 645 678 902",
+    phone: "+54 9 11 4567 8902",
     age: 24,
     gender: "Male",
     category: "C8",
@@ -63,7 +63,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Roberto Martín",
     email: "roberto.martin@email.com",
-    phone: "+34 667 890 124",
+    phone: "+54 9 11 6789 0124",
     age: 43,
     gender: "Male",
     category: "C5",
@@ -71,7 +71,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Alejandro Castro",
     email: "alex.castro@email.com",
-    phone: "+34 689 012 346",
+    phone: "+54 9 11 8901 2346",
     age: 39,
     gender: "Male",
     category: "C4",
@@ -79,7 +79,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Sergio Navarro",
     email: "sergio.navarro@email.com",
-    phone: "+34 611 223 344",
+    phone: "+54 9 11 1122 3344",
     age: 31,
     gender: "Male",
     category: "C6",
@@ -87,7 +87,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Maria García",
     email: "maria.garcia@email.com",
-    phone: "+34 612 345 678",
+    phone: "+54 9 11 1234 5678",
     age: 28,
     gender: "Female",
     category: "D6",
@@ -95,7 +95,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Ana Martínez",
     email: "ana.martinez@email.com",
-    phone: "+34 634 567 890",
+    phone: "+54 9 11 3456 7890",
     age: 22,
     gender: "Female",
     category: "D8",
@@ -103,7 +103,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Laura Fernández",
     email: "laura.fernandez@email.com",
-    phone: "+34 656 789 012",
+    phone: "+54 9 11 5678 9012",
     age: 30,
     gender: "Female",
     category: "D7",
@@ -111,7 +111,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Sofía Torres",
     email: "sofia.torres@email.com",
-    phone: "+34 678 901 234",
+    phone: "+54 9 11 7890 1234",
     age: 33,
     gender: "Female",
     category: "D4",
@@ -119,7 +119,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Isabel Jiménez",
     email: "isabel.jimenez@email.com",
-    phone: "+34 690 123 456",
+    phone: "+54 9 11 9012 3456",
     age: 27,
     gender: "Female",
     category: "D6",
@@ -127,7 +127,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Elena Romero",
     email: "elena.romero@email.com",
-    phone: "+34 612 345 679",
+    phone: "+54 9 11 1234 5679",
     age: 29,
     gender: "Female",
     category: "D8",
@@ -135,7 +135,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Carmen López",
     email: "carmen.lopez@email.com",
-    phone: "+34 634 567 891",
+    phone: "+54 9 11 3456 7891",
     age: 31,
     gender: "Female",
     category: "D5",
@@ -143,7 +143,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Lucía González",
     email: "lucia.gonzalez@email.com",
-    phone: "+34 656 789 013",
+    phone: "+54 9 11 5678 9013",
     age: 36,
     gender: "Female",
     category: "D4",
@@ -151,7 +151,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Patricia Sanz",
     email: "patricia.sanz@email.com",
-    phone: "+34 678 901 235",
+    phone: "+54 9 11 7890 1235",
     age: 26,
     gender: "Female",
     category: "D7",
@@ -159,7 +159,7 @@ export const seedPlayers: PlayerData[] = [
   {
     fullName: "Marta Iglesias",
     email: "marta.iglesias@email.com",
-    phone: "+34 699 334 455",
+    phone: "+54 9 11 9933 4455",
     age: 34,
     gender: "Female",
     category: "D5",
@@ -228,7 +228,7 @@ export const reservationSeeds: ReservationSeed[] = [
     paymentStatus: "paid",
   },
   {
-    court: 5,
+    court: 4,
     player: "Sofía Torres",
     bookedBy: "Admin",
     startTime: "08:00",
@@ -236,7 +236,7 @@ export const reservationSeeds: ReservationSeed[] = [
     paymentStatus: "paid",
   },
   {
-    court: 6,
+    court: 2,
     player: "Javier Moreno",
     bookedBy: "Javier Moreno",
     startTime: "09:30",
@@ -276,7 +276,7 @@ export const reservationSeeds: ReservationSeed[] = [
     paymentStatus: "paid",
   },
   {
-    court: 6,
+    court: 3,
     player: "Carmen López",
     bookedBy: "Admin",
     startTime: "11:00",
@@ -284,7 +284,7 @@ export const reservationSeeds: ReservationSeed[] = [
     paymentStatus: "paid",
   },
   {
-    court: 5,
+    court: 4,
     player: "Francisco Pérez",
     bookedBy: "Francisco Pérez",
     startTime: "14:00",
@@ -406,11 +406,27 @@ export interface SaleSeed {
 }
 
 export const coachSeeds: Omit<NewCoach, "id" | "createdAt" | "clubId">[] = [
-  { name: "Marcos Delgado", phone: "+34 611 234 567", birthday: "1985-03-12" },
-  { name: "Elena Vidal", phone: "+34 622 345 678", birthday: "1990-07-24" },
-  { name: "Rubén Fernández", phone: "+34 633 456 789", birthday: "1988-11-05" },
-  { name: "Patricia Ríos", phone: "+34 644 567 890", birthday: "1993-02-18" },
-  { name: "Jorge Salinas", phone: "+34 655 678 901", birthday: "1979-09-30" },
+  {
+    name: "Marcos Delgado",
+    phone: "+54 9 11 1123 4567",
+    birthday: "1985-03-12",
+  },
+  { name: "Elena Vidal", phone: "+54 9 11 2234 5678", birthday: "1990-07-24" },
+  {
+    name: "Rubén Fernández",
+    phone: "+54 9 11 3345 6789",
+    birthday: "1988-11-05",
+  },
+  {
+    name: "Patricia Ríos",
+    phone: "+54 9 11 4456 7890",
+    birthday: "1993-02-18",
+  },
+  {
+    name: "Jorge Salinas",
+    phone: "+54 9 11 5567 8901",
+    birthday: "1979-09-30",
+  },
 ]
 
 // Classes to seed. `coach` is resolved to a coach id and `offsetDays` to a date
@@ -441,7 +457,7 @@ export const classSeeds: ClassSeed[] = [
   },
   {
     coach: "Rubén Fernández",
-    court: 5,
+    court: 4,
     offsetDays: 0,
     startTime: "12:00",
     durationMinutes: 90,
@@ -462,7 +478,7 @@ export const classSeeds: ClassSeed[] = [
   },
   {
     coach: "Marcos Delgado",
-    court: 6,
+    court: 3,
     offsetDays: 2,
     startTime: "17:00",
     durationMinutes: 90,

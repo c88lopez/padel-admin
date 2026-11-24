@@ -84,7 +84,7 @@ export const ACTIVITY_TEMPLATES = [
       sessions: { durationOptions: [60, 90, 120], defaultCapacity: null },
     },
     levels: PADEL_LEVELS,
-    spaces: { types: ["court"], defaultCount: 6 },
+    spaces: { types: ["court"], defaultCount: 4 },
   },
   {
     key: "pilates",

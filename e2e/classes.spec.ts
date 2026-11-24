@@ -8,6 +8,7 @@ import {
   selectOption,
   waitForHydration,
   workerCourt,
+  openRowMenu,
 } from "./helpers"
 
 // Classes can't overlap each other or a reservation on the same space, so
@@ -99,7 +100,7 @@ test("signs a customer up until the class is full", async ({ page }) => {
   const court = await createClass(page, slot, time, "1")
 
   const row = await findClassRow(page, court, slot, time)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Attendees" }).click()
 
   const dialog = page.getByRole("dialog")
@@ -122,7 +123,7 @@ test("edits a scheduled class", async ({ page }) => {
   const court = await createClass(page, slot, time)
 
   const row = await findClassRow(page, court, slot, time)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const newTime = "12:00"
@@ -142,7 +143,7 @@ test("cancels a scheduled class", async ({ page }) => {
   const court = await createClass(page, slot, time)
 
   const row = await findClassRow(page, court, slot, time)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")

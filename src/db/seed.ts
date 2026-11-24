@@ -52,9 +52,9 @@ const seedAuth = betterAuth({
 
 // Fixed id matching the one inserted by migration 0004 for the seed/backfill.
 const DEFAULT_CLUB_ID = "00000000-0000-0000-0000-000000000001"
-// A second club so the club switcher has somewhere to switch to. Has its own
-// courts/settings but no players/reservations, which makes tenant scoping
-// observable (its pages are empty).
+// Demo only: a second club so the club switcher has somewhere to switch to.
+// Has its own courts/settings but no players/reservations, which makes tenant
+// scoping observable (its pages are empty).
 const NORTH_CLUB_ID = "00000000-0000-0000-0000-000000000002"
 
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@club.test"
@@ -64,28 +64,17 @@ const name = process.env.SEED_ADMIN_NAME ?? "Club Admin"
 const superEmail = process.env.SEED_SUPERADMIN_EMAIL ?? "super@club.test"
 const superPassword = process.env.SEED_SUPERADMIN_PASSWORD ?? "super1234"
 
-async function seedClubs() {
-  // The Default Club row is created by the migration; ensure it exists when
-  // seeding a fresh database too.
+// Creates a club (if missing) with its default activities, spaces (e.g. four
+// padel courts) and reservation settings. Idempotent.
+async function ensureClub(id: string, clubName: string, slug: string) {
   await db
     .insert(club)
-    .values({ id: DEFAULT_CLUB_ID, name: "Default Club", slug: "default" })
+    .values({ id, name: clubName, slug })
     .onConflictDoNothing()
-  // Give the Default Club its bookable courts and reservation settings
-  // (idempotent; needed when the schema was applied via `db:push`).
-  await ensureDefaultActivities(DEFAULT_CLUB_ID)
-  await seedDefaultSpaces(DEFAULT_CLUB_ID)
-  await seedDefaultReservationSettings(DEFAULT_CLUB_ID)
-
-  // North Branch: a second tenant for multi-club demos and switcher tests.
-  await db
-    .insert(club)
-    .values({ id: NORTH_CLUB_ID, name: "North Branch", slug: "north" })
-    .onConflictDoNothing()
-  await ensureDefaultActivities(NORTH_CLUB_ID)
-  await seedDefaultSpaces(NORTH_CLUB_ID)
-  await seedDefaultReservationSettings(NORTH_CLUB_ID)
-  console.log("✓ Clubs ready (Default Club, North Branch)")
+  await ensureDefaultActivities(id)
+  await seedDefaultSpaces(id)
+  await seedDefaultReservationSettings(id)
+  console.log(`✓ Club ready: ${clubName}`)
 }
 
 // Maps a club's court numbers (sort order) to court ids for seeding rows.
@@ -115,7 +104,12 @@ async function seedAdmin() {
     .set({ role: "Owner", clubId: DEFAULT_CLUB_ID })
     .where(eq(user.email, email))
   await ensureMembership(email, DEFAULT_CLUB_ID)
-  // Also a member of North Branch so the admin can switch between two clubs.
+}
+
+// Demo only: North Branch, a second tenant for multi-club demos and switcher
+// tests, with the admin a member so they can switch between the two clubs.
+async function seedNorthBranch() {
+  await ensureClub(NORTH_CLUB_ID, "North Branch", "north")
   await ensureMembership(email, NORTH_CLUB_ID)
 }
 
@@ -182,12 +176,12 @@ async function ensureUser(opts: {
 
 async function seedTeam() {
   const team = [
-    { name: "Ana Martínez", email: "ana@padelclub.es", role: "Admin" },
-    { name: "Diego Ruiz", email: "diego@padelclub.es", role: "Manager" },
-    { name: "Laura Fernández", email: "laura@padelclub.es", role: "Coach" },
+    { name: "Ana Martínez", email: "ana@padelclub.com", role: "Admin" },
+    { name: "Diego Ruiz", email: "diego@padelclub.com", role: "Manager" },
+    { name: "Laura Fernández", email: "laura@padelclub.com", role: "Coach" },
     {
       name: "Pedro Sánchez",
-      email: "pedro@padelclub.es",
+      email: "pedro@padelclub.com",
       role: "Front Desk",
       status: "archived",
     },
@@ -396,18 +390,23 @@ async function seedTournaments() {
   console.log(`✓ Seeded ${tournamentSeeds.length} tournaments`)
 }
 
-// Demo data (extra users + players/reservations/inventory/coaching) is only
-// inserted when run with `--demo` (i.e. `bun run db:seed:demo`). The default
-// `db:seed` just bootstraps the Default Club and the admin login so a fresh
-// database starts clean.
+// The default `db:seed` only bootstraps what the app needs to start in a clean
+// state: the Default Club (with its default courts and settings), its Owner
+// login and the platform super admin. No business data.
+//
+// `--demo` (i.e. `bun run db:seed:demo`, used by the E2E suite) adds a second
+// club, team users and sample players/reservations/inventory/coaching.
 const includeDemo = process.argv.includes("--demo")
 
 async function main() {
   try {
-    await seedClubs()
+    // The Default Club row is created by a migration; ensure it exists when
+    // seeding a fresh database too.
+    await ensureClub(DEFAULT_CLUB_ID, "Default Club", "default")
     await seedAdmin()
+    await seedSuperAdmin()
     if (includeDemo) {
-      await seedSuperAdmin()
+      await seedNorthBranch()
       await seedTeam()
       await seedPlayerRoster()
       await seedReservationSchedule()

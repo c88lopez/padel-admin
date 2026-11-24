@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ROLE_DESCRIPTIONS, USER_ROLES } from "@/lib/users"
+import { ROLE_DESCRIPTIONS, USER_ROLES, roleLabel } from "@/lib/users"
 import type { UserRole } from "@/lib/users"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import { useAppSettings } from "@/lib/app-settings"
@@ -251,7 +251,7 @@ export function NewUserDrawer({
                     <SelectContent>
                       {roleOptions.map((role) => (
                         <SelectItem key={role} value={role}>
-                          {role}
+                          {roleLabel(t, role)}
                         </SelectItem>
                       ))}
                     </SelectContent>

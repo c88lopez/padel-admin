@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test"
 import type { Locator, Page } from "@playwright/test"
-import { openDrawer, waitForHydration } from "./helpers"
+import { openDrawer, openRowMenu, waitForHydration } from "./helpers"
 
 // Creates a coach (no birthday — it's optional) and returns its unique name.
 async function createCoach(page: Page): Promise<string> {
   const name = `E2E Coach ${Date.now()}-${Math.floor(Math.random() * 1e4)}`
   const dialog = await openDrawer(page, "New Coach")
   await dialog.getByLabel("Full Name").fill(name)
-  await dialog.getByLabel("Phone").fill("+34 600 222 333")
+  await dialog.getByLabel("Phone").fill("+54 9 11 5022 2333")
   await dialog.getByRole("button", { name: "Add Coach" }).click()
   await expect(page.getByText("Coach created")).toBeVisible()
   return name
@@ -26,7 +26,7 @@ test("creates and deletes a coach", async ({ page }) => {
   const name = await createCoach(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")
@@ -41,7 +41,7 @@ test("edits a coach", async ({ page }) => {
   const name = await createCoach(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const dialog = page.getByRole("dialog")

@@ -71,7 +71,7 @@ test("pilates customers are students, listed apart from players", async ({
   const dialog = await openDrawer(page, "New Student")
   await dialog.getByLabel("Full Name").fill(name)
   await dialog.getByLabel("Email").fill(`s${Date.now()}@e2e.test`)
-  await dialog.getByLabel("Phone").fill("+34 600 555 666")
+  await dialog.getByLabel("Phone").fill("+54 9 11 5055 5666")
   await dialog.getByLabel("Age").fill("41")
   // Pilates has no levels, so there's no category to pick.
   await expect(dialog.getByText("Category")).toHaveCount(0)

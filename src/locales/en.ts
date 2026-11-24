@@ -349,6 +349,14 @@ export const en = {
     twoPointFiveHours: "2.5 hours",
     threeHours: "3 hours",
   },
+  roles: {
+    owner: "Owner",
+    admin: "Admin",
+    manager: "Manager",
+    coach: "Coach",
+    frontDesk: "Front Desk",
+    superAdmin: "Super Admin",
+  },
   recurrence: {
     scope: {
       editTitle: "Edit repeating class",
@@ -463,7 +471,7 @@ export const en = {
   forms: {
     player: {
       emailPlaceholder: "name@email.com",
-      phonePlaceholder: "+34 600 000 000",
+      phonePlaceholder: "+54 9 11 5000 0000",
       agePlaceholder: "25",
       errorDescription: "The customer could not be saved. Please try again.",
     },
@@ -471,7 +479,7 @@ export const en = {
       titleNew: "New Coach",
       titleEdit: "Edit Coach",
       namePlaceholder: "e.g. Marcos Delgado",
-      phonePlaceholder: "+34 600 000 000",
+      phonePlaceholder: "+54 9 11 5000 0000",
       birthdayLabel: "Birthday (optional)",
       activitiesLabel: "Teaches",
       submitNew: "Add Coach",

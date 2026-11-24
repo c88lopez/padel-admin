@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test"
 import type { Locator, Page } from "@playwright/test"
-import { openDrawer, selectOption, waitForHydration } from "./helpers"
+import {
+  openDrawer,
+  openRowMenu,
+  selectOption,
+  waitForHydration,
+} from "./helpers"
 
 // Creates a player through the drawer and returns its unique name so the caller
 // can filter to / act on the resulting row.
@@ -9,7 +14,7 @@ async function createPlayer(page: Page): Promise<string> {
   const dialog = await openDrawer(page, "New Player")
   await dialog.getByLabel("Full Name").fill(name)
   await dialog.getByLabel("Email").fill(`p${Date.now()}@e2e.test`)
-  await dialog.getByLabel("Phone").fill("+34 600 111 222")
+  await dialog.getByLabel("Phone").fill("+54 9 11 5011 1222")
   await dialog.getByLabel("Age").fill("28")
   await selectOption(page, dialog, "Gender", "Male")
   await selectOption(page, dialog, "Category", "C4")
@@ -42,7 +47,7 @@ test("edits a player", async ({ page }) => {
   const name = await createPlayer(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const dialog = page.getByRole("dialog")
@@ -63,7 +68,7 @@ test("deletes a player", async ({ page }) => {
   const name = await createPlayer(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")

@@ -392,7 +392,7 @@ export async function assertSpaceFree(
 }
 
 /**
- * Gives an activity its default spaces (e.g. six padel courts, one pilates
+ * Gives an activity its default spaces (e.g. four padel courts, one pilates
  * studio) when it has none. Runs when a club gets the activity: on club
  * creation and seeding, and when the app's owners first enable it.
  */

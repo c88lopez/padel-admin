@@ -54,7 +54,7 @@ const existingPlayer = {
   id: "player-1",
   fullName: "John Smith",
   email: "john@example.com",
-  phone: "+34 600 000 000",
+  phone: "+54 9 11 5000 0000",
   age: 40,
   gender: "Male" as const,
   category: "C4",
@@ -102,7 +102,7 @@ describe("NewPlayerDrawer", () => {
 
     await user.type(screen.getByLabelText("Full Name"), "Jane Doe")
     await user.type(screen.getByLabelText("Email"), "jane@example.com")
-    await user.type(screen.getByLabelText("Phone"), "+34 600 111 222")
+    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5011 1222")
     await user.type(screen.getByLabelText("Age"), "28")
 
     const [genderTrigger] = screen.getAllByRole("combobox")
@@ -120,7 +120,7 @@ describe("NewPlayerDrawer", () => {
         data: {
           fullName: "Jane Doe",
           email: "jane@example.com",
-          phone: "+34 600 111 222",
+          phone: "+54 9 11 5011 1222",
           age: 28,
           gender: "Male",
           category: "C5",
@@ -152,7 +152,7 @@ describe("NewPlayerDrawer", () => {
           id: "player-1",
           fullName: "John Smith",
           email: "john@example.com",
-          phone: "+34 600 000 000",
+          phone: "+54 9 11 5000 0000",
           age: 40,
           gender: "Male",
           category: "C4",
@@ -174,7 +174,7 @@ describe("NewPlayerDrawer", () => {
 
     await user.type(screen.getByLabelText("Full Name"), "Lucía Pérez")
     await user.type(screen.getByLabelText("Email"), "lucia@example.com")
-    await user.type(screen.getByLabelText("Phone"), "+34 600 333 444")
+    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5033 3444")
     await user.type(screen.getByLabelText("Age"), "35")
     await user.click(screen.getByRole("combobox"))
     await user.click(await screen.findByRole("option", { name: "Female" }))
@@ -185,7 +185,7 @@ describe("NewPlayerDrawer", () => {
         data: {
           fullName: "Lucía Pérez",
           email: "lucia@example.com",
-          phone: "+34 600 333 444",
+          phone: "+54 9 11 5033 3444",
           age: 35,
           gender: "Female",
           category: null,

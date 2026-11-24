@@ -358,6 +358,14 @@ export const es: DeepString<typeof en> = {
     twoPointFiveHours: "2,5 horas",
     threeHours: "3 horas",
   },
+  roles: {
+    owner: "Owner",
+    admin: "Admin",
+    manager: "Manager",
+    coach: "Entrenador",
+    frontDesk: "Recepcionista",
+    superAdmin: "Super Admin",
+  },
   recurrence: {
     scope: {
       editTitle: "Editar clase recurrente",
@@ -472,7 +480,7 @@ export const es: DeepString<typeof en> = {
   forms: {
     player: {
       emailPlaceholder: "nombre@email.com",
-      phonePlaceholder: "+34 600 000 000",
+      phonePlaceholder: "+54 9 11 5000 0000",
       agePlaceholder: "25",
       errorDescription: "No se pudo guardar el cliente. Inténtalo de nuevo.",
     },
@@ -480,7 +488,7 @@ export const es: DeepString<typeof en> = {
       titleNew: "Nuevo entrenador",
       titleEdit: "Editar entrenador",
       namePlaceholder: "p. ej. Marcos Delgado",
-      phonePlaceholder: "+34 600 000 000",
+      phonePlaceholder: "+54 9 11 5000 0000",
       birthdayLabel: "Cumpleaños (opcional)",
       activitiesLabel: "Enseña",
       submitNew: "Agregar entrenador",
