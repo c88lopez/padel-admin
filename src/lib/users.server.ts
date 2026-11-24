@@ -1,15 +1,20 @@
 import { asc, eq, inArray } from "drizzle-orm"
 import { db } from "@/db"
-import { account, club, clubMember, user } from "@/db/schema"
+import { account, club, user } from "@/db/schema"
 import { auth } from "@/lib/auth"
+import {
+  listMemberClubIds,
+  listMemberClubs,
+  setMemberships,
+} from "@/lib/club-members.server"
+import type { MemberClub } from "@/lib/club-members.server"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 
 // Pure data-access helpers for users (no auth). Kept in a server-only module so
-// the Postgres driver (`pg`) never leaks into the client bundle. Shared by the
-// TanStack server functions in users.functions.ts (which add session/permission
-// + per-club actor scoping) and the REST routes under src/routes/api/users
-// (API-key/session via requireApiAccess). These helpers run with full,
-// super-admin-equivalent access — the route layer is responsible for authz.
+// the Postgres driver (`pg`) never leaks into the client bundle. Used by the
+// REST routes under src/routes/api/users (API-key/session via
+// requireApiAccess). These helpers run with full, super-admin-equivalent
+// access — the route layer is responsible for authz.
 
 export interface UserRecord {
   id: string
@@ -17,11 +22,9 @@ export interface UserRecord {
   email: string
   role: string
   status: string
-  // Null only for platform super-admins.
-  clubId: string | null
-  clubName: string | null
-  // Every club the user may act within (club_member rows).
-  clubIds: string[]
+  // The clubs the user belongs to, default club first. Empty only for
+  // platform super-admins.
+  clubs: MemberClub[]
   createdAt: Date
 }
 
@@ -30,7 +33,6 @@ export interface UserInput {
   email: string
   role: string
   password: string
-  clubId?: string | null
   clubIds?: string[]
 }
 
@@ -38,39 +40,20 @@ export interface UserPatch {
   name?: string
   email?: string
   role?: string
-  clubId?: string | null
   clubIds?: string[]
 }
 
-interface ClubAssignment {
-  // The user's primary/home club (user.club_id). Null only for super-admins.
-  primary: string | null
-  // The full set of clubs the user may act within (club_member rows).
-  memberships: string[]
-}
-
-// Resolves a user's club assignment without an actor (the REST layer grants
-// full access). Super-admins get a null primary and no memberships; everyone
-// else needs at least one valid club, preserving the current primary when it is
-// still part of the selection so scoping stays stable.
-async function resolveAssignment(
+// The clubs a user with `role` ends up in. Super-admins belong to none; everyone
+// else needs at least one existing club. Without `clubIds`, a club user keeps
+// `current`.
+async function resolveClubIds(
   role: string,
   clubIds: string[] | undefined,
-  clubId: string | null | undefined,
-  currentPrimary: string | null
-): Promise<ClubAssignment> {
-  if (role === SUPER_ADMIN_ROLE) {
-    return { primary: null, memberships: [] }
-  }
+  current: string[]
+): Promise<string[]> {
+  if (role === SUPER_ADMIN_ROLE) return []
 
-  const ids =
-    clubIds && clubIds.length > 0
-      ? [...new Set(clubIds)]
-      : clubId
-        ? [clubId]
-        : currentPrimary
-          ? [currentPrimary]
-          : []
+  const ids = clubIds !== undefined ? [...new Set(clubIds)] : current
   if (ids.length === 0) {
     throw new Error("A club is required for non-super-admin users.")
   }
@@ -82,49 +65,12 @@ async function resolveAssignment(
   if (found.length !== ids.length) {
     throw new Error("One or more clubs were not found.")
   }
-
-  const primary =
-    currentPrimary && ids.includes(currentPrimary) ? currentPrimary : ids[0]
-  const memberships = [...new Set([primary, ...ids])]
-  return { primary, memberships }
-}
-
-// Replaces a user's club memberships with the given set.
-async function setMemberships(
-  userId: string,
-  clubIds: string[]
-): Promise<void> {
-  await db.delete(clubMember).where(eq(clubMember.userId, userId))
-  if (clubIds.length > 0) {
-    await db
-      .insert(clubMember)
-      .values(clubIds.map((cId) => ({ userId, clubId: cId })))
-  }
+  return ids
 }
 
 async function hashPassword(password: string): Promise<string> {
   const ctx = await auth.$context
   return ctx.password.hash(password)
-}
-
-// Attaches each user's club memberships (from club_member) to the given rows.
-async function withMemberships(
-  rows: Omit<UserRecord, "clubIds">[]
-): Promise<UserRecord[]> {
-  const ids = rows.map((r) => r.id)
-  const members = ids.length
-    ? await db
-        .select({ userId: clubMember.userId, clubId: clubMember.clubId })
-        .from(clubMember)
-        .where(inArray(clubMember.userId, ids))
-    : []
-  const byUser = new Map<string, string[]>()
-  for (const m of members) {
-    const list = byUser.get(m.userId) ?? []
-    list.push(m.clubId)
-    byUser.set(m.userId, list)
-  }
-  return rows.map((r) => ({ ...r, clubIds: byUser.get(r.id) ?? [] }))
 }
 
 const baseSelect = {
@@ -133,39 +79,35 @@ const baseSelect = {
   email: user.email,
   role: user.role,
   status: user.status,
-  clubId: user.clubId,
-  clubName: club.name,
   createdAt: user.createdAt,
 }
 
+async function withClubs(
+  rows: Omit<UserRecord, "clubs">[]
+): Promise<UserRecord[]> {
+  const clubs = await listMemberClubs(rows.map((r) => r.id))
+  return rows.map((r) => ({ ...r, clubs: clubs.get(r.id) ?? [] }))
+}
+
 export async function listUserRecords(): Promise<UserRecord[]> {
-  const rows = await db
-    .select(baseSelect)
-    .from(user)
-    .leftJoin(club, eq(user.clubId, club.id))
-    .orderBy(asc(user.createdAt))
-  return withMemberships(rows)
+  return withClubs(
+    await db.select(baseSelect).from(user).orderBy(asc(user.createdAt))
+  )
 }
 
 export async function getUserRecord(id: string): Promise<UserRecord | null> {
   const rows = await db
     .select(baseSelect)
     .from(user)
-    .leftJoin(club, eq(user.clubId, club.id))
     .where(eq(user.id, id))
     .limit(1)
   if (rows.length === 0) return null
-  const [record] = await withMemberships(rows)
+  const [record] = await withClubs(rows)
   return record
 }
 
 export async function createUserRecord(data: UserInput): Promise<UserRecord> {
-  const { primary, memberships } = await resolveAssignment(
-    data.role,
-    data.clubIds,
-    data.clubId,
-    null
-  )
+  const clubIds = await resolveClubIds(data.role, data.clubIds, [])
 
   const existing = await db
     .select({ id: user.id })
@@ -184,7 +126,6 @@ export async function createUserRecord(data: UserInput): Promise<UserRecord> {
     email: data.email,
     role: data.role,
     status: "active",
-    clubId: primary,
     emailVerified: false,
     createdAt: now,
     updatedAt: now,
@@ -198,7 +139,7 @@ export async function createUserRecord(data: UserInput): Promise<UserRecord> {
     createdAt: now,
     updatedAt: now,
   })
-  await setMemberships(id, memberships)
+  await setMemberships(id, clubIds)
 
   const record = await getUserRecord(id)
   if (!record) throw new Error("User not found.")
@@ -209,7 +150,7 @@ export async function updateUserRecord(
   data: { id: string } & UserPatch
 ): Promise<UserRecord> {
   const current = await db
-    .select({ role: user.role, clubId: user.clubId })
+    .select({ role: user.role })
     .from(user)
     .where(eq(user.id, data.id))
     .limit(1)
@@ -231,21 +172,15 @@ export async function updateUserRecord(
   if (data.email !== undefined) set.email = data.email
   if (data.role !== undefined) set.role = data.role
 
-  // Recompute club assignment only when role/club membership inputs are present.
-  const touchesClubs =
-    data.role !== undefined ||
-    data.clubId !== undefined ||
-    data.clubIds !== undefined
-  if (touchesClubs) {
-    const { primary, memberships } = await resolveAssignment(
+  // Recompute the user's clubs only when the role or the clubs change.
+  if (data.role !== undefined || data.clubIds !== undefined) {
+    const clubIds = await resolveClubIds(
       data.role ?? current[0].role,
       data.clubIds,
-      data.clubId,
-      current[0].clubId
+      await listMemberClubIds(data.id)
     )
-    set.clubId = primary
     await db.update(user).set(set).where(eq(user.id, data.id))
-    await setMemberships(data.id, memberships)
+    await setMemberships(data.id, clubIds)
   } else {
     await db.update(user).set(set).where(eq(user.id, data.id))
   }

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getRequest: vi.fn(() => ({ headers: new Headers() })),
   getCookie: vi.fn<() => string | undefined>(() => undefined),
   getSession: vi.fn(),
+  listMemberClubIds: vi.fn<() => Promise<string[]>>(async () => ["club-a"]),
 }))
 
 vi.mock("@tanstack/react-start/server", () => ({
@@ -16,6 +17,10 @@ vi.mock("@tanstack/react-start/server", () => ({
 
 vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession: mocks.getSession } },
+}))
+
+vi.mock("@/lib/club-members.server", () => ({
+  listMemberClubIds: mocks.listMemberClubIds,
 }))
 
 const {
@@ -28,7 +33,6 @@ const {
 type SessionUserOverrides = {
   role?: string
   status?: string
-  clubId?: string | null
 }
 
 function makeSession(over: SessionUserOverrides = {}) {
@@ -37,7 +41,6 @@ function makeSession(over: SessionUserOverrides = {}) {
       id: "user-1",
       role: "Owner",
       status: "active",
-      clubId: "club-a",
       ...over,
     },
   }
@@ -46,6 +49,7 @@ function makeSession(over: SessionUserOverrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.getCookie.mockReturnValue(undefined)
+  mocks.listMemberClubIds.mockResolvedValue(["club-a"])
 })
 
 describe("requireSession", () => {
@@ -93,26 +97,35 @@ describe("requirePermission", () => {
 })
 
 describe("resolveActiveClubId", () => {
-  it("returns a club-scoped user's home club when no club is selected", async () => {
-    mocks.getCookie.mockReturnValue(undefined)
-    await expect(
-      resolveActiveClubId({ id: "user-1", clubId: "club-a" })
-    ).resolves.toBe("club-a")
+  const owner = { id: "user-1", role: "Owner" }
+
+  it("returns a club user's default club when no club is selected", async () => {
+    mocks.listMemberClubIds.mockResolvedValue(["club-a", "club-b"])
+    await expect(resolveActiveClubId(owner)).resolves.toBe("club-a")
   })
 
-  it("returns the home club when the selected cookie matches it", async () => {
+  it("returns the selected club when the user belongs to it", async () => {
+    mocks.listMemberClubIds.mockResolvedValue(["club-a", "club-b"])
+    mocks.getCookie.mockReturnValue("club-b")
+    await expect(resolveActiveClubId(owner)).resolves.toBe("club-b")
+  })
+
+  it("ignores a selected club the user doesn't belong to", async () => {
+    mocks.listMemberClubIds.mockResolvedValue(["club-a"])
+    mocks.getCookie.mockReturnValue("club-x")
+    await expect(resolveActiveClubId(owner)).resolves.toBe("club-a")
+  })
+
+  it("returns null for a club user without clubs", async () => {
+    mocks.listMemberClubIds.mockResolvedValue([])
     mocks.getCookie.mockReturnValue("club-a")
-    await expect(
-      resolveActiveClubId({ id: "user-1", clubId: "club-a" })
-    ).resolves.toBe("club-a")
+    await expect(resolveActiveClubId(owner)).resolves.toBeNull()
   })
 })
 
 describe("requireClubId", () => {
   it("returns the active club for a permitted club-scoped user", async () => {
-    mocks.getSession.mockResolvedValue(
-      makeSession({ role: "Owner", clubId: "club-a" })
-    )
+    mocks.getSession.mockResolvedValue(makeSession({ role: "Owner" }))
     mocks.getCookie.mockReturnValue(undefined)
     await expect(requireClubId("reservations:manage")).resolves.toBe("club-a")
   })

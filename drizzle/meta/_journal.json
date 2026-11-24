@@ -148,6 +148,13 @@
       "when": 1795367115283,
       "tag": "0020_class_series",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795495291186,
+      "tag": "0021_user_club_list",
+      "breakpoints": true
     }
   ]
 }

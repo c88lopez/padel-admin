@@ -1,6 +1,7 @@
 import { asc, eq, sql } from "drizzle-orm"
 import { db } from "@/db"
-import { club, user } from "@/db/schema"
+import { club, clubMember } from "@/db/schema"
+import { deleteUsersWithoutClubs } from "@/lib/club-members.server"
 import { seedDefaultSpaces } from "@/lib/spaces.server"
 import { ensureDefaultActivities } from "@/lib/activities.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
@@ -63,11 +64,11 @@ export async function listClubRecords(): Promise<ClubRecord[]> {
       name: club.name,
       slug: club.slug,
       status: club.status,
-      memberCount: sql<number>`count(${user.id})::int`,
+      memberCount: sql<number>`count(${clubMember.userId})::int`,
       createdAt: club.createdAt,
     })
     .from(club)
-    .leftJoin(user, eq(user.clubId, club.id))
+    .leftJoin(clubMember, eq(clubMember.clubId, club.id))
     .groupBy(club.id)
     .orderBy(asc(club.name))
 }
@@ -79,11 +80,11 @@ export async function getClubRecord(id: string): Promise<ClubRecord | null> {
       name: club.name,
       slug: club.slug,
       status: club.status,
-      memberCount: sql<number>`count(${user.id})::int`,
+      memberCount: sql<number>`count(${clubMember.userId})::int`,
       createdAt: club.createdAt,
     })
     .from(club)
-    .leftJoin(user, eq(user.clubId, club.id))
+    .leftJoin(clubMember, eq(clubMember.clubId, club.id))
     .where(eq(club.id, id))
     .groupBy(club.id)
   return rows.length > 0 ? rows[0] : null
@@ -140,7 +141,18 @@ export async function deleteClubRecord(id: string): Promise<{ id: string }> {
   if (rows[0].slug === DEFAULT_CLUB_SLUG) {
     throw new Error("The Default Club cannot be deleted.")
   }
-  // FK cascades remove all of the club's data and member accounts.
-  await db.delete(club).where(eq(club.id, id))
+  // FK cascades remove all of the club's data and memberships. Members who
+  // belong to other clubs keep them; the rest are deleted with the club.
+  await db.transaction(async (tx) => {
+    const members = await tx
+      .select({ userId: clubMember.userId })
+      .from(clubMember)
+      .where(eq(clubMember.clubId, id))
+    await tx.delete(club).where(eq(club.id, id))
+    await deleteUsersWithoutClubs(
+      members.map((m) => m.userId),
+      tx
+    )
+  })
   return { id }
 }

@@ -1,10 +1,15 @@
 import { createServerFn } from "@tanstack/react-start"
-import { asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
 import { account, club, clubMember, user } from "@/db/schema"
 import { auth } from "@/lib/auth"
-import { requirePermission } from "@/lib/auth.server"
+import { requirePermission, resolveActiveClubId } from "@/lib/auth.server"
+import {
+  listMemberClubIds,
+  listMemberClubs,
+  setMemberships,
+} from "@/lib/club-members.server"
 import { can, SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import { USER_ROLES } from "@/lib/users"
 import { AppError } from "@/lib/errors"
@@ -18,7 +23,6 @@ const createInput = z.object({
   email: z.string().email(),
   role: roleSchema,
   password: z.string().min(6),
-  clubId: z.string().min(1).nullish(),
   clubIds: z.array(z.string().min(1)).optional(),
 })
 
@@ -27,68 +31,58 @@ const updateInput = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   role: roleSchema,
-  clubId: z.string().min(1).nullish(),
   clubIds: z.array(z.string().min(1)).optional(),
 })
 
 // Request-body schemas for the REST routes under src/routes/api/users. Kept
 // separate from the drawer-oriented schemas above: POST requires a full body
-// while PATCH accepts any subset of fields.
-export const userApiCreateInput = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  role: roleSchema,
-  password: z.string().min(6),
-  clubId: z.string().min(1).nullish(),
-  clubIds: z.array(z.string().min(1)).optional(),
-})
+// while PATCH accepts any subset of fields. Strict, so a caller still sending
+// the removed `clubId` gets a 400 instead of having it silently ignored.
+export const userApiCreateInput = z
+  .object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    role: roleSchema,
+    password: z.string().min(6),
+    clubIds: z.array(z.string().min(1)).optional(),
+  })
+  .strict()
 
-export const userApiPatchInput = z.object({
-  name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  role: roleSchema.optional(),
-  clubId: z.string().min(1).nullish(),
-  clubIds: z.array(z.string().min(1)).optional(),
-})
+export const userApiPatchInput = z
+  .object({
+    name: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    role: roleSchema.optional(),
+    clubIds: z.array(z.string().min(1)).optional(),
+  })
+  .strict()
 
 interface Actor {
   role?: string | null
-  clubId?: string | null
 }
 
-interface ClubAssignment {
-  // The user's primary/home club (user.club_id). Null only for super-admins.
-  primary: string | null
-  // The full set of clubs the user may act within (club_member rows).
-  memberships: string[]
-}
-
-// Resolves a user's club assignment (primary club + the set of clubs they can
-// switch between). Only super-admins may assign the Super Admin role; managers
-// (Owner/Admin) may assign any active club so they can run multiple clubs. The
-// existing primary club is preserved when still selected to keep scoping stable.
-async function resolveAssignment(
+// The clubs a user ends up in. Only super-admins may assign the Super Admin
+// role, which belongs to no club. Managers (Owner/Admin) may assign any club so
+// they can run several. Without `clubIds` the user keeps `current`, or, when
+// that's empty, gets the manager's active club.
+async function resolveClubIds(
   actor: Actor,
+  activeClubId: string | null,
   role: string,
   clubIds: string[] | undefined,
-  clubId: string | null | undefined,
-  currentPrimary: string | null
-): Promise<ClubAssignment> {
-  const isSuper = can(actor.role, "clubs:manage")
+  current: string[]
+): Promise<string[]> {
   if (role === SUPER_ADMIN_ROLE) {
-    if (!isSuper) throw new AppError("errors.user.cannotAssignSuperAdmin")
-    return { primary: null, memberships: [] }
+    if (!can(actor.role, "clubs:manage")) {
+      throw new AppError("errors.user.cannotAssignSuperAdmin")
+    }
+    return []
   }
 
-  let ids =
-    clubIds && clubIds.length > 0
-      ? [...new Set(clubIds)]
-      : clubId
-        ? [clubId]
-        : []
+  let ids = clubIds && clubIds.length > 0 ? [...new Set(clubIds)] : current
   if (ids.length === 0) {
-    if (!actor.clubId) throw new AppError("errors.user.selectClub")
-    ids = [actor.clubId]
+    if (!activeClubId) throw new AppError("errors.user.selectClub")
+    ids = [activeClubId]
   }
 
   const found = await db
@@ -98,38 +92,28 @@ async function resolveAssignment(
   if (found.length !== ids.length) {
     throw new AppError("errors.user.invalidClub")
   }
-
-  const primary =
-    currentPrimary && ids.includes(currentPrimary) ? currentPrimary : ids[0]
-  const memberships = [...new Set([primary, ...ids])]
-  return { primary, memberships }
+  return ids
 }
 
-// Replaces a user's club memberships with the given set.
-async function setMemberships(
-  userId: string,
-  clubIds: string[]
+// Ensures a club manager only touches users of the club they're acting in.
+// Super-admins are unrestricted.
+async function assertManageable(
+  actor: Actor,
+  activeClubId: string | null,
+  targetId: string
 ): Promise<void> {
-  await db.delete(clubMember).where(eq(clubMember.userId, userId))
-  if (clubIds.length > 0) {
-    await db
-      .insert(clubMember)
-      .values(clubIds.map((cId) => ({ userId, clubId: cId })))
-  }
-}
-
-// Ensures a club manager only mutates users inside their own club. Super-admins
-// are unrestricted.
-async function assertManageable(actor: Actor, targetId: string): Promise<void> {
   if (can(actor.role, "clubs:manage")) return
   const rows = await db
-    .select({ clubId: user.clubId })
-    .from(user)
-    .where(eq(user.id, targetId))
+    .select({ userId: clubMember.userId })
+    .from(clubMember)
+    .where(
+      and(
+        eq(clubMember.userId, targetId),
+        eq(clubMember.clubId, activeClubId ?? "")
+      )
+    )
     .limit(1)
-  if (rows.length === 0 || rows[0].clubId !== actor.clubId) {
-    throw new AppError("errors.user.notFound")
-  }
+  if (rows.length === 0) throw new AppError("errors.user.notFound")
 }
 
 // Generates a temporary password that satisfies common policy requirements.
@@ -153,45 +137,41 @@ export const listUsers = createServerFn({ method: "GET" }).handler(async () => {
       email: user.email,
       role: user.role,
       status: user.status,
-      clubId: user.clubId,
-      clubName: club.name,
       createdAt: user.createdAt,
     })
     .from(user)
-    .leftJoin(club, eq(user.clubId, club.id))
-  // Super-admins manage everyone; club managers only see their own club.
+  // Super-admins manage everyone; club managers only the active club's users.
   const scoped = isSuper
     ? base
-    : base.where(eq(user.clubId, session.user.clubId ?? ""))
+    : base.where(
+        inArray(
+          user.id,
+          db
+            .select({ userId: clubMember.userId })
+            .from(clubMember)
+            .where(
+              eq(
+                clubMember.clubId,
+                (await resolveActiveClubId(session.user)) ?? ""
+              )
+            )
+        )
+      )
   const rows = await scoped.orderBy(asc(user.createdAt))
-
-  // Attach each user's club memberships for the assignment UI.
-  const ids = rows.map((r) => r.id)
-  const members = ids.length
-    ? await db
-        .select({ userId: clubMember.userId, clubId: clubMember.clubId })
-        .from(clubMember)
-        .where(inArray(clubMember.userId, ids))
-    : []
-  const byUser = new Map<string, string[]>()
-  for (const m of members) {
-    const list = byUser.get(m.userId) ?? []
-    list.push(m.clubId)
-    byUser.set(m.userId, list)
-  }
-  return rows.map((r) => ({ ...r, clubIds: byUser.get(r.id) ?? [] }))
+  const clubs = await listMemberClubs(rows.map((r) => r.id))
+  return rows.map((r) => ({ ...r, clubs: clubs.get(r.id) ?? [] }))
 })
 
 export const createUser = createServerFn({ method: "POST" })
   .validator((data: unknown) => createInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    const { primary, memberships } = await resolveAssignment(
+    const clubIds = await resolveClubIds(
       session.user,
+      await resolveActiveClubId(session.user),
       data.role,
       data.clubIds,
-      data.clubId,
-      null
+      []
     )
 
     const existing = await db
@@ -211,7 +191,6 @@ export const createUser = createServerFn({ method: "POST" })
       email: data.email,
       role: data.role,
       status: "active",
-      clubId: primary,
       emailVerified: false,
       createdAt: now,
       updatedAt: now,
@@ -225,7 +204,7 @@ export const createUser = createServerFn({ method: "POST" })
       createdAt: now,
       updatedAt: now,
     })
-    await setMemberships(id, memberships)
+    await setMemberships(id, clubIds)
     return { id }
   })
 
@@ -233,21 +212,15 @@ export const updateUser = createServerFn({ method: "POST" })
   .validator((data: unknown) => updateInput.parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(session.user, data.id)
+    const activeClubId = await resolveActiveClubId(session.user)
+    await assertManageable(session.user, activeClubId, data.id)
 
-    const currentRows = await db
-      .select({ clubId: user.clubId })
-      .from(user)
-      .where(eq(user.id, data.id))
-      .limit(1)
-    const currentPrimary = currentRows[0]?.clubId ?? null
-
-    const { primary, memberships } = await resolveAssignment(
+    const clubIds = await resolveClubIds(
       session.user,
+      activeClubId,
       data.role,
       data.clubIds,
-      data.clubId,
-      currentPrimary
+      await listMemberClubIds(data.id)
     )
 
     const clash = await db
@@ -265,11 +238,10 @@ export const updateUser = createServerFn({ method: "POST" })
         name: data.name,
         email: data.email,
         role: data.role,
-        clubId: primary,
         updatedAt: new Date(),
       })
       .where(eq(user.id, data.id))
-    await setMemberships(data.id, memberships)
+    await setMemberships(data.id, clubIds)
     return { id: data.id }
   })
 
@@ -277,7 +249,11 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(session.user, data.id)
+    await assertManageable(
+      session.user,
+      await resolveActiveClubId(session.user),
+      data.id
+    )
     const tempPassword = generateTempPassword()
     const hashed = await hashPassword(tempPassword)
     const updated = await db
@@ -297,7 +273,11 @@ export const setUserArchived = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(session.user, data.id)
+    await assertManageable(
+      session.user,
+      await resolveActiveClubId(session.user),
+      data.id
+    )
     if (data.archived && data.id === session.user.id) {
       throw new AppError("errors.user.cannotArchiveSelf")
     }
@@ -315,7 +295,11 @@ export const deleteUser = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(session.user, data.id)
+    await assertManageable(
+      session.user,
+      await resolveActiveClubId(session.user),
+      data.id
+    )
     if (data.id === session.user.id) {
       throw new AppError("errors.user.cannotDeleteSelf")
     }

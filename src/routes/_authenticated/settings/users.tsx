@@ -83,9 +83,8 @@ interface User {
   email: string
   role: UserRole
   status: string
-  clubId: string | null
-  clubName: string | null
-  clubIds: string[]
+  // Default club first. Empty only for platform super-admins.
+  clubs: { id: string; name: string }[]
 }
 
 function UserActions({
@@ -170,7 +169,7 @@ function UserActions({
           name: user.name,
           email: user.email,
           role: user.role,
-          clubIds: user.clubIds,
+          clubIds: user.clubs.map((c) => c.id),
         }}
         canManageClubs={canManageClubs}
         canAssignClubs={clubs.length > 0}
@@ -462,12 +461,14 @@ function buildColumns(
     ...(canManageClubs
       ? [
           {
-            accessorKey: "clubName",
+            id: "clubs",
+            accessorFn: (u) => u.clubs.map((c) => c.name).join(", "),
             header: t("fields.club"),
             cell: ({ row }) => (
               <span className="text-muted-foreground">
-                {row.original.clubName ??
-                  t("settings.users.platformPlaceholder")}
+                {row.original.clubs.length > 0
+                  ? row.original.clubs.map((c) => c.name).join(", ")
+                  : t("settings.users.platformPlaceholder")}
               </span>
             ),
           } satisfies ColumnDef<User>,
