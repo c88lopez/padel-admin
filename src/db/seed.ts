@@ -26,8 +26,8 @@ import {
   primaryActivityFor,
 } from "@/lib/activities.server"
 import { activityProvides } from "@/lib/activities/templates"
-import { createClassSeriesRecord } from "@/lib/classes.server"
-import type { ClassSeriesInput } from "@/lib/classes.server"
+import { createClassSeriesRecord } from "@/lib/class-series.server"
+import type { ClassSeriesInput } from "@/lib/class-series.server"
 import { appErrorPayload } from "@/lib/errors"
 import { isoWeekday } from "@/lib/recurrence"
 import { createPlayerRecord } from "@/lib/players.server"

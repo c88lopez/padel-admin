@@ -10,28 +10,31 @@ import {
   space,
 } from "@/db/schema"
 import { currentClubId, requireClubId } from "@/lib/auth.server"
+import { createClassRecord, updateClassRecord } from "@/lib/classes.server"
+import {
+  createClassSeriesRecord,
+  fillSeriesAhead,
+  seriesRule,
+} from "@/lib/class-series.server"
+import {
+  deleteClassRecord,
+  updateClassSeriesRecord,
+} from "@/lib/class-series-edit.server"
 import {
   addAttendeeRecord,
   addSeriesAttendeeRecord,
-  createClassRecord,
-  createClassSeriesRecord,
-  deleteClassRecord,
-  fillSeriesAhead,
   listAttendeeRecords,
   removeAttendeeRecord,
   removeSeriesAttendeeRecord,
-  seriesRule,
-  updateClassRecord,
-  updateClassSeriesRecord,
-} from "@/lib/classes.server"
+} from "@/lib/class-attendees.server"
 import { monthlyOptions } from "@/lib/recurrence"
 import type { RecurrenceRule } from "@/lib/recurrence"
 
+export type { AttendeeRecord } from "@/lib/class-attendees.server"
 export type {
-  AttendeeRecord,
   SeriesEditResult,
   SeriesScope,
-} from "@/lib/classes.server"
+} from "@/lib/class-series-edit.server"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 

@@ -1,5 +1,6 @@
 import { and, asc, count, eq, sql } from "drizzle-orm"
 import { db } from "@/db"
+import type { Tx } from "@/db"
 import { customerActivityProfile, player } from "@/db/schema"
 import {
   defaultCustomerActivity,
@@ -37,8 +38,6 @@ export async function levelsActivityId(
 ): Promise<string | undefined> {
   return (await primaryActivityFor(clubId, "levels"))?.id
 }
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 interface Membership {
   activityId: string

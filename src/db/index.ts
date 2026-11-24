@@ -33,3 +33,5 @@ export const pool = new Pool({
 })
 
 export const db = createScopedDb(pool)
+
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
