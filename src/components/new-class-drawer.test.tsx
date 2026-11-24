@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { NewClassDrawer } from "./new-class-drawer"
-import type { ClassData } from "./new-class-drawer"
+import type { ClassData } from "@/lib/class-form"
 import {
   createClass,
   createClassSeries,
