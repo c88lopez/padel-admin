@@ -50,32 +50,39 @@ jobs:
               - '!httpRequests/**'
               - '!LICENSE'
 
-  quality:
-    name: Typecheck, lint, format & test
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run lint
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run check
 
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Format check
-        run: bun run check
-
-      - name: Test (with coverage)
-        run: bun run test:coverage
+  # Not sharded: coverage thresholds apply to the whole suite, and it takes
+  # seconds.
+  test:
+    name: Test (with coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run test:coverage
 
       - name: Coverage summary
         if: ${{ !cancelled() }}
@@ -104,6 +111,24 @@ jobs:
           path: coverage/
           retention-days: 7
 
+  # The ruleset's required check, under its existing name. It runs even when a
+  # check failed: a job skipped because a need failed would count as passing.
+  quality:
+    name: Typecheck, lint, format & test
+    needs: [typecheck, lint, format, test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.typecheck.result }}" != "success" || \
+                "${{ needs.lint.result }}" != "success" || \
+                "${{ needs.format.result }}" != "success" || \
+                "${{ needs.test.result }}" != "success" ]]; then
+            echo "One or more quality checks failed."
+            exit 1
+          fi
+
   build:
     name: Build
     needs: changes
@@ -113,13 +138,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup
 
       - name: Build
         run: bun run build
@@ -150,13 +170,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup
 
       - name: Make an ordinary role own the database
         run: bun run scripts/ci-db-owner.ts postgres://postgres:postgres@localhost:5432/test app app
@@ -197,11 +212,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       # Playwright's test runner is most reliable under Node; the app server it
       # launches is the production build (`bun run build` + Nitro node output).
       - name: Setup Node
@@ -209,8 +219,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup
 
       - name: Make an ordinary role own the database
         run: bun run scripts/ci-db-owner.ts postgres://postgres:postgres@localhost:5432/test app app
