@@ -2,6 +2,7 @@ import { tool } from "ai"
 import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
+import { withClubScope } from "@/db/tenant"
 import {
   space,
   customerActivityProfile,
@@ -44,6 +45,8 @@ function readableError(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error"
 }
 
+// Tools run while the response streams, after the request's own scope may be
+// gone, so each execute sets the club for row-level security itself.
 export function buildAiTools(ctx: AiToolContext) {
   return {
     searchPlayers: tool({
@@ -74,51 +77,52 @@ export function buildAiTools(ctx: AiToolContext) {
           .optional()
           .describe("Only players that have a non-empty phone number"),
       }),
-      execute: async ({ minAge, maxAge, gender, categories, hasPhone }) => {
-        try {
-          // Ignore out-of-range age bounds: models sometimes pass sentinel
-          // values (e.g. ±Number.MAX_SAFE_INTEGER) to mean "no limit", which
-          // overflow the integer `age` column and fail the query.
-          const inAgeRange = (n: number) => n >= 0 && n <= 150
-          const activityId = (await levelsActivityId(ctx.clubId)) ?? null
-          const conds = [eq(player.clubId, ctx.clubId)]
-          if (minAge != null && inAgeRange(minAge))
-            conds.push(gte(player.age, minAge))
-          if (maxAge != null && inAgeRange(maxAge))
-            conds.push(lte(player.age, maxAge))
-          if (gender) conds.push(eq(player.gender, gender))
-          if (categories && categories.length > 0)
-            conds.push(inArray(customerActivityProfile.level, categories))
-          if (hasPhone) conds.push(ne(player.phone, ""))
+      execute: async ({ minAge, maxAge, gender, categories, hasPhone }) =>
+        withClubScope(ctx.clubId, async () => {
+          try {
+            // Ignore out-of-range age bounds: models sometimes pass sentinel
+            // values (e.g. ±Number.MAX_SAFE_INTEGER) to mean "no limit", which
+            // overflow the integer `age` column and fail the query.
+            const inAgeRange = (n: number) => n >= 0 && n <= 150
+            const activityId = (await levelsActivityId(ctx.clubId)) ?? null
+            const conds = [eq(player.clubId, ctx.clubId)]
+            if (minAge != null && inAgeRange(minAge))
+              conds.push(gte(player.age, minAge))
+            if (maxAge != null && inAgeRange(maxAge))
+              conds.push(lte(player.age, maxAge))
+            if (gender) conds.push(eq(player.gender, gender))
+            if (categories && categories.length > 0)
+              conds.push(inArray(customerActivityProfile.level, categories))
+            if (hasPhone) conds.push(ne(player.phone, ""))
 
-          const rows = await db
-            .select({
-              id: player.id,
-              fullName: player.fullName,
-              email: player.email,
-              phone: player.phone,
-              age: player.age,
-              gender: player.gender,
-              category: customerActivityProfile.level,
-            })
-            .from(player)
-            .leftJoin(
-              customerActivityProfile,
-              and(
-                eq(customerActivityProfile.customerId, player.id),
-                sql`${customerActivityProfile.activityId} = ${activityId}`
+            const rows = await db
+              .select({
+                id: player.id,
+                fullName: player.fullName,
+                email: player.email,
+                phone: player.phone,
+                age: player.age,
+                gender: player.gender,
+                category: customerActivityProfile.level,
+              })
+              .from(player)
+              .leftJoin(
+                customerActivityProfile,
+                and(
+                  eq(customerActivityProfile.customerId, player.id),
+                  sql`${customerActivityProfile.activityId} = ${activityId}`
+                )
               )
-            )
-            .where(and(...conds))
-            .orderBy(asc(player.fullName))
-            .limit(100)
+              .where(and(...conds))
+              .orderBy(asc(player.fullName))
+              .limit(100)
 
-          return { ok: true as const, count: rows.length, players: rows }
-        } catch (error) {
-          logger.error({ err: error }, "ai searchPlayers failed")
-          return { ok: false as const, error: readableError(error) }
-        }
-      },
+            return { ok: true as const, count: rows.length, players: rows }
+          } catch (error) {
+            logger.error({ err: error }, "ai searchPlayers failed")
+            return { ok: false as const, error: readableError(error) }
+          }
+        }),
     }),
 
     createPlayer: tool({
@@ -132,20 +136,21 @@ export function buildAiTools(ctx: AiToolContext) {
         gender: z.enum(["Male", "Female"]),
         category: z.string().min(1),
       }),
-      execute: async (data) => {
-        try {
-          if (!can(ctx.userRole, "players:manage")) {
-            return { ok: false as const, error: "forbidden" }
+      execute: async (data) =>
+        withClubScope(ctx.clubId, async () => {
+          try {
+            if (!can(ctx.userRole, "players:manage")) {
+              return { ok: false as const, error: "forbidden" }
+            }
+            const created = await createPlayerRecord(ctx.clubId, data)
+            return {
+              ok: true as const,
+              player: { id: created.id, fullName: created.fullName },
+            }
+          } catch (error) {
+            return { ok: false as const, error: readableError(error) }
           }
-          const created = await createPlayerRecord(ctx.clubId, data)
-          return {
-            ok: true as const,
-            player: { id: created.id, fullName: created.fullName },
-          }
-        } catch (error) {
-          return { ok: false as const, error: readableError(error) }
-        }
-      },
+        }),
     }),
 
     createReservation: tool({
@@ -169,88 +174,89 @@ export function buildAiTools(ctx: AiToolContext) {
         startTime,
         durationMinutes,
         paymentStatus,
-      }) => {
-        try {
-          if (!can(ctx.userRole, "reservations:manage")) {
-            return { ok: false as const, error: "forbidden" }
-          }
-          // Numbers restart per activity ("Studio 3"), so only look among
-          // the spaces that take bookings.
-          const courtRows = await db
-            .select({ id: space.id, name: space.name })
-            .from(space)
-            .where(
-              and(
-                eq(space.clubId, ctx.clubId),
-                inArray(
-                  space.activityId,
-                  await activityIdsProviding(ctx.clubId, "bookings")
-                ),
-                eq(space.sortOrder, courtNumber)
-              )
-            )
-            .limit(1)
-          if (courtRows.length === 0) {
-            return { ok: false as const, error: `No court #${courtNumber}` }
-          }
-          const courtRow = courtRows[0]
-
-          await assertSpaceBookable(ctx.clubId, courtRow.id, "bookings")
-          await assertBookingAllowed(ctx.clubId, {
-            date,
-            startTime,
-            durationMinutes,
-            player: playerName,
-          })
-
-          // Another reservation or a class there at that time.
-          const conflict = await findSpaceConflict(ctx.clubId, {
-            spaceId: courtRow.id,
-            date,
-            startTime,
-            durationMinutes,
-          })
-          if (conflict) {
-            return {
-              ok: false as const,
-              error:
-                conflict.kind === "reservation"
-                  ? `Conflicts with ${conflict.who} at ${conflict.startTime}`
-                  : `Conflicts with a class at ${conflict.startTime}`,
+      }) =>
+        withClubScope(ctx.clubId, async () => {
+          try {
+            if (!can(ctx.userRole, "reservations:manage")) {
+              return { ok: false as const, error: "forbidden" }
             }
-          }
+            // Numbers restart per activity ("Studio 3"), so only look among
+            // the spaces that take bookings.
+            const courtRows = await db
+              .select({ id: space.id, name: space.name })
+              .from(space)
+              .where(
+                and(
+                  eq(space.clubId, ctx.clubId),
+                  inArray(
+                    space.activityId,
+                    await activityIdsProviding(ctx.clubId, "bookings")
+                  ),
+                  eq(space.sortOrder, courtNumber)
+                )
+              )
+              .limit(1)
+            if (courtRows.length === 0) {
+              return { ok: false as const, error: `No court #${courtNumber}` }
+            }
+            const courtRow = courtRows[0]
 
-          const [created] = await db
-            .insert(reservation)
-            .values({
-              spaceId: courtRow.id,
-              player: playerName,
-              customerId: await findCustomerIdByName(ctx.clubId, playerName),
-              bookedBy: ctx.userName,
+            await assertSpaceBookable(ctx.clubId, courtRow.id, "bookings")
+            await assertBookingAllowed(ctx.clubId, {
               date,
               startTime,
               durationMinutes,
-              paymentStatus,
-              clubId: ctx.clubId,
+              player: playerName,
             })
-            .returning()
 
-          return {
-            ok: true as const,
-            reservation: {
-              id: created.id,
-              court: courtRow.name,
-              player: playerName,
+            // Another reservation or a class there at that time.
+            const conflict = await findSpaceConflict(ctx.clubId, {
+              spaceId: courtRow.id,
               date,
               startTime,
               durationMinutes,
-              paymentStatus,
-            },
+            })
+            if (conflict) {
+              return {
+                ok: false as const,
+                error:
+                  conflict.kind === "reservation"
+                    ? `Conflicts with ${conflict.who} at ${conflict.startTime}`
+                    : `Conflicts with a class at ${conflict.startTime}`,
+              }
+            }
+
+            const [created] = await db
+              .insert(reservation)
+              .values({
+                spaceId: courtRow.id,
+                player: playerName,
+                customerId: await findCustomerIdByName(ctx.clubId, playerName),
+                bookedBy: ctx.userName,
+                date,
+                startTime,
+                durationMinutes,
+                paymentStatus,
+                clubId: ctx.clubId,
+              })
+              .returning()
+
+            return {
+              ok: true as const,
+              reservation: {
+                id: created.id,
+                court: courtRow.name,
+                player: playerName,
+                date,
+                startTime,
+                durationMinutes,
+                paymentStatus,
+              },
+            }
+          } catch (error) {
+            return { ok: false as const, error: readableError(error) }
           }
-        } catch (error) {
-          return { ok: false as const, error: readableError(error) }
-        }
-      },
+        }),
     }),
 
     bulkLoadStockItems: tool({
@@ -270,20 +276,21 @@ export function buildAiTools(ctx: AiToolContext) {
           .min(1)
           .max(500),
       }),
-      execute: async ({ items }) => {
-        try {
-          if (!can(ctx.userRole, "inventory:manage")) {
-            return { ok: false as const, error: "forbidden" }
+      execute: async ({ items }) =>
+        withClubScope(ctx.clubId, async () => {
+          try {
+            if (!can(ctx.userRole, "inventory:manage")) {
+              return { ok: false as const, error: "forbidden" }
+            }
+            const inserted = await db
+              .insert(stockItem)
+              .values(items.map((i) => ({ ...i, clubId: ctx.clubId })))
+              .returning({ id: stockItem.id, name: stockItem.name })
+            return { ok: true as const, created: inserted.length }
+          } catch (error) {
+            return { ok: false as const, error: readableError(error) }
           }
-          const inserted = await db
-            .insert(stockItem)
-            .values(items.map((i) => ({ ...i, clubId: ctx.clubId })))
-            .returning({ id: stockItem.id, name: stockItem.name })
-          return { ok: true as const, created: inserted.length }
-        } catch (error) {
-          return { ok: false as const, error: readableError(error) }
-        }
-      },
+        }),
     }),
   }
 }

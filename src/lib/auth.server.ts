@@ -1,6 +1,7 @@
 import { getCookie, getRequest } from "@tanstack/react-start/server"
 import { asc, eq } from "drizzle-orm"
 import { db } from "@/db"
+import { setRequestClub } from "@/db/tenant"
 import { club } from "@/db/schema"
 import { auth } from "@/lib/auth"
 import { chooseActiveClub } from "@/lib/active-club"
@@ -49,8 +50,20 @@ export async function requirePermission(permission: Permission) {
  *   none, so a club user never falls through to the super-admin scope below.
  * - super-admins: the club chosen via the active-club cookie, falling back to
  *   the first club alphabetically so every page has a concrete scope.
+ *
+ * Also scopes the rest of the request to that club for row-level security
+ * (src/db/tenant.ts): club-scoped tables only show its rows from here on.
  */
 export async function resolveActiveClubId(user: {
+  id: string
+  role?: string | null
+}): Promise<string | null> {
+  const clubId = await chooseClubId(user)
+  if (clubId) setRequestClub(clubId)
+  return clubId
+}
+
+async function chooseClubId(user: {
   id: string
   role?: string | null
 }): Promise<string | null> {

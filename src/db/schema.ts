@@ -11,6 +11,7 @@ import {
   unique,
   index,
   check,
+  pgPolicy,
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import type { DayHours, Weekday } from "@/lib/reservation-settings"
@@ -126,60 +127,85 @@ export const verification = pgTable("verification", {
 
 // --- App domain tables ---
 
+// Row-level security: every table below belongs to one club (club_id) and has
+// this policy, so a transaction only sees and writes the rows of the club in
+// its `app.club_id` setting (src/db/tenant.ts). `app.bypass_rls` is for
+// scripts and tests. Migrations also FORCE row-level security, since the app's
+// role owns the tables. See drizzle/CLAUDE.md.
+const CLUB_ROW_CHECK = sql`club_id = current_setting('app.club_id', true) OR current_setting('app.bypass_rls', true) = 'on'`
+
+function clubIsolation() {
+  return pgPolicy("club_isolation", {
+    for: "all",
+    using: CLUB_ROW_CHECK,
+    withCheck: CLUB_ROW_CHECK,
+  })
+}
+
 // A bookable space: a padel court today, later a pilates studio, pool lane or
 // football field (`type`). Belongs to exactly one club and one activity.
 // `sortOrder` doubles as the human-facing number (1, 2, 3 …) used in labels
 // like "Court 3".
-export const space = pgTable("space", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  type: text("type").notNull().default("court"),
-  indoor: boolean("indoor").notNull().default(true),
-  active: boolean("active").notNull().default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  // Nullable until a later contract migration; null means the club's default
-  // bookings activity (see spaces.server.ts).
-  // NO ACTION (checked at the end of the statement) rather than RESTRICT, so a
-  // club delete can cascade to its spaces and activities in any order.
-  activityId: text("activity_id").references(() => activity.id),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const space = pgTable(
+  "space",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    type: text("type").notNull().default("court"),
+    indoor: boolean("indoor").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    // Nullable until a later contract migration; null means the club's default
+    // bookings activity (see spaces.server.ts).
+    // NO ACTION (checked at the end of the statement) rather than RESTRICT, so a
+    // club delete can cascade to its spaces and activities in any order.
+    activityId: text("activity_id").references(() => activity.id),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type Space = typeof space.$inferSelect
 export type NewSpace = typeof space.$inferInsert
 
 // Per-club reservation configuration: opening hours + booking rules. One row per
 // club (club_id is the PK). Enforced server-side on reservation writes.
-export const clubReservationSettings = pgTable("club_reservation_settings", {
-  clubId: text("club_id")
-    .primaryKey()
-    .references(() => club.id, { onDelete: "cascade" }),
-  timezone: text("timezone").notNull().default("Europe/Madrid"),
-  hours: jsonb("hours").notNull().$type<Record<Weekday, DayHours>>(),
-  slotDuration: integer("slot_duration").notNull().default(60),
-  defaultBookingLength: integer("default_booking_length").notNull().default(90),
-  minAdvanceHours: integer("min_advance_hours").notNull().default(1),
-  maxAdvanceDays: integer("max_advance_days").notNull().default(30),
-  cancellationCutoffHours: integer("cancellation_cutoff_hours")
-    .notNull()
-    .default(24),
-  maxConcurrentPerPlayer: integer("max_concurrent_per_player")
-    .notNull()
-    .default(2),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-  updatedAt: timestamp("updated_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const clubReservationSettings = pgTable(
+  "club_reservation_settings",
+  {
+    clubId: text("club_id")
+      .primaryKey()
+      .references(() => club.id, { onDelete: "cascade" }),
+    timezone: text("timezone").notNull().default("Europe/Madrid"),
+    hours: jsonb("hours").notNull().$type<Record<Weekday, DayHours>>(),
+    slotDuration: integer("slot_duration").notNull().default(60),
+    defaultBookingLength: integer("default_booking_length")
+      .notNull()
+      .default(90),
+    minAdvanceHours: integer("min_advance_hours").notNull().default(1),
+    maxAdvanceDays: integer("max_advance_days").notNull().default(30),
+    cancellationCutoffHours: integer("cancellation_cutoff_hours")
+      .notNull()
+      .default(24),
+    maxConcurrentPerPlayer: integer("max_concurrent_per_player")
+      .notNull()
+      .default(2),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: timestamp("updated_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type ClubReservationSettings =
   typeof clubReservationSettings.$inferSelect
@@ -210,29 +236,33 @@ export const activity = pgTable(
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (t) => [unique().on(t.clubId, t.templateKey)]
+  (t) => [unique().on(t.clubId, t.templateKey), clubIsolation()]
 )
 
 export type Activity = typeof activity.$inferSelect
 export type NewActivity = typeof activity.$inferInsert
 
-export const player = pgTable("player", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  fullName: text("full_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
-  age: integer("age").notNull(),
-  gender: text("gender").notNull(),
-  // The padel level lives in customer_activity_profile.
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const player = pgTable(
+  "player",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    fullName: text("full_name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull(),
+    age: integer("age").notNull(),
+    gender: text("gender").notNull(),
+    // The padel level lives in customer_activity_profile.
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type Player = typeof player.$inferSelect
 export type NewPlayer = typeof player.$inferInsert
@@ -259,7 +289,7 @@ export const customerActivityProfile = pgTable(
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (t) => [unique().on(t.customerId, t.activityId)]
+  (t) => [unique().on(t.customerId, t.activityId), clubIsolation()]
 )
 
 export type CustomerActivityProfile =
@@ -292,85 +322,108 @@ export const reservation = pgTable(
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (t) => [index("reservation_club_customer_idx").on(t.clubId, t.customerId)]
+  (t) => [
+    index("reservation_club_customer_idx").on(t.clubId, t.customerId),
+    clubIsolation(),
+  ]
 )
 
 export type Reservation = typeof reservation.$inferSelect
 export type NewReservation = typeof reservation.$inferInsert
 
-export const stockItem = pgTable("stock_item", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  category: text("category").notNull(),
-  price: doublePrecision("price").notNull(),
-  stock: integer("stock").notNull().default(0),
-  // Per-item low-stock threshold: items at or below this are flagged. Defaults
-  // to 10 so existing rows and new items have a sensible starting point.
-  lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const stockItem = pgTable(
+  "stock_item",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    price: doublePrecision("price").notNull(),
+    stock: integer("stock").notNull().default(0),
+    // Per-item low-stock threshold: items at or below this are flagged. Defaults
+    // to 10 so existing rows and new items have a sensible starting point.
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type StockItem = typeof stockItem.$inferSelect
 export type NewStockItem = typeof stockItem.$inferInsert
 
-export const sale = pgTable("sale", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  date: date("date").notNull(),
-  soldBy: text("sold_by").notNull(),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const sale = pgTable(
+  "sale",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    date: date("date").notNull(),
+    soldBy: text("sold_by").notNull(),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type Sale = typeof sale.$inferSelect
 export type NewSale = typeof sale.$inferInsert
 
-export const saleItem = pgTable("sale_item", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  saleId: text("sale_id")
-    .notNull()
-    .references(() => sale.id, { onDelete: "cascade" }),
-  // Snapshot the product name/price so the sale record stays accurate even if
-  // the underlying stock item is later renamed or deleted.
-  stockItemId: text("stock_item_id").references(() => stockItem.id, {
-    onDelete: "set null",
-  }),
-  name: text("name").notNull(),
-  quantity: integer("quantity").notNull(),
-  unitPrice: doublePrecision("unit_price").notNull(),
-})
+export const saleItem = pgTable(
+  "sale_item",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    saleId: text("sale_id")
+      .notNull()
+      .references(() => sale.id, { onDelete: "cascade" }),
+    // The sale's club, for row-level security.
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    // Snapshot the product name/price so the sale record stays accurate even if
+    // the underlying stock item is later renamed or deleted.
+    stockItemId: text("stock_item_id").references(() => stockItem.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    quantity: integer("quantity").notNull(),
+    unitPrice: doublePrecision("unit_price").notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type SaleItem = typeof saleItem.$inferSelect
 export type NewSaleItem = typeof saleItem.$inferInsert
 
-export const coach = pgTable("coach", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  phone: text("phone").notNull(),
-  birthday: date("birthday"),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const coach = pgTable(
+  "coach",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    phone: text("phone").notNull(),
+    birthday: date("birthday"),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type Coach = typeof coach.$inferSelect
 export type NewCoach = typeof coach.$inferInsert
@@ -386,8 +439,12 @@ export const coachActivity = pgTable(
     activityId: text("activity_id")
       .notNull()
       .references(() => activity.id, { onDelete: "cascade" }),
+    // The coach's club, for row-level security.
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.coachId, t.activityId] })]
+  (t) => [primaryKey({ columns: [t.coachId, t.activityId] }), clubIsolation()]
 )
 
 export type CoachActivity = typeof coachActivity.$inferSelect
@@ -444,6 +501,7 @@ export const classSeries = pgTable(
   },
   (t) => [
     index("class_series_club_idx").on(t.clubId),
+    clubIsolation(),
     check(
       "class_series_frequency_check",
       sql`${t.frequency} IN ('daily', 'weekly', 'monthly', 'yearly')`
@@ -510,7 +568,10 @@ export const coachClass = pgTable(
       .notNull(),
   },
   // One class per series date, so concurrent fills can't double up.
-  (t) => [unique("coach_class_series_date_unique").on(t.seriesId, t.seriesDate)]
+  (t) => [
+    unique("coach_class_series_date_unique").on(t.seriesId, t.seriesDate),
+    clubIsolation(),
+  ]
 )
 
 export type CoachClass = typeof coachClass.$inferSelect
@@ -527,32 +588,40 @@ export const coachClassAttendee = pgTable(
     playerId: text("player_id")
       .notNull()
       .references(() => player.id, { onDelete: "cascade" }),
+    // The class's club, for row-level security.
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at")
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (t) => [primaryKey({ columns: [t.classId, t.playerId] })]
+  (t) => [primaryKey({ columns: [t.classId, t.playerId] }), clubIsolation()]
 )
 
 export type CoachClassAttendee = typeof coachClassAttendee.$inferSelect
 
-export const tournament = pgTable("tournament", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  date: date("date").notNull(),
-  category: text("category").notNull(),
-  // One of "round_robin" | "elimination" | "double_elimination".
-  format: text("format").notNull(),
-  maxTeams: integer("max_teams").notNull(),
-  clubId: text("club_id")
-    .notNull()
-    .references(() => club.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-})
+export const tournament = pgTable(
+  "tournament",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    date: date("date").notNull(),
+    category: text("category").notNull(),
+    // One of "round_robin" | "elimination" | "double_elimination".
+    format: text("format").notNull(),
+    maxTeams: integer("max_teams").notNull(),
+    clubId: text("club_id")
+      .notNull()
+      .references(() => club.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  () => [clubIsolation()]
+)
 
 export type Tournament = typeof tournament.$inferSelect
 export type NewTournament = typeof tournament.$inferInsert

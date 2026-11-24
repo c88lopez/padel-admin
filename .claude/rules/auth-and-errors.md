@@ -3,6 +3,7 @@
 - Roles and the permission matrix live in `src/lib/permissions.ts` (`can(role, permission)`), shared by server enforcement and client UI gating. `Super Admin` bypasses all checks.
 - Server functions enforce access via `auth.server.ts`: `requireSession`, `requirePermission`, `currentClubId` (scoping reads), `requireClubId(permission)` (scoping + authorizing writes).
 - Almost all data is **club-scoped**. Every query filters by the active club id; never trust a client-supplied club id. Super admins switch clubs via the `active_club_id` cookie.
+- Postgres row-level security backs that up: every club table has `club_id` and a `club_isolation` policy, and `resolveActiveClubId` scopes the request to its club (`src/db/tenant.ts`). Work on a club named explicitly (not the active one) goes in `withClubScope(clubId, fn)`. Details and migration rules: `drizzle/CLAUDE.md`.
 - Route guards (`route-guards.ts` `ensurePermission`) are UX-only redirects; server functions are the real authority.
 - REST routes under `src/routes/api/*` use `api-auth.ts` (`requireApiAccess`): accepts either a `Bearer ADMIN_API_KEY` token or a permitted session, plus `apiErrorResponse` for consistent JSON errors. Use constant-time comparison for secrets; never log or expose them.
 

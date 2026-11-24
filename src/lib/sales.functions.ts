@@ -104,6 +104,7 @@ export const createSale = createServerFn({ method: "POST" })
       await tx.insert(saleItem).values(
         data.items.map((i) => ({
           saleId: createdSale.id,
+          clubId,
           stockItemId: i.stockItemId,
           name: nameById.get(i.stockItemId) ?? "",
           quantity: i.quantity,

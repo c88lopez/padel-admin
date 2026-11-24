@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
+import { withClubScope } from "@/db/tenant"
 import { getClubRecord } from "@/lib/clubs.server"
 import { setActivityEnabled } from "@/lib/activities.server"
 import { seedActivitySpaces } from "@/lib/spaces.server"
@@ -40,16 +41,21 @@ export const Route = createFileRoute(
           const { active } = bodySchema.parse(await readJsonBody(request))
           const club = await getClubRecord(params.clubId)
           if (!club) throw new ApiError(404, "Club not found.")
-          const result = await setActivityEnabled(
-            club.id,
-            params.templateKey,
-            active
-          )
+          // The platform API names its club, so it acts as that club (row-level
+          // security, src/db/tenant.ts).
+          const result = await withClubScope(club.id, async () => {
+            const enabled = await setActivityEnabled(
+              club.id,
+              params.templateKey,
+              active
+            )
+            // A club that gets an activity also gets its default spaces.
+            if (enabled.ok && enabled.created) {
+              await seedActivitySpaces(club.id, enabled.activity.id)
+            }
+            return enabled
+          })
           if (!result.ok) throw new ApiError(...FAILURES[result.reason])
-          // A club that gets an activity also gets its default spaces.
-          if (result.created) {
-            await seedActivitySpaces(club.id, result.activity.id)
-          }
           return Response.json(result.activity)
         } catch (error) {
           return apiErrorResponse(error)

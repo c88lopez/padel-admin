@@ -92,11 +92,13 @@ export async function createCoachRecord(
         clubId,
       })
       .returning()
-    await tx
-      .insert(coachActivity)
-      .values(
-        activityIds.map((activityId) => ({ coachId: created.id, activityId }))
-      )
+    await tx.insert(coachActivity).values(
+      activityIds.map((activityId) => ({
+        coachId: created.id,
+        activityId,
+        clubId,
+      }))
+    )
     return { ...created, activityIds }
   })
 }
@@ -137,7 +139,11 @@ export async function updateCoachRecord(
       await tx
         .insert(coachActivity)
         .values(
-          activityIds.map((activityId) => ({ coachId: updated.id, activityId }))
+          activityIds.map((activityId) => ({
+            coachId: updated.id,
+            activityId,
+            clubId,
+          }))
         )
         .onConflictDoNothing()
     }

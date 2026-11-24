@@ -1,5 +1,6 @@
 import { asc, eq, sql } from "drizzle-orm"
 import { db } from "@/db"
+import { withClubScope } from "@/db/tenant"
 import { club, clubMember } from "@/db/schema"
 import { deleteUsersWithoutClubs } from "@/lib/club-members.server"
 import { seedDefaultSpaces } from "@/lib/spaces.server"
@@ -97,10 +98,12 @@ export async function createClubRecord(data: ClubInput): Promise<ClubRecord> {
     .values({ name: data.name, slug, status: data.status })
     .returning({ id: club.id })
   // Give every new club its default activity, bookable courts and reservation
-  // rules.
-  await ensureDefaultActivities(created.id)
-  await seedDefaultSpaces(created.id)
-  await seedDefaultReservationSettings(created.id)
+  // rules, as that club: the request acts within the creator's active club.
+  await withClubScope(created.id, async () => {
+    await ensureDefaultActivities(created.id)
+    await seedDefaultSpaces(created.id)
+    await seedDefaultReservationSettings(created.id)
+  })
   const record = await getClubRecord(created.id)
   if (!record) throw new Error("Club not found.")
   return record
