@@ -1,5 +1,6 @@
 import { ne } from "drizzle-orm"
 import { db } from "@/db"
+import { bypassRlsForProcess } from "@/db/tenant"
 import {
   club,
   coach,
@@ -15,6 +16,9 @@ import {
 // Wipes all domain data and non-admin users to return the database to a clean
 // state. Preserves the admin login and the Default Club so the app stays
 // usable. Run with `bun run db:reset`.
+
+// Resetting clears every club, so it sees past row-level security.
+bypassRlsForProcess()
 
 const DEFAULT_CLUB_ID = "00000000-0000-0000-0000-000000000001"
 const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@club.test"

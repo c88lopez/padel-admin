@@ -746,7 +746,7 @@ export async function addAttendeeRecord(
     ) {
       throw new AppError("errors.class.full")
     }
-    await tx.insert(coachClassAttendee).values({ classId, playerId })
+    await tx.insert(coachClassAttendee).values({ classId, playerId, clubId })
     // Taking a class makes them a customer of its activity (e.g. a student).
     if (locked.activityId) {
       await joinActivity(tx, clubId, playerId, locked.activityId)

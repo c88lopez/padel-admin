@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { eq } from "drizzle-orm"
 import { db } from "@/db"
+import { bypassRlsForProcess } from "@/db/tenant"
 import * as schema from "@/db/schema"
 import {
   club,
@@ -41,6 +42,9 @@ import {
   classSeeds,
   tournamentSeeds,
 } from "@/db/seed-data"
+
+// Seeding writes to several clubs, so it sees past row-level security.
+bypassRlsForProcess()
 
 // Standalone seed: creates an initial admin user through Better Auth so the
 // password is hashed the same way as a real sign-up. Uses a cookie-less auth
@@ -255,6 +259,7 @@ async function seedInventory() {
     await db.insert(saleItem).values(
       seed.items.map((line) => ({
         saleId: createdSale.id,
+        clubId: DEFAULT_CLUB_ID,
         stockItemId: idByName.get(line.item) ?? null,
         name: line.item,
         quantity: line.quantity,
@@ -283,9 +288,13 @@ async function seedCoaching() {
   // teaches padel.
   const padel = await primaryActivityFor(DEFAULT_CLUB_ID, "sessions")
   if (!padel) throw new Error("No padel activity to seed classes for.")
-  await db
-    .insert(coachActivity)
-    .values(inserted.map((c) => ({ coachId: c.id, activityId: padel.id })))
+  await db.insert(coachActivity).values(
+    inserted.map((c) => ({
+      coachId: c.id,
+      activityId: padel.id,
+      clubId: DEFAULT_CLUB_ID,
+    }))
+  )
   await db.insert(coachClass).values(
     classSeeds.map((seed) => {
       const spaceId = courts.get(seed.court)

@@ -144,7 +144,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/test
+      # An ordinary owner, not the superuser: see scripts/ci-db-owner.ts.
+      DATABASE_URL_TEST: postgres://app:app@localhost:5432/test
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -156,6 +157,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Make an ordinary role own the database
+        run: bun run scripts/ci-db-owner.ts postgres://postgres:postgres@localhost:5432/test app app
 
       - name: Log test database URL
         run: echo "DATABASE_URL_TEST=$DATABASE_URL_TEST"
@@ -185,7 +189,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
+      # An ordinary owner, not the superuser: see scripts/ci-db-owner.ts.
+      DATABASE_URL: postgres://app:app@localhost:5432/test
       BETTER_AUTH_SECRET: e2e-secret-not-for-production
       BETTER_AUTH_URL: http://localhost:3100
     steps:
@@ -206,6 +211,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Make an ordinary role own the database
+        run: bun run scripts/ci-db-owner.ts postgres://postgres:postgres@localhost:5432/test app app
 
       - name: Apply database migrations
         run: bun run db:migrate

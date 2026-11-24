@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { withClubScope } from "@/db/tenant"
 import { getClubRecord } from "@/lib/clubs.server"
 import { listActivityRecords } from "@/lib/activities.server"
 import { ACTIVITY_TEMPLATES } from "@/lib/activities/templates"
@@ -18,7 +19,9 @@ export const Route = createFileRoute("/api/platform/clubs/$clubId/activities/")(
             requirePlatformKey(request)
             const club = await getClubRecord(params.clubId)
             if (!club) throw new ApiError(404, "Club not found.")
-            const activities = await listActivityRecords(club.id)
+            const activities = await withClubScope(club.id, () =>
+              listActivityRecords(club.id)
+            )
             return Response.json({
               club: { id: club.id, name: club.name },
               activities,

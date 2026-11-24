@@ -87,7 +87,13 @@ async function main(): Promise<void> {
   if (!url) {
     throw new Error("DATABASE_URL is required to run migrations.")
   }
-  const pool = new Pool({ connectionString: url })
+  // Data migrations act on every club, so they bypass row-level security (see
+  // drizzle/CLAUDE.md). A session setting, which is fine here: migrations
+  // connect straight to Postgres, never through PgBouncer.
+  const pool = new Pool({
+    connectionString: url,
+    options: "-c app.bypass_rls=on",
+  })
   try {
     await ensureMigrationsTable(pool)
 

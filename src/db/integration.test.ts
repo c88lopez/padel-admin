@@ -23,6 +23,7 @@ import {
   stockItem,
   user,
 } from "@/db/schema"
+import { bypassRlsForProcess } from "@/db/tenant"
 import { DEFAULT_RESERVATION_SETTINGS } from "@/lib/reservation-settings"
 import { findOverlap } from "@/lib/reservation-overlap"
 import { findStockShortages } from "@/lib/inventory"
@@ -41,6 +42,13 @@ const TEST_URL = process.env.DATABASE_URL_TEST
 // throwaway database as our direct connection so both see identical data.
 if (TEST_URL) process.env.DATABASE_URL = TEST_URL
 
+// Fixtures and the helpers under test act on several clubs, so they see past
+// row-level security: the direct connection with a session setting, the app's
+// `@/db` through the process scope. The "row-level security" block checks the
+// policies themselves, without either.
+const BYPASS_RLS = "-c app.bypass_rls=on"
+bypassRlsForProcess()
+
 // Default club seeded by migration 0004; all domain rows are scoped to it.
 const CLUB_ID = "00000000-0000-0000-0000-000000000001"
 // A second club used to prove cross-tenant isolation.
@@ -56,7 +64,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
   let db: NodePgDatabase<typeof schema>
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: TEST_URL })
+    pool = new Pool({ connectionString: TEST_URL, options: BYPASS_RLS })
     db = drizzle(pool, { schema })
     await migrate(db, { migrationsFolder: "drizzle" })
     await db
@@ -362,6 +370,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .returning()
       await db.insert(saleItem).values({
         saleId: createdSale.id,
+        clubId: CLUB_ID,
         stockItemId: drink.id,
         name: drink.name,
         quantity: 3,
@@ -510,6 +519,164 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
   // Exercises the real club-scoping in spaces.server.ts: every query is filtered
   // by clubId, so one club must never read or mutate another club's rows.
+  describe("row-level security", () => {
+    // Tables that aren't club data: the tenant itself and Better Auth's
+    // identity tables (see drizzle/CLAUDE.md).
+    const WITHOUT_CLUB_ID = [
+      "account",
+      "club",
+      "session",
+      "user",
+      "verification",
+    ]
+    // Plus memberships: they have club_id, but are read before a request
+    // knows its club.
+    const NOT_CLUB_SCOPED = [...WITHOUT_CLUB_ID, "club_member"]
+
+    // A connection with no RLS setting, like the app's before a request knows
+    // its club.
+    let plain: Pool
+
+    beforeAll(() => {
+      plain = new Pool({ connectionString: TEST_URL })
+    })
+
+    afterAll(async () => {
+      await plain.end()
+    })
+
+    async function playerIn(clubId: string, fullName: string) {
+      const [row] = await db
+        .insert(player)
+        .values({
+          fullName,
+          email: `${randomUUID()}@test.dev`,
+          phone: "",
+          age: 30,
+          gender: "Female",
+          clubId,
+        })
+        .returning()
+      return row
+    }
+
+    it("runs as a role that RLS applies to", async () => {
+      // Superusers and BYPASSRLS roles skip every policy, which would make the
+      // tests below pass for the wrong reason (or fail, for the plain ones).
+      const { rows } = await plain.query<{
+        rolsuper: boolean
+        rolbypassrls: boolean
+      }>(
+        "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+      )
+      expect(rows[0]).toEqual({ rolsuper: false, rolbypassrls: false })
+    })
+
+    it("gives every table but the tenancy ones a club_id", async () => {
+      const { rows } = await plain.query<{ table_name: string }>(`
+        SELECT t.table_name FROM information_schema.tables t
+        WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+          AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns c
+            WHERE c.table_schema = 'public' AND c.table_name = t.table_name
+              AND c.column_name = 'club_id' AND c.is_nullable = 'NO'
+          )
+        ORDER BY t.table_name
+      `)
+      expect(rows.map((r) => r.table_name)).toEqual(WITHOUT_CLUB_ID)
+    })
+
+    it("enables, forces and has the club policy on every club table", async () => {
+      const { rows } = await plain.query<{
+        relname: string
+        relrowsecurity: boolean
+        relforcerowsecurity: boolean
+        policies: string[]
+      }>(`
+        SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
+          coalesce(array_agg(p.policyname) FILTER (WHERE p.policyname IS NOT NULL), '{}')::text[] AS policies
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+        LEFT JOIN pg_policies p ON p.schemaname = 'public' AND p.tablename = c.relname
+        WHERE c.relkind = 'r'
+          AND c.relname NOT IN (${NOT_CLUB_SCOPED.map((t) => `'${t}'`).join(", ")})
+        GROUP BY c.relname, c.relrowsecurity, c.relforcerowsecurity
+      `)
+      expect(rows.length).toBeGreaterThan(0)
+      for (const row of rows) {
+        expect(row).toEqual({
+          relname: row.relname,
+          relrowsecurity: true,
+          relforcerowsecurity: true,
+          policies: ["club_isolation"],
+        })
+      }
+    })
+
+    it("shows no club rows without a club", async () => {
+      await playerIn(CLUB_ID, "Unscoped")
+      const { rows } = await plain.query("SELECT id FROM player")
+      expect(rows).toHaveLength(0)
+      await expect(
+        plain.query(
+          "INSERT INTO player (id, full_name, email, phone, age, gender, club_id, created_at) VALUES ($1, 'X', 'x@test.dev', '', 30, 'Male', $2, now())",
+          [randomUUID(), CLUB_ID]
+        )
+      ).rejects.toThrow(/row-level security/)
+    })
+
+    it("shows and writes only the scoped club's rows through the app's db", async () => {
+      const { db: appDb, createScopedDb } = await import("@/db")
+      const { withClubScope } = await import("@/db/tenant")
+      const mine = await playerIn(CLUB_ID, "Mine")
+      const theirs = await playerIn(CLUB_B_ID, "Theirs")
+      // A db over a connection without the session bypass, as in the app.
+      const scopedDb = createScopedDb(new Pool({ connectionString: TEST_URL }))
+      try {
+        // No club filter in the query: the policy does the scoping.
+        const seen = await withClubScope(CLUB_ID, () =>
+          scopedDb.select({ id: player.id }).from(player)
+        )
+        expect(seen.map((r) => r.id)).toEqual([mine.id])
+
+        const inTx = await withClubScope(CLUB_B_ID, () =>
+          scopedDb.transaction((tx) =>
+            tx.select({ id: player.id }).from(player)
+          )
+        )
+        expect(inTx.map((r) => r.id)).toEqual([theirs.id])
+
+        // Writing another club's row, or touching one, is refused or a no-op.
+        await expect(
+          withClubScope(CLUB_ID, () =>
+            scopedDb.insert(player).values({
+              fullName: "Smuggled",
+              email: "smuggled@test.dev",
+              phone: "",
+              age: 30,
+              gender: "Male",
+              clubId: CLUB_B_ID,
+            })
+          )
+        ).rejects.toThrow()
+        const updated = await withClubScope(CLUB_ID, () =>
+          scopedDb
+            .update(player)
+            .set({ fullName: "Hijacked" })
+            .where(eq(player.id, theirs.id))
+            .returning()
+        )
+        expect(updated).toHaveLength(0)
+      } finally {
+        await scopedDb.$client.end()
+      }
+      // The shared app db runs with the process bypass in this suite.
+      expect(
+        (await appDb.select({ id: player.id }).from(player)).length
+      ).toBeGreaterThanOrEqual(2)
+    })
+  })
+
   describe("tenant isolation (spaces.server)", () => {
     // Loaded dynamically (not a static import) so the app's `@/db` connects only
     // after DATABASE_URL is pointed at the test database above.
@@ -602,8 +769,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         })
         .returning()
       await db.insert(coachActivity).values([
-        { coachId: c.id, activityId: padel.id },
-        { coachId: c.id, activityId: pilates.id },
+        { coachId: c.id, activityId: padel.id, clubId },
+        { coachId: c.id, activityId: pilates.id, clubId },
       ])
       const base = {
         coachId: c.id,
@@ -747,8 +914,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         cls.id,
       ])
       await other.query(
-        "INSERT INTO coach_class_attendee (class_id, player_id, created_at) VALUES ($1, $2, now())",
-        [cls.id, first]
+        "INSERT INTO coach_class_attendee (class_id, player_id, club_id, created_at) VALUES ($1, $2, $3, now())",
+        [cls.id, first, clubId]
       )
 
       // This one has to wait for that lock, then sees the class full. Without
