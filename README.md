@@ -86,7 +86,7 @@ bun run lint       # oxlint
 bun run typecheck  # TypeScript type checking (tsc --noEmit)
 bun run format     # Prettier (write)
 bun run check      # Prettier (check only)
-bun run db:generate # Generate a SQL migration from src/db/schema.ts
+bun run db:generate # Generate a SQL migration from src/db/schema/
 ```
 
 Database and cluster tasks are Makefile targets, each described next to its definition (`dev-setup`, `dev-reset`, `run`, `test`, `test-e2e`, `seed`, `admin-password`, `image`, `secrets`, `status`, `logs`, `restart`).
