@@ -4,7 +4,7 @@ import { defineConfig } from "drizzle-kit"
 // generate SQL migrations into ./drizzle (applied at deploy time by
 // src/db/migrate.ts) and to push the schema during local development.
 export default defineConfig({
-  schema: "./src/db/schema.ts",
+  schema: "./src/db/schema",
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
