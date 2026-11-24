@@ -7,6 +7,7 @@ import {
   waitForDrawerSettled,
   waitForHydration,
   workerCourt,
+  openRowMenu,
 } from "./helpers"
 
 // Opens the reservations page and the "New Reservation" drawer; returns the
@@ -118,7 +119,7 @@ test("edits a reservation", async ({ page }) => {
 
   await page.getByPlaceholder("Search reservations...").fill(player)
   const row = page.getByRole("row", { name: new RegExp(player) })
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const dialog = page.getByRole("dialog")
@@ -143,7 +144,7 @@ test("cancels a reservation", async ({ page }) => {
 
   await page.getByPlaceholder("Search reservations...").fill(player)
   const row = page.getByRole("row", { name: new RegExp(player) })
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")

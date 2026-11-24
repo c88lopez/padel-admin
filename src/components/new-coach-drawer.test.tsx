@@ -70,7 +70,7 @@ describe("NewCoachDrawer", () => {
     render(<NewCoachDrawer open onOpenChange={vi.fn()} activities={[padel]} />)
 
     await user.type(screen.getByLabelText("Full Name"), "Coach Carter")
-    await user.type(screen.getByLabelText("Phone"), "+34 600 000 000")
+    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5000 0000")
 
     await user.click(screen.getByRole("button", { name: "Add Coach" }))
 
@@ -78,7 +78,7 @@ describe("NewCoachDrawer", () => {
       expect(createCoach).toHaveBeenCalledWith({
         data: {
           name: "Coach Carter",
-          phone: "+34 600 000 000",
+          phone: "+54 9 11 5000 0000",
           birthday: null,
         },
       })
@@ -93,7 +93,7 @@ describe("NewCoachDrawer", () => {
         coach={{
           id: "coach-1",
           name: "Coach K",
-          phone: "+34 611 111 111",
+          phone: "+54 9 11 1111 1111",
           birthday: new Date(1990, 4, 15), // local midnight → 1990-05-15
           activityIds: ["padel"],
         }}
@@ -111,7 +111,7 @@ describe("NewCoachDrawer", () => {
         data: {
           id: "coach-1",
           name: "Coach K",
-          phone: "+34 611 111 111",
+          phone: "+54 9 11 1111 1111",
           birthday: "1990-05-15",
         },
       })
@@ -134,7 +134,7 @@ describe("NewCoachDrawer", () => {
       />
     )
     await user.type(screen.getByLabelText("Full Name"), "Coach Carter")
-    await user.type(screen.getByLabelText("Phone"), "+34 600 000 000")
+    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5000 0000")
 
     await user.click(screen.getByRole("button", { name: "Add Coach" }))
     expect(

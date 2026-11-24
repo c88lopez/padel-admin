@@ -8,7 +8,7 @@ test("lists the club's courts under Spaces", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Spaces", level: 2 })
   ).toBeVisible()
-  // The six default padel courts, named after their type.
+  // The four default padel courts, named after their type.
   const names = page.getByLabel("Name", { exact: true })
   await expect(names.first()).toHaveValue("Court 1")
   await expect(page.getByRole("button", { name: "Add court" })).toBeVisible()

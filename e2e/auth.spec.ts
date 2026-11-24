@@ -25,7 +25,7 @@ test("archived users cannot sign in", async ({ page }) => {
   // credentials, the Better Auth before-hook rejects the sign-in.
   await page.goto("/login")
   await waitForHydration(page)
-  await page.getByLabel("Email").fill("pedro@padelclub.es")
+  await page.getByLabel("Email").fill("pedro@padelclub.com")
   await page.getByLabel("Password").fill("padel1234")
   await page.getByRole("button", { name: "Sign in" }).click()
 

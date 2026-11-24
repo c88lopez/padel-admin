@@ -24,7 +24,7 @@ bun run typecheck  # tsc --noEmit
 bun run format     # Prettier write
 bun run db:generate # SQL migration from src/db/schema.ts (commit drizzle/)
 make -C .. tunnel  # the workspace's tunnel: cluster Postgres on localhost:5432 (keep it running)
-make dev-reset     # empty padel_admin_dev and load demo data (first time too)
+make dev-reset     # empty padel_admin_dev and seed it clean: Default Club + logins only (first time too)
 make run           # migrate padel_admin_dev, then the dev server on it
 make test          # unit + integration (padel_admin_test)
 make test-e2e      # Playwright (wipes and reseeds padel_admin_e2e)
@@ -60,7 +60,7 @@ Clubs offer one or more **activities** (padel and pilates; football and swim pla
 - Spaces: the bookable place is a `space` row (`src/lib/spaces.server.ts`) with a `type` and an `indoor` flag. Don't name new code or tables after courts; "Court" is only the padel type's label.
   - Space types are code-defined in `src/lib/activities/spaces.ts` (`court`, `studio`, …) with their translated name and numbered label. Show spaces with `spaceDisplayName` / `spaceNumberLabel` / `spaceNounKey`, never a hardcoded "Court".
   - A template's `spaces` says which types its spaces can be (first = default) and how many a club starts with (`defaultCount`). `seedActivitySpaces` creates them when a club gets the activity (club creation, seeding, first enable through the platform API).
-  - Spaces belong to an activity (`activity_id`) and are numbered per activity (`sortOrder`: Court 1–6 and Studio 1 coexist). `linkUnassignedSpaces` links legacy rows lazily.
+  - Spaces belong to an activity (`activity_id`) and are numbered per activity (`sortOrder`: Court 1–4 and Studio 1 coexist). `linkUnassignedSpaces` links legacy rows lazily.
   - A space holds one thing at a time: reservations and classes can't overlap on it, in either direction. Every write goes through `assertSpaceFree` / `findSpaceConflict` (reservations, classes, the AI tool); existing overlapping rows aren't touched.
   - A space can only be used for the blocks its activity provides: filter lists with `spacesForBlock` (reservations: `bookings`, classes: `sessions`) and enforce it with `assertSpaceBookable(clubId, spaceId, block)`.
   - Managed in Settings → Spaces, one section per active activity. Booking length options come from the space's activity config (`bookingDurations`).

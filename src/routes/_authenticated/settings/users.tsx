@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select"
 import { NewUserDrawer, USER_ROLES } from "@/components/new-user-drawer"
 import type { UserRole } from "@/components/new-user-drawer"
+import { roleLabel } from "@/lib/users"
 import { cn } from "@/lib/utils"
 import {
   clampNumber,
@@ -275,8 +276,11 @@ function SecuritySection() {
                   </SelectTrigger>
                   <SelectContent>
                     {USER_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
+                      <SelectItem
+                        key={roleLabel(t, role)}
+                        value={roleLabel(t, role)}
+                      >
+                        {roleLabel(t, role)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -438,7 +442,9 @@ function buildColumns(
       accessorKey: "role",
       header: t("fields.role"),
       cell: ({ row }) => (
-        <Badge variant="secondary">{row.getValue<UserRole>("role")}</Badge>
+        <Badge variant="secondary">
+          {roleLabel(t, row.getValue<UserRole>("role"))}
+        </Badge>
       ),
     },
     {

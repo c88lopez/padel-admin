@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test"
 import { loginAs, waitForHydration, ENGLISH_STATE } from "./helpers"
 
-// The Coach role (seeded as laura@padelclub.es) only has `coaches:manage`. These
+// The Coach role (seeded as laura@padelclub.com) only has `coaches:manage`. These
 // tests sign in fresh as the coach instead of reusing the admin storage state.
 test.use({ storageState: ENGLISH_STATE })
 
-const COACH_EMAIL = "laura@padelclub.es"
+const COACH_EMAIL = "laura@padelclub.com"
 const COACH_PASSWORD = "padel1234"
 
 test("coach cannot create players or reservations", async ({ page }) => {

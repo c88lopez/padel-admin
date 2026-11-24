@@ -7,6 +7,7 @@ import {
   selectOption,
   waitForHydration,
   workerCourt,
+  openRowMenu,
 } from "./helpers"
 
 // A repeating class from a Monday at least 30 days out, past the days the
@@ -32,7 +33,8 @@ async function seriesDates(page: Page) {
 }
 
 // The class on that date in this worker's court, found through the search
-// so it isn't on a later page.
+// so it isn't on a later page. Skips the demo seed's weekly 07:00 series,
+// which runs on the last court: a worker's court too.
 async function classRow(
   page: Page,
   court: string,
@@ -42,6 +44,7 @@ async function classRow(
   return page
     .getByRole("row", { name: new RegExp(court) })
     .filter({ hasText: date })
+    .filter({ hasNotText: "07:00" })
 }
 
 // Picks a row menu item and waits for what it opens. Retried: the list
@@ -55,7 +58,7 @@ async function openFromRow(
   await expect(async () => {
     if (await opened.isVisible()) return
     await page.keyboard.press("Escape")
-    await row.getByRole("button").last().click({ timeout: 2000 })
+    await openRowMenu(page, row)
     await page.getByRole("menuitem", { name: item }).click({ timeout: 2000 })
     await expect(opened).toBeVisible({ timeout: 2000 })
   }).toPass({ timeout: 20_000 })

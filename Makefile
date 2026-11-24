@@ -35,10 +35,11 @@ dev-setup: ## once: create the dev, test and e2e databases in the cluster (needs
 	kubectl apply -f k8s/dev/
 
 # reset-e2e.ts empties whatever database E2E_DATABASE_URL names, then migrates
-# and seeds the demo data (logins in the README).
+# and, with --clean, seeds only the bootstrap: the Default Club and the Owner
+# and super admin logins (in the README), no business data.
 dev-reset: export E2E_DATABASE_URL = $(LOCAL_DATABASE_URL)
-dev-reset: ## empty padel_admin_dev and reseed it with demo data; also the first-time setup (needs make tunnel)
-	bun run db:e2e:reset
+dev-reset: ## empty padel_admin_dev and reseed it clean (logins only); also the first-time setup (needs make tunnel)
+	bun run db:e2e:reset --clean
 
 # Migrates first, so a branch's new migrations are in place before its code
 # runs. Only on padel_admin_dev: the deployed database gets them on deploy.
@@ -57,21 +58,28 @@ test-e2e: export E2E_DATABASE_URL = $(LOCAL_E2E_DATABASE_URL)
 test-e2e: ## Playwright against padel_admin_e2e, which it wipes first (needs make tunnel)
 	bun run test:e2e
 
-# The clubs and the Owner account (admin@club.test) the app starts with, on a
-# fresh database. The password goes into the padel-admin-seed-accounts Secret
-# (`make admin-password` prints it), not into the terminal: the seed prints it.
-# Idempotent: an existing admin is kept, password included. A cluster task, not
-# development: it runs as the deployed app's user, on its database.
+# The Default Club and the logins the app starts with, on a fresh database: the
+# Owner (admin@club.test) and the platform super admin (super@club.test). Their
+# generated passwords go into the padel-admin-seed-accounts Secret (`make
+# admin-password` prints them), not into the terminal: the seed prints them. A
+# Secret from before the super admin was seeded gets its keys added.
+# Idempotent: existing accounts are kept, passwords included. A cluster task,
+# not development: it runs as the deployed app's user, on its database.
 seed: export DATABASE_URL = postgres://padel_admin:$(PG_PASS)@localhost:5432/padel_admin
 seed: ## once, on a new cluster: seed the deployed padel_admin database (needs make tunnel)
 	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts >/dev/null 2>&1 \
 	  || kubectl -n $(NAMESPACE) create secret generic padel-admin-seed-accounts \
 	       --from-literal=email=admin@club.test --from-literal=password="$$(openssl rand -base64 18 | tr -d '/+=')"
-	@p=$$(kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts -o jsonpath='{.data.password}' | base64 -d); \
-	  SEED_ADMIN_PASSWORD="$$p" bun run db:seed | sed "s/$$p/<make admin-password>/"
+	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts -o jsonpath='{.data.superPassword}' | grep -q . \
+	  || kubectl -n $(NAMESPACE) patch secret padel-admin-seed-accounts --type merge \
+	       -p "{\"stringData\":{\"superEmail\":\"super@club.test\",\"superPassword\":\"$$(openssl rand -base64 18 | tr -d '/+=')\"}}"
+	@get() { kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts -o jsonpath="{.data.$$1}" | base64 -d; }; \
+	  p=$$(get password); sp=$$(get superPassword); \
+	  SEED_ADMIN_PASSWORD="$$p" SEED_SUPERADMIN_EMAIL="$$(get superEmail)" SEED_SUPERADMIN_PASSWORD="$$sp" \
+	  bun run db:seed | sed -e "s/$$p/<make admin-password>/" -e "s/$$sp/<make admin-password>/"
 
-admin-password: ## print the seeded Owner's login
-	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts -o go-template='{{.data.email | base64decode}} {{.data.password | base64decode}}{{"\n"}}'
+admin-password: ## print the seeded Owner's and super admin's logins
+	@kubectl -n $(NAMESPACE) get secret padel-admin-seed-accounts -o go-template='{{.data.email | base64decode}} {{.data.password | base64decode}}{{"\n"}}{{with .data.superPassword}}{{$$.data.superEmail | base64decode}} {{. | base64decode}}{{"\n"}}{{end}}'
 
 image: ## build the image locally to try it (CI builds the one the cluster uses)
 	docker build -t $(REGISTRY)/padel-admin:$(VERSION) .

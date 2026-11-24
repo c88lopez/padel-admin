@@ -132,7 +132,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .values({
           fullName: "Test Player",
           email: "tp@test.dev",
-          phone: "+34 600 000 000",
+          phone: "+54 9 11 5000 0000",
           age: 30,
           gender: "Male",
           clubId: CLUB_ID,
@@ -360,7 +360,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(coach)
         .values({
           name: "Test Coach",
-          phone: "+34 600 000 000",
+          phone: "+54 9 11 5000 0000",
           birthday: "1990-01-01",
           clubId: CLUB_ID,
         })
@@ -369,13 +369,13 @@ describe.skipIf(!TEST_URL)("database integration", () => {
 
       await db
         .update(coach)
-        .set({ phone: "+34 611 111 111" })
+        .set({ phone: "+54 9 11 1111 1111" })
         .where(eq(coach.id, created.id))
       const [updated] = await db
         .select()
         .from(coach)
         .where(eq(coach.id, created.id))
-      expect(updated.phone).toBe("+34 611 111 111")
+      expect(updated.phone).toBe("+54 9 11 1111 1111")
 
       await db.delete(coach).where(eq(coach.id, created.id))
       expect(await db.select().from(coach)).toHaveLength(0)
@@ -386,7 +386,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(coach)
         .values({
           name: "No Birthday",
-          phone: "+34 600 000 002",
+          phone: "+54 9 11 5000 0002",
           clubId: CLUB_ID,
         })
         .returning()
@@ -398,7 +398,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(coach)
         .values({
           name: "Temp Coach",
-          phone: "+34 600 000 001",
+          phone: "+54 9 11 5000 0001",
           birthday: "1991-02-02",
           clubId: CLUB_ID,
         })
@@ -538,7 +538,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .insert(coach)
         .values({
           name: "Class Coach",
-          phone: "+34 600 000 002",
+          phone: "+54 9 11 5000 0002",
           birthday: "1990-01-01",
           clubId,
         })
@@ -1402,7 +1402,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       coaches = await loadCoaches()
     })
 
-    const person = { name: "Coach", phone: "+34 600 000 003" }
+    const person = { name: "Coach", phone: "+54 9 11 5000 0003" }
 
     // A throwaway club with the given activities, inserted directly.
     // Deleting the club cascades.
@@ -1569,8 +1569,6 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         "Court 2",
         "Court 3",
         "Court 4",
-        "Court 5",
-        "Court 6",
       ])
       expect(new Set(courts.map((s) => s.type))).toEqual(new Set(["court"]))
       expect(await spacesOf(clubId, pilatesId)).toMatchObject([
@@ -2004,7 +2002,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         .select()
         .from(space)
         .where(eq(space.clubId, created.id))
-      expect(rows).toHaveLength(6)
+      expect(rows).toHaveLength(4)
       expect(new Set(rows.map((r) => r.activityId))).toEqual(
         new Set([clubPadel.id])
       )

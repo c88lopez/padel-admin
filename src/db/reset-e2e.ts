@@ -3,6 +3,7 @@ import { Pool } from "pg"
 
 // Empties the disposable E2E database, then applies migrations and seeds demo
 // data. Run before the Playwright suite (see the `pretest:e2e*` scripts).
+// With `--clean` it seeds only the bootstrap (no demo data): `make dev-reset`.
 // Local-only: CI provisions its own throwaway Postgres service.
 //
 // The database (padel_admin_e2e in the cluster, from k8s/dev/) stays: the app's
@@ -31,7 +32,8 @@ async function main(url: string) {
 
   const childEnv = { ...process.env, DATABASE_URL: url }
   execSync("bun run db:migrate", { stdio: "inherit", env: childEnv })
-  execSync("bun run db:seed:demo", { stdio: "inherit", env: childEnv })
+  const seed = process.argv.includes("--clean") ? "db:seed" : "db:seed:demo"
+  execSync(`bun run ${seed}`, { stdio: "inherit", env: childEnv })
 }
 
 void main(E2E_DATABASE_URL).catch((error: unknown) => {

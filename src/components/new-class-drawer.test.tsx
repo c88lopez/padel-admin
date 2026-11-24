@@ -86,7 +86,7 @@ function coachOf(id: string, name: string, activityIds: string[]): CoachRecord {
   return {
     id,
     name,
-    phone: "+34 600 000 000",
+    phone: "+54 9 11 5000 0000",
     birthday: null,
     clubId: "club-1",
     createdAt: new Date(),

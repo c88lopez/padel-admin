@@ -6,6 +6,7 @@ import {
   pickCalendarDay,
   selectOption,
   waitForHydration,
+  openRowMenu,
 } from "./helpers"
 
 // Creates a stock item through the drawer and returns its unique name. `stock`
@@ -59,7 +60,7 @@ test("edits a stock item", async ({ page }) => {
   const name = await createItem(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const dialog = page.getByRole("dialog")
@@ -80,7 +81,7 @@ test("deletes a stock item", async ({ page }) => {
   const name = await createItem(page)
 
   const row = await findRow(page, name)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")

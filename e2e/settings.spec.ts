@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { Locator, Page } from "@playwright/test"
-import { openDrawer, waitForHydration } from "./helpers"
+import { openDrawer, openRowMenu, waitForHydration } from "./helpers"
 
 // A notifications ToggleRow renders the <Switch> and the title <p> as siblings'
 // children of the row; from the title go up two levels to reach the switch.
@@ -35,7 +35,7 @@ test("general settings persist club profile and regional prefs", async ({
   // Phone is stored in per-club localStorage on change (no save button).
   const phone = page.getByLabel("Phone")
   await expect(phone).toBeVisible()
-  const value = `+34 600 ${Date.now() % 1000000}`
+  const value = `+54 9 11 ${Date.now() % 100000000}`
   await phone.fill(value)
 
   // Time format is a toggle-button group; the active one gets border-primary.
@@ -111,7 +111,7 @@ test("admin can create, edit, archive, and delete a user", async ({ page }) => {
   // Edit (search by email — stable across the name change)
   const updated = `${name} edited`
   let row = await findUserRow(page, email)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Edit" }).click()
   const editDialog = page.getByRole("dialog")
   await editDialog.getByLabel("Full Name").fill(updated)
@@ -120,13 +120,13 @@ test("admin can create, edit, archive, and delete a user", async ({ page }) => {
 
   // Archive
   row = await findUserRow(page, email)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Archive" }).click()
   await expect(page.getByText("User archived")).toBeVisible()
 
   // Delete
   row = await findUserRow(page, email)
-  await row.getByRole("button").last().click()
+  await openRowMenu(page, row)
   await page.getByRole("menuitem", { name: "Delete" }).click()
   await page
     .getByRole("alertdialog")

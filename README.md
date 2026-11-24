@@ -34,13 +34,13 @@ bun install
 cp .env.example .env   # add AI_GATEWAY_API_KEY for the assistant
 make dev-setup         # once: the dev, test and e2e databases
 make -C .. tunnel      # the workspace's tunnel, in its own terminal: Postgres on localhost:5432
-make dev-reset         # once (and whenever you want a clean slate): demo data in padel_admin_dev
+make dev-reset         # once (and whenever you want a clean slate): padel_admin_dev with just the logins
 make run               # dev server on http://localhost:3003, on padel_admin_dev
 ```
 
 Development connects as `padel_admin_dev`, a database user that owns only `padel_admin_dev`, `padel_admin_test` and `padel_admin_e2e`, and that Postgres refuses on every other database. Local work never touches the deployed app's data, and your machine never holds its database password.
 
-- `make run` applies pending migrations to `padel_admin_dev` before starting, so a branch's new migrations are in place. Log in with the demo logins below.
+- `make run` applies pending migrations to `padel_admin_dev` before starting, so a branch's new migrations are in place. Log in with the local logins below.
 - `make test` runs the unit and integration tests (the latter on `padel_admin_test`).
 - `make test-e2e` runs Playwright on `padel_admin_e2e`, which it wipes and reseeds with demo data first.
 
@@ -50,12 +50,16 @@ Schema changes go through migrations: `bun run db:generate`, commit the SQL in `
 
 Authentication is handled by Better Auth. Sessions, users, accounts, and password hashes are stored in Postgres.
 
-`make seed` (once, on a new cluster; it's the one local target that uses the deployed app's database user) creates the deployed app's clubs and its Owner account, `admin@club.test`, with a generated password kept in the cluster (`make admin-password`).
+The seed (`bun run db:seed`) only bootstraps a clean app: the Default Club (with its default activity, four padel courts and reservation settings), its Owner account and the platform super admin. No players, reservations, inventory or other business data.
 
-The demo seed (`bun run db:seed:demo`, which `make dev-reset` and the E2E runs use) adds a super admin, team members and sample data, with these logins:
+`make seed` (once, on a new cluster; it's the one local target that uses the deployed app's database user) runs it on the deployed app's database, as `admin@club.test` and `super@club.test` with generated passwords kept in the cluster (`make admin-password`).
+
+`make dev-reset` runs it on `padel_admin_dev` with these logins:
 
 - **Club owner**: `admin@club.test` / `admin1234`
 - **Platform super admin**: `super@club.test` / `super1234`
+
+The E2E runs use the demo seed (`bun run db:seed:demo`) instead, which adds a second club (North Branch), team members and sample data as test fixtures.
 
 You can override seed credentials with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`, `SEED_SUPERADMIN_EMAIL`, and `SEED_SUPERADMIN_PASSWORD`.
 
