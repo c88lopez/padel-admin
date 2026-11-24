@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { setCookie } from "@tanstack/react-start/server"
-import { and, asc, eq } from "drizzle-orm"
+import { asc, eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
 import { club, clubMember } from "@/db/schema"
@@ -10,6 +10,7 @@ import {
   requireSession,
   resolveActiveClubId,
 } from "@/lib/auth.server"
+import { listMemberClubIds } from "@/lib/club-members.server"
 import { can } from "@/lib/permissions"
 import { AppError } from "@/lib/errors"
 import { listActivityRecords } from "@/lib/activities.server"
@@ -143,8 +144,8 @@ export const getClubContext = createServerFn({ method: "GET" }).handler(
   }
 )
 
-// Selects which club to act as. Super-admins may pick any club; club-scoped
-// users may pick their home club or any club they're a member of. Persists in
+// Selects which club to act as. Super-admins may pick any club; club users may
+// pick any club they belong to. Persists in
 // an http-only cookie.
 export const setActiveClub = createServerFn({ method: "POST" })
   .validator((data: unknown) =>
@@ -161,20 +162,10 @@ export const setActiveClub = createServerFn({ method: "POST" })
         .where(eq(club.id, data.clubId))
         .limit(1)
       if (exists.length === 0) throw new AppError("errors.club.notFound")
-    } else if (data.clubId !== session.user.clubId) {
-      const member = await db
-        .select({ clubId: clubMember.clubId })
-        .from(clubMember)
-        .where(
-          and(
-            eq(clubMember.userId, session.user.id),
-            eq(clubMember.clubId, data.clubId)
-          )
-        )
-        .limit(1)
-      if (member.length === 0) {
-        throw new AppError("errors.club.noAccess")
-      }
+    } else if (
+      !(await listMemberClubIds(session.user.id)).includes(data.clubId)
+    ) {
+      throw new AppError("errors.club.noAccess")
     }
 
     setCookie(ACTIVE_CLUB_COOKIE, data.clubId, {

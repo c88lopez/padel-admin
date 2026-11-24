@@ -99,10 +99,7 @@ async function seedAdmin() {
     }
   }
   // Ensure the admin always has the Owner role in the Default Club (idempotent).
-  await db
-    .update(user)
-    .set({ role: "Owner", clubId: DEFAULT_CLUB_ID })
-    .where(eq(user.email, email))
+  await db.update(user).set({ role: "Owner" }).where(eq(user.email, email))
   await ensureMembership(email, DEFAULT_CLUB_ID)
 }
 
@@ -113,8 +110,8 @@ async function seedNorthBranch() {
   await ensureMembership(email, NORTH_CLUB_ID)
 }
 
-// Bootstraps a club_member row so the user can act within (and switch to) their
-// home club. Idempotent.
+// Adds the user to a club (their default club when it's their first).
+// Idempotent.
 async function ensureMembership(userEmail: string, clubId: string | null) {
   if (!clubId) return
   const rows = await db
@@ -167,7 +164,6 @@ async function ensureUser(opts: {
     .set({
       role: opts.role,
       status: opts.status ?? "active",
-      clubId,
     })
     .where(eq(user.email, opts.email))
   await ensureMembership(opts.email, clubId)

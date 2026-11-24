@@ -1,0 +1,168 @@
+# Requests for the users REST API (GET/POST /api/users, GET/PATCH/DELETE
+# /api/users/:id). Environments, hosts and the {{adminApiKey}} secret are set up
+# as described at the top of clubs.http.
+#
+# A user's clubs are an ordered list: send "clubIds" and the response has
+# "clubs" ([{id, name}]). The first club is the user's default, the one they act
+# in after logging in. Every user except a Super Admin needs at least one club.
+# PATCH replaces the whole list; clubs the user already had keep their place
+# and new ones go last. PATCH can't change the password or the status.
+#
+# Users are created in {{homeClubId}}, the Default Club unless the env file says
+# otherwise. "Create a user" stores the new user's id in {{createdUserId}},
+# which the requests after it use, so run it first.
+
+### List all users
+GET {{host}}/api/users
+Authorization: Bearer {{adminApiKey}}
+
+> {%
+    client.test("returns 200 with a list of users", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(Array.isArray(response.body), "body is not an array");
+    });
+%}
+
+### Create a user (the email must be unique, so it's timestamped)
+POST {{host}}/api/users
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "name": "HTTP Client User",
+  "email": "user+{{$timestamp}}@example.com",
+  "role": "Manager",
+  "password": "{{userPassword}}",
+  "clubIds": ["{{homeClubId}}"]
+}
+
+> {%
+    client.test("returns 201 with the new user in the club", () => {
+        client.assert(response.status === 201, "status " + response.status);
+        client.assert(typeof response.body.id === "string", "missing id");
+        client.assert(response.body.clubs[0].id === request.environment.get("homeClubId"), "wrong club");
+        client.assert(response.body.status === "active", "user is not active");
+    });
+    client.global.set("createdUserId", response.body.id);
+    client.global.set("createdUserEmail", response.body.email);
+%}
+
+### Create a user with a taken email (fails: no 409 mapping, so it's a 500)
+POST {{host}}/api/users
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "name": "HTTP Client Duplicate",
+  "email": "{{createdUserEmail}}",
+  "role": "Manager",
+  "password": "{{userPassword}}",
+  "clubIds": ["{{homeClubId}}"]
+}
+
+> {%
+    client.test("is rejected", () => {
+        client.assert(response.status >= 400, "status " + response.status);
+        client.assert(/already exists/.test(response.body.error), "unexpected error");
+    });
+%}
+
+### Create a user without a club (fails with a 500: only a Super Admin can have none)
+POST {{host}}/api/users
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "name": "HTTP Client Clubless",
+  "email": "clubless+{{$timestamp}}@example.com",
+  "role": "Manager",
+  "password": "{{userPassword}}"
+}
+
+> {%
+    client.test("is rejected", () => {
+        client.assert(response.status >= 400, "status " + response.status);
+    });
+%}
+
+### Get one user
+GET {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+
+> {%
+    client.test("returns 200 with the user", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.id === client.global.get("createdUserId"), "wrong id");
+    });
+%}
+
+### Update a user's name and role (PATCH takes any subset of name, email, role, clubIds)
+PATCH {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "name": "HTTP Client User (renamed)",
+  "role": "Admin"
+}
+
+> {%
+    client.test("returns 200 with the changes", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.name.endsWith("(renamed)"), "name unchanged");
+        client.assert(response.body.role === "Admin", "role unchanged");
+        client.assert(response.body.clubs[0].id === request.environment.get("homeClubId"), "clubs changed");
+    });
+%}
+
+### Send the removed "clubId" field (400: the body is checked strictly)
+PATCH {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "clubId": "{{homeClubId}}"
+}
+
+> {%
+    client.test("returns 400", () => {
+        client.assert(response.status === 400, "status " + response.status);
+    });
+%}
+
+### Change a user's email
+PATCH {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "email": "renamed+{{$timestamp}}@example.com"
+}
+
+> {%
+    client.test("returns 200 with the new email", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.email.startsWith("renamed+"), "email unchanged");
+    });
+%}
+
+### Delete a user
+DELETE {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+
+> {%
+    client.test("returns 200 with the deleted id", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.id === client.global.get("createdUserId"), "wrong id");
+    });
+%}
+
+### Get the deleted user (404)
+GET {{host}}/api/users/{{createdUserId}}
+Authorization: Bearer {{adminApiKey}}
+
+> {%
+    client.test("returns 404", () => {
+        client.assert(response.status === 404, "status " + response.status);
+    });
+%}

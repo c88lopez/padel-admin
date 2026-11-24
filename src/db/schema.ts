@@ -24,9 +24,8 @@ import type {
 // expects for email/password auth. App-domain tables (players, reservations,
 // etc.) will be added here in later phases.
 
-// Tenant root. Every domain row belongs to exactly one club. Platform
-// super-admins are the only users with a null club_id (they operate across all
-// clubs).
+// Tenant root. Every domain row belongs to exactly one club. Users belong to
+// clubs through club_member.
 export const club = pgTable("club", {
   id: text("id")
     .primaryKey()
@@ -53,8 +52,6 @@ export const user = pgTable("user", {
   // App-specific fields (declared as Better Auth additionalFields in auth.ts).
   role: text("role").notNull().default("Front Desk"),
   status: text("status").notNull().default("active"),
-  // Null only for platform super-admins.
-  clubId: text("club_id").references(() => club.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -65,10 +62,10 @@ export const user = pgTable("user", {
 
 export type User = typeof user.$inferSelect
 
-// Clubs a user may act within. `user.club_id` remains the user's primary/home
-// club (default scope); this join table grants access to additional clubs so an
-// Owner can switch between several. Platform super-admins ignore this table —
-// they operate across all clubs via a null club_id.
+// The clubs a user belongs to. Every user except a platform super-admin has at
+// least one; super-admins have none and operate across all clubs. The earliest
+// membership (created_at, then club_id) is the user's default club, the one they
+// act within until they switch.
 export const clubMember = pgTable(
   "club_member",
   {

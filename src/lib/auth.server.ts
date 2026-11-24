@@ -1,14 +1,16 @@
 import { getCookie, getRequest } from "@tanstack/react-start/server"
-import { and, asc, eq } from "drizzle-orm"
+import { asc, eq } from "drizzle-orm"
 import { db } from "@/db"
-import { club, clubMember } from "@/db/schema"
+import { club } from "@/db/schema"
 import { auth } from "@/lib/auth"
-import { can } from "@/lib/permissions"
+import { chooseActiveClub } from "@/lib/active-club"
+import { listMemberClubIds } from "@/lib/club-members.server"
+import { can, SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import type { Permission } from "@/lib/permissions"
 import { AppError } from "@/lib/errors"
 
-// Cookie that records which club a platform super-admin is currently acting as.
-// Ignored for club-scoped users, who are always pinned to their own club.
+// Cookie that records which club the user is currently acting as. Club users
+// can only pick clubs they belong to.
 export const ACTIVE_CLUB_COOKIE = "active_club_id"
 
 // Server-only auth helpers. Lives in a `.server.ts` module so the server-only
@@ -40,34 +42,21 @@ export async function requirePermission(permission: Permission) {
   return session
 }
 
-// True when `userId` is a member of `clubId` (club_member join table).
-async function isClubMember(userId: string, clubId: string): Promise<boolean> {
-  const rows = await db
-    .select({ clubId: clubMember.clubId })
-    .from(clubMember)
-    .where(and(eq(clubMember.userId, userId), eq(clubMember.clubId, clubId)))
-    .limit(1)
-  return rows.length > 0
-}
-
 /**
  * Resolves the club the current request acts within:
- * - club-scoped users: their home club, or the club chosen via the active-club
- *   cookie when they are a member of it (lets an Owner switch between clubs).
+ * - club users: the club chosen via the active-club cookie when they belong to
+ *   it, otherwise their default club (their first). Null when they belong to
+ *   none, so a club user never falls through to the super-admin scope below.
  * - super-admins: the club chosen via the active-club cookie, falling back to
  *   the first club alphabetically so every page has a concrete scope.
- * Returns null only when no club exists at all.
  */
 export async function resolveActiveClubId(user: {
   id: string
-  clubId?: string | null
+  role?: string | null
 }): Promise<string | null> {
   const selected = getCookie(ACTIVE_CLUB_COOKIE)
-  if (user.clubId) {
-    if (selected && selected !== user.clubId) {
-      if (await isClubMember(user.id, selected)) return selected
-    }
-    return user.clubId
+  if (user.role !== SUPER_ADMIN_ROLE) {
+    return chooseActiveClub(await listMemberClubIds(user.id), selected)
   }
   if (selected) {
     const rows = await db

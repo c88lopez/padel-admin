@@ -65,7 +65,7 @@ You can override seed credentials with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`
 
 ### Data Model
 
-Most app data is scoped to a club. Club-scoped users operate within their home club or any additional club memberships, while the `Super Admin` role can operate across clubs.
+Most app data is scoped to a club. Each club user belongs to one or more clubs and starts in the first one (their default club), switching to the others from the sidebar. The `Super Admin` role belongs to no club and can operate across all of them.
 
 Core tables include:
 

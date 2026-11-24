@@ -183,6 +183,64 @@ describe.skipIf(!TEST_URL)("database integration", () => {
     })
   })
 
+  describe("user clubs (club-members.server)", () => {
+    async function newClubUser(email: string, clubIds: string[]) {
+      const { setMemberships } = await import("@/lib/club-members.server")
+      const id = randomUUID()
+      await db.insert(user).values({
+        id,
+        name: "Club User",
+        email,
+        emailVerified: true,
+        role: "Manager",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      await setMemberships(id, clubIds)
+      return id
+    }
+
+    it("keeps the given order, so the first club is the default", async () => {
+      const { listMemberClubIds } = await import("@/lib/club-members.server")
+      const id = await newClubUser("order@test.dev", [CLUB_B_ID, CLUB_ID])
+      expect(await listMemberClubIds(id)).toEqual([CLUB_B_ID, CLUB_ID])
+    })
+
+    it("keeps existing clubs in place when the list is set again", async () => {
+      const { listMemberClubIds, setMemberships } =
+        await import("@/lib/club-members.server")
+      const id = await newClubUser("keep@test.dev", [CLUB_B_ID])
+      await setMemberships(id, [CLUB_ID, CLUB_B_ID])
+      expect(await listMemberClubIds(id)).toEqual([CLUB_B_ID, CLUB_ID])
+      await setMemberships(id, [CLUB_ID])
+      expect(await listMemberClubIds(id)).toEqual([CLUB_ID])
+    })
+
+    it("deleting a club deletes only the members left without a club", async () => {
+      const { createClubRecord, deleteClubRecord } =
+        await import("@/lib/clubs.server")
+      const { listMemberClubIds } = await import("@/lib/club-members.server")
+      const doomed = await createClubRecord({
+        name: "Doomed Club",
+        status: "active",
+      })
+      const onlyThere = await newClubUser("only@test.dev", [doomed.id])
+      const alsoElsewhere = await newClubUser("also@test.dev", [
+        doomed.id,
+        CLUB_ID,
+      ])
+
+      await deleteClubRecord(doomed.id)
+
+      const remaining = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.id, onlyThere))
+      expect(remaining).toHaveLength(0)
+      expect(await listMemberClubIds(alsoElsewhere)).toEqual([CLUB_ID])
+    })
+  })
+
   describe("reservation conflicts", () => {
     const day = "2026-01-15"
 
