@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { ensurePermission } from "@/lib/route-guards"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconDotsVertical, IconPlus } from "@tabler/icons-react"
@@ -34,7 +32,7 @@ import {
   updateClub,
 } from "@/lib/clubs.functions"
 import type { ClubRecord } from "@/lib/clubs.functions"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
 export const Route = createFileRoute("/_authenticated/settings/clubs")({
   beforeLoad: ({ context }) =>
@@ -44,7 +42,6 @@ export const Route = createFileRoute("/_authenticated/settings/clubs")({
 })
 
 function ClubActions({ club }: { club: ClubRecord }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -53,15 +50,13 @@ function ClubActions({ club }: { club: ClubRecord }) {
   async function handleDelete() {
     try {
       await deleteClub({ data: { id: club.id } })
-      toast.success(t("settings.clubs.deleted"), {
-        description: t("settings.clubs.deletedDescription", {
-          name: club.name,
-        }),
+      toast.success("Club eliminado", {
+        description: `${club.name} se ha eliminado.`,
       })
       router.invalidate()
     } catch (error) {
-      toast.error(t("settings.clubs.deleteError"), {
-        description: translateError(error, t, t("common.tryAgain")),
+      toast.error("No se pudo eliminar el club", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
     } finally {
       setConfirmOpen(false)
@@ -91,7 +86,7 @@ function ClubActions({ club }: { club: ClubRecord }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            {t("common.edit")}
+            Editar
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -99,7 +94,7 @@ function ClubActions({ club }: { club: ClubRecord }) {
             disabled={isDefault}
             onClick={() => setConfirmOpen(true)}
           >
-            {t("common.delete")}
+            Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -107,24 +102,19 @@ function ClubActions({ club }: { club: ClubRecord }) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.clubs.deleteTitle", { name: club.name })}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{`¿Eliminar ${club.name}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("settings.clubs.deleteConfirmLead")}{" "}
-              <strong>{t("settings.clubs.deleteConfirmEmphasis")}</strong>{" "}
-              {t("settings.clubs.deleteConfirmRest", {
-                count: club.memberCount,
-              })}
+              {"Esto elimina permanentemente el club y"} <strong>todos</strong>{" "}
+              {`sus datos: jugadores, reservas, inventario, ventas, entrenadores, clases y ${club.memberCount} cuenta(s) de miembro. Esto no se puede deshacer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={handleDelete}
             >
-              {t("common.delete")}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -133,36 +123,36 @@ function ClubActions({ club }: { club: ClubRecord }) {
   )
 }
 
-function buildColumns(t: TFunction): ColumnDef<ClubRecord>[] {
+function buildColumns(): ColumnDef<ClubRecord>[] {
   return [
     {
       accessorKey: "name",
-      header: t("settings.clubs.colName"),
+      header: "Nombre",
       cell: ({ row }) => (
         <span className="font-medium">{row.original.name}</span>
       ),
     },
     {
       accessorKey: "slug",
-      header: t("settings.clubs.colSlug"),
+      header: "Slug",
       cell: ({ row }) => (
         <span className="text-muted-foreground">{row.original.slug}</span>
       ),
     },
     {
       accessorKey: "memberCount",
-      header: t("settings.clubs.colMembers"),
+      header: "Miembros",
       cell: ({ row }) => row.original.memberCount,
     },
     {
       accessorKey: "status",
-      header: t("common.status"),
+      header: "Estado",
       cell: ({ row }) =>
         row.original.status === "active" ? (
-          <Badge variant="default">{t("options.active")}</Badge>
+          <Badge variant="default">Activo</Badge>
         ) : (
           <Badge variant="outline" className="text-muted-foreground">
-            {t("options.inactive")}
+            Inactivo
           </Badge>
         ),
     },
@@ -176,25 +166,25 @@ function buildColumns(t: TFunction): ColumnDef<ClubRecord>[] {
 }
 
 function ClubsSettingsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const { clubs } = Route.useLoaderData()
 
-  const columns = useMemo(() => buildColumns(t), [t])
+  const columns = useMemo(() => buildColumns(), [])
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-lg font-medium">{t("settings.clubs.title")}</h2>
+        <h2 className="text-lg font-medium">Clubes</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("settings.clubs.description")}
+          Crea clubes y revisa su membresía. Asigna usuarios a un club desde la
+          pestaña Usuarios.
         </p>
       </div>
 
       <DataTable
         columns={columns}
         data={clubs}
-        searchPlaceholder={t("settings.clubs.searchPlaceholder")}
+        searchPlaceholder="Buscar clubes..."
         exportFileName="clubs"
         action={
           <NewClubDrawer
@@ -205,7 +195,7 @@ function ClubsSettingsPage() {
             trigger={
               <Button size="sm">
                 <IconPlus className="size-4" />
-                {t("settings.clubs.newButton")}
+                {"Nuevo club"}
               </Button>
             }
           />

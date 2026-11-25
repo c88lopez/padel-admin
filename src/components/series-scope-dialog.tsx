@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,6 +11,12 @@ import {
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { SeriesScope } from "@/lib/classes.functions"
+
+const SCOPE_LABELS: Record<SeriesScope, string> = {
+  this: "Esta clase",
+  following: "Esta clase y las siguientes",
+  all: "Todas las clases",
+}
 
 interface Props {
   open: boolean
@@ -38,14 +43,13 @@ export function SeriesScopeDialog({
   allowThis = true,
   onConfirm,
 }: Props) {
-  const { t } = useTranslation()
   const [scope, setScope] = useState<SeriesScope>("this")
 
   useEffect(() => {
     if (open) setScope(allowThis ? "this" : "following")
   }, [open, allowThis])
 
-  const options = (["this", "following", "all"] as const).filter(
+  const options = (Object.keys(SCOPE_LABELS) as SeriesScope[]).filter(
     (s) => allowThis || s !== "this"
   )
 
@@ -71,11 +75,11 @@ export function SeriesScopeDialog({
                   htmlFor={`series-scope-${option}`}
                   className="font-normal"
                 >
-                  {t(`recurrence.scope.${option}`)}
+                  {SCOPE_LABELS[option]}
                 </Label>
                 {option === "all" && (
                   <p className="text-xs text-muted-foreground">
-                    {t("recurrence.scope.allHint")}
+                    Las clases que ya terminaron no cambian.
                   </p>
                 )}
               </div>
@@ -83,7 +87,7 @@ export function SeriesScopeDialog({
           ))}
         </RadioGroup>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             className={
               destructive

@@ -10,11 +10,9 @@ import {
   IconUsers,
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { useCan } from "@/hooks/use-permissions"
 import type { Permission } from "@/lib/permissions"
-import type { TranslationKey } from "@/lib/i18n"
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
@@ -22,57 +20,56 @@ export const Route = createFileRoute("/_authenticated/settings")({
 
 const navItems: {
   to: string
-  labelKey: TranslationKey
+  labelKey: string
   icon: Icon
   permission?: Permission
 }[] = [
   {
     to: "/settings/general",
-    labelKey: "settings.nav.general",
+    labelKey: "General",
     icon: IconBuildingStore,
     permission: "settings:manage",
   },
   {
     to: "/settings/activities",
-    labelKey: "settings.nav.activities",
+    labelKey: "Actividades",
     icon: IconLayoutGrid,
     permission: "settings:manage",
   },
   {
     to: "/settings/spaces",
-    labelKey: "settings.nav.spaces",
+    labelKey: "Espacios",
     icon: IconMapPin,
     permission: "settings:manage",
   },
   {
     to: "/settings/reservations",
-    labelKey: "settings.nav.reservations",
+    labelKey: "Reservas",
     icon: IconCalendarCog,
     permission: "settings:manage",
   },
   {
     to: "/settings/notifications",
-    labelKey: "settings.nav.notifications",
+    labelKey: "Notificaciones",
     icon: IconBell,
     permission: "settings:manage",
   },
   {
     to: "/settings/users",
-    labelKey: "settings.nav.users",
+    labelKey: "Usuarios",
     icon: IconUsers,
     permission: "users:manage",
   },
   {
     to: "/settings/clubs",
-    labelKey: "settings.nav.clubs",
+    labelKey: "Clubes",
     icon: IconBuildings,
     permission: "clubs:manage",
   },
-  { to: "/settings/ui", labelKey: "settings.nav.ui", icon: IconPalette },
+  { to: "/settings/ui", labelKey: "Interfaz", icon: IconPalette },
 ]
 
 function SettingsLayout() {
-  const { t } = useTranslation()
   const canSettings = useCan("settings:manage")
   const canUsers = useCan("users:manage")
   const canClubs = useCan("clubs:manage")
@@ -86,9 +83,9 @@ function SettingsLayout() {
   return (
     <div className="flex h-full flex-col gap-6">
       <div className="shrink-0">
-        <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
+        <h1 className="text-2xl font-semibold">Configuración</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("settings.description")}
+          Administra tu club, reservas, notificaciones, usuarios y apariencia.
         </p>
       </div>
 
@@ -106,7 +103,7 @@ function SettingsLayout() {
               }}
             >
               <item.icon className="size-4" />
-              {t(item.labelKey)}
+              {item.labelKey}
             </Link>
           ))}
         </nav>

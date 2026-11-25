@@ -1,18 +1,14 @@
-import type { TFunction } from "i18next"
-import type { TranslationKey } from "@/lib/i18n"
-
 // Stock categories are stored as the English value the item form saves
-// ("Drinks", …). Known ones are shown localized; anything else (e.g. from a
+// ("Drinks", …). Known ones are shown in Spanish; anything else (e.g. from a
 // CSV import) is shown as stored.
-const STOCK_CATEGORY_KEYS: Partial<Record<string, TranslationKey>> = {
-  Drinks: "options.drinks",
-  Equipment: "options.equipment",
-  Accessories: "options.accessories",
+const STOCK_CATEGORY_LABELS: Partial<Record<string, string>> = {
+  Drinks: "Bebidas",
+  Equipment: "Equipamiento",
+  Accessories: "Accesorios",
 }
 
-export function stockCategoryLabel(t: TFunction, category: string): string {
-  const key = STOCK_CATEGORY_KEYS[category]
-  return key ? t(key) : category
+export function stockCategoryLabel(category: string): string {
+  return STOCK_CATEGORY_LABELS[category] ?? category
 }
 
 export interface StockLevel {

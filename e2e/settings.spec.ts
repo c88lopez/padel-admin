@@ -22,7 +22,7 @@ function policySwitch(page: Page, label: string): Locator {
 async function findUserRow(page: Page, text: string): Promise<Locator> {
   await page.goto("/settings/users")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search users...").fill(text)
+  await page.getByPlaceholder("Buscar usuarios...").fill(text)
   return page.getByRole("row", { name: new RegExp(text) })
 }
 
@@ -33,19 +33,19 @@ test("general settings persist club profile and regional prefs", async ({
   await waitForHydration(page)
 
   // Phone is stored in per-club localStorage on change (no save button).
-  const phone = page.getByLabel("Phone")
+  const phone = page.getByLabel("Teléfono")
   await expect(phone).toBeVisible()
   const value = `+54 9 11 ${Date.now() % 100000000}`
   await phone.fill(value)
 
   // Time format is a toggle-button group; the active one gets border-primary.
-  await page.getByRole("button", { name: "12-hour" }).click()
+  await page.getByRole("button", { name: "12 horas" }).click()
 
   await page.reload()
   await waitForHydration(page)
 
-  await expect(page.getByLabel("Phone")).toHaveValue(value)
-  await expect(page.getByRole("button", { name: "12-hour" })).toHaveClass(
+  await expect(page.getByLabel("Teléfono")).toHaveValue(value)
+  await expect(page.getByRole("button", { name: "12 horas" })).toHaveClass(
     /border-primary/
   )
 })
@@ -73,7 +73,7 @@ test("password policy switches persist", async ({ page }) => {
   await page.goto("/settings/users")
   await waitForHydration(page)
 
-  const symbol = policySwitch(page, "Require a symbol")
+  const symbol = policySwitch(page, "Requerir un símbolo")
   await expect(symbol).toBeVisible()
   const before = await symbol.getAttribute("aria-checked")
   const after = before === "true" ? "false" : "true"
@@ -82,7 +82,7 @@ test("password policy switches persist", async ({ page }) => {
 
   await page.reload()
   await waitForHydration(page)
-  await expect(policySwitch(page, "Require a symbol")).toHaveAttribute(
+  await expect(policySwitch(page, "Requerir un símbolo")).toHaveAttribute(
     "aria-checked",
     after
   )
@@ -97,42 +97,42 @@ test("admin can create, edit, archive, and delete a user", async ({ page }) => {
   const email = `u${suffix}@e2e.test`.replace(/-/g, "")
 
   // Create
-  const dialog = await openDrawer(page, "New User")
-  await dialog.getByLabel("Full Name").fill(name)
-  await dialog.getByLabel("Email").fill(email)
-  await dialog.getByLabel("Temporary Password").fill("Sup3rSecret1")
+  const dialog = await openDrawer(page, "Nuevo usuario")
+  await dialog.getByLabel("Nombre completo").fill(name)
+  await dialog.getByLabel("Correo electrónico").fill(email)
+  await dialog.getByLabel("Contraseña temporal").fill("Sup3rSecret1")
   // Non-super-admin users must belong to a club; select the first if the field
   // is shown (depends on the actor's club access).
   const clubButtons = dialog.locator("button[aria-pressed]")
   if (await clubButtons.count()) await clubButtons.first().click()
-  await dialog.getByRole("button", { name: "Add User" }).click()
-  await expect(page.getByText("User created")).toBeVisible()
+  await dialog.getByRole("button", { name: "Agregar usuario" }).click()
+  await expect(page.getByText("Usuario creado")).toBeVisible()
 
   // Edit (search by email — stable across the name change)
   const updated = `${name} edited`
   let row = await findUserRow(page, email)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Edit" }).click()
+  await page.getByRole("menuitem", { name: "Editar" }).click()
   const editDialog = page.getByRole("dialog")
-  await editDialog.getByLabel("Full Name").fill(updated)
-  await editDialog.getByRole("button", { name: "Save Changes" }).click()
-  await expect(page.getByText("User updated")).toBeVisible()
+  await editDialog.getByLabel("Nombre completo").fill(updated)
+  await editDialog.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByText("Usuario actualizado")).toBeVisible()
 
   // Archive
   row = await findUserRow(page, email)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Archive" }).click()
-  await expect(page.getByText("User archived")).toBeVisible()
+  await page.getByRole("menuitem", { name: "Archivar" }).click()
+  await expect(page.getByText("Usuario archivado")).toBeVisible()
 
   // Delete
   row = await findUserRow(page, email)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Delete" }).click()
+  await page.getByRole("menuitem", { name: "Eliminar" }).click()
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" })
+    .getByRole("button", { name: "Eliminar" })
     .click()
-  await expect(page.getByText("User deleted")).toBeVisible()
+  await expect(page.getByText("Usuario eliminado")).toBeVisible()
 
   await findUserRow(page, email)
   await expect(

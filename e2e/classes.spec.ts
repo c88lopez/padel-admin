@@ -46,18 +46,18 @@ async function createClass(
   await waitForHydration(page)
 
   const court = workerCourt()
-  const dialog = await openDrawer(page, "New Class")
-  await selectFirstOption(page, dialog, "Coach")
-  await selectOption(page, dialog, "Court", court)
+  const dialog = await openDrawer(page, "Nueva clase")
+  await selectFirstOption(page, dialog, "Entrenador")
+  await selectOption(page, dialog, "Pista", court)
   await pickCalendarDay(page, dialog, slot.dateKey)
-  await dialog.getByLabel("Start Time").fill(startTime)
-  await selectOption(page, dialog, "Duration", "1 hour")
+  await dialog.getByLabel("Hora de inicio").fill(startTime)
+  await selectOption(page, dialog, "Duración", "1 hora")
   // Padel lessons have no capacity limit unless one is set.
-  const capacityField = dialog.getByLabel("Capacity")
+  const capacityField = dialog.getByLabel("Capacidad")
   await expect(capacityField).toHaveValue("")
   if (capacity) await capacityField.fill(capacity)
-  await dialog.getByRole("button", { name: "Schedule Class" }).click()
-  await expect(page.getByText("Class scheduled")).toBeVisible()
+  await dialog.getByRole("button", { name: "Programar clase" }).click()
+  await expect(page.getByText("Clase programada")).toBeVisible()
   return court
 }
 
@@ -72,7 +72,7 @@ async function findClassRow(
 ): Promise<Locator> {
   await page.goto("/coaches/classes")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search classes...").fill(slot.date)
+  await page.getByPlaceholder("Buscar clases...").fill(slot.date)
   return page
     .getByRole("row", { name: new RegExp(court) })
     .filter({ hasText: slot.date })
@@ -101,17 +101,17 @@ test("signs a customer up until the class is full", async ({ page }) => {
 
   const row = await findClassRow(page, court, slot, time)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Attendees" }).click()
+  await page.getByRole("menuitem", { name: "Inscriptos" }).click()
 
   const dialog = page.getByRole("dialog")
-  await expect(dialog.getByText("0 of 1 places taken")).toBeVisible()
-  await selectFirstOption(page, dialog, "Choose a customer")
-  await dialog.getByRole("button", { name: "Add", exact: true }).click()
-  await expect(page.getByText(/signed up$/)).toBeVisible()
-  await expect(dialog.getByText("1 of 1 places taken")).toBeVisible()
-  await expect(dialog.getByText("This class is full.")).toBeVisible()
+  await expect(dialog.getByText("0 de 1 plazas ocupadas")).toBeVisible()
+  await selectFirstOption(page, dialog, "Elige un cliente")
+  await dialog.getByRole("button", { name: "Agregar", exact: true }).click()
+  await expect(page.getByText(/inscripto$/)).toBeVisible()
+  await expect(dialog.getByText("1 de 1 plazas ocupadas")).toBeVisible()
+  await expect(dialog.getByText("Esta clase está completa.")).toBeVisible()
 
-  await dialog.getByRole("button", { name: "Close" }).click()
+  await dialog.getByRole("button", { name: "Cerrar" }).click()
   await expect(
     row.getByRole("cell", { name: "1 / 1", exact: true })
   ).toBeVisible()
@@ -124,13 +124,13 @@ test("edits a scheduled class", async ({ page }) => {
 
   const row = await findClassRow(page, court, slot, time)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Edit" }).click()
+  await page.getByRole("menuitem", { name: "Editar" }).click()
 
   const newTime = "12:00"
   const dialog = page.getByRole("dialog")
-  await dialog.getByLabel("Start Time").fill(newTime)
-  await dialog.getByRole("button", { name: "Save Changes" }).click()
-  await expect(page.getByText("Class updated")).toBeVisible()
+  await dialog.getByLabel("Hora de inicio").fill(newTime)
+  await dialog.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByText("Clase actualizada")).toBeVisible()
 
   await expect(
     (await findClassRow(page, court, slot, newTime)).first()
@@ -144,12 +144,12 @@ test("cancels a scheduled class", async ({ page }) => {
 
   const row = await findClassRow(page, court, slot, time)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Delete" }).click()
+  await page.getByRole("menuitem", { name: "Eliminar" }).click()
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" })
+    .getByRole("button", { name: "Eliminar" })
     .click()
-  await expect(page.getByText("Class deleted")).toBeVisible()
+  await expect(page.getByText("Clase eliminada")).toBeVisible()
 
   await expect(await findClassRow(page, court, slot, time)).toHaveCount(0)
 })
@@ -160,15 +160,15 @@ test("won't schedule two classes at once in a space", async ({ page }) => {
 
   await page.goto("/coaches/classes")
   await waitForHydration(page)
-  const dialog = await openDrawer(page, "New Class")
-  await selectFirstOption(page, dialog, "Coach")
-  await selectOption(page, dialog, "Court", court)
+  const dialog = await openDrawer(page, "Nueva clase")
+  await selectFirstOption(page, dialog, "Entrenador")
+  await selectOption(page, dialog, "Pista", court)
   await pickCalendarDay(page, dialog, slot.dateKey)
-  await dialog.getByLabel("Start Time").fill("10:30")
-  await selectOption(page, dialog, "Duration", "1 hour")
-  await dialog.getByRole("button", { name: "Schedule Class" }).click()
+  await dialog.getByLabel("Hora de inicio").fill("10:30")
+  await selectOption(page, dialog, "Duración", "1 hora")
+  await dialog.getByRole("button", { name: "Programar clase" }).click()
   await expect(
-    page.getByText("There's a class in that space 10:00–11:00.", {
+    page.getByText("Hay una clase en ese espacio 10:00–11:00.", {
       exact: false,
     })
   ).toBeVisible()

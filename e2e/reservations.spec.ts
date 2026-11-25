@@ -15,13 +15,13 @@ import {
 async function openNewReservation(page: Page): Promise<Locator> {
   await page.goto("/reservations")
   await waitForHydration(page)
-  const trigger = page.getByRole("button", { name: "New Reservation" })
+  const trigger = page.getByRole("button", { name: "Nueva reserva" })
   const dialog = page.getByRole("dialog")
   // The drawer trigger can briefly miss a click while the route settles after
   // hydration; retry until the drawer is actually open.
   await expect(async () => {
     await trigger.click()
-    await expect(dialog.getByLabel("Player")).toBeVisible({ timeout: 2000 })
+    await expect(dialog.getByLabel("Jugador")).toBeVisible({ timeout: 2000 })
   }).toPass({ timeout: 20_000 })
   await waitForDrawerSettled(page, dialog)
   return dialog
@@ -46,31 +46,31 @@ async function createReservation(
     opts.player ?? `E2E Rsv ${Date.now()}-${Math.floor(Math.random() * 1e4)}`
   const hour = opts.hour ?? String(9 + (bookingSeq++ % 13)).padStart(2, "0")
 
-  await dialog.getByLabel("Player").fill(player)
-  await selectOption(page, dialog, "Court", workerCourt())
+  await dialog.getByLabel("Jugador").fill(player)
+  await selectOption(page, dialog, "Pista", workerCourt())
   await pickOpenDate(page, dialog)
-  await dialog.getByLabel("Start Time").fill(`${hour}:00`)
-  await selectOption(page, dialog, "Duration", "1 hour")
-  await selectOption(page, dialog, "Payment", "Paid")
-  await dialog.getByRole("button", { name: "Create Reservation" }).click()
+  await dialog.getByLabel("Hora de inicio").fill(`${hour}:00`)
+  await selectOption(page, dialog, "Duración", "1 hora")
+  await selectOption(page, dialog, "Pago", "Pagado")
+  await dialog.getByRole("button", { name: "Crear reserva" }).click()
   return player
 }
 
 test("creates a reservation within opening hours", async ({ page }) => {
   await createReservation(page)
-  await expect(page.getByText("Reservation created")).toBeVisible()
+  await expect(page.getByText("Reserva creada")).toBeVisible()
 })
 
 test("rejects a booking outside opening hours", async ({ page }) => {
   // 06:00 is before the default 08:00 opening time → server should reject.
   await createReservation(page, { hour: "06" })
-  await expect(page.getByText(/outside opening hours/i)).toBeVisible()
+  await expect(page.getByText(/fuera del horario de apertura/i)).toBeVisible()
 })
 
 test("rejects a booking on a closed day", async ({ page }) => {
   const dialog = await openNewReservation(page)
-  await dialog.getByLabel("Player").fill(`E2E Closed ${Date.now()}`)
-  await selectOption(page, dialog, "Court", workerCourt())
+  await dialog.getByLabel("Jugador").fill(`E2E Closed ${Date.now()}`)
+  await selectOption(page, dialog, "Pista", workerCourt())
   // The next Sunday — closed by default.
   const sundayKey = await page.evaluate(() => {
     const d = new Date()
@@ -78,61 +78,61 @@ test("rejects a booking on a closed day", async ({ page }) => {
     return d.toLocaleDateString()
   })
   await pickCalendarDay(page, dialog, sundayKey)
-  await dialog.getByLabel("Start Time").fill("10:00")
-  await selectOption(page, dialog, "Duration", "1 hour")
-  await selectOption(page, dialog, "Payment", "Paid")
-  await dialog.getByRole("button", { name: "Create Reservation" }).click()
+  await dialog.getByLabel("Hora de inicio").fill("10:00")
+  await selectOption(page, dialog, "Duración", "1 hora")
+  await selectOption(page, dialog, "Pago", "Pagado")
+  await dialog.getByRole("button", { name: "Crear reserva" }).click()
 
-  await expect(page.getByText(/closed on that day/i)).toBeVisible()
+  await expect(page.getByText(/cerrado ese día/i)).toBeVisible()
 })
 
 test("rejects a booking too far in advance", async ({ page }) => {
   const dialog = await openNewReservation(page)
-  await dialog.getByLabel("Player").fill(`E2E Far ${Date.now()}`)
-  await selectOption(page, dialog, "Court", workerCourt())
+  await dialog.getByLabel("Jugador").fill(`E2E Far ${Date.now()}`)
+  await selectOption(page, dialog, "Pista", workerCourt())
   // 45 days ahead is beyond the default 30-day max-advance window.
   await pickCalendarDay(page, dialog, await dateKeyAhead(page, 45))
-  await dialog.getByLabel("Start Time").fill("10:00")
-  await selectOption(page, dialog, "Duration", "1 hour")
-  await selectOption(page, dialog, "Payment", "Paid")
-  await dialog.getByRole("button", { name: "Create Reservation" }).click()
+  await dialog.getByLabel("Hora de inicio").fill("10:00")
+  await selectOption(page, dialog, "Duración", "1 hora")
+  await selectOption(page, dialog, "Pago", "Pagado")
+  await dialog.getByRole("button", { name: "Crear reserva" }).click()
 
-  await expect(page.getByText(/more than 30 days ahead/i)).toBeVisible()
+  await expect(page.getByText(/más de 30 días de antelación/i)).toBeVisible()
 })
 
 test("enforces the per-player booking limit", async ({ page }) => {
   const player = `E2E Limit ${Date.now()}-${Math.floor(Math.random() * 1e4)}`
   // Default limit is 2 upcoming bookings per player.
   await createReservation(page, { player })
-  await expect(page.getByText("Reservation created")).toBeVisible()
+  await expect(page.getByText("Reserva creada")).toBeVisible()
   await createReservation(page, { player })
-  await expect(page.getByText("Reservation created")).toBeVisible()
+  await expect(page.getByText("Reserva creada")).toBeVisible()
 
   // The third booking for the same player must be rejected.
   await createReservation(page, { player })
-  await expect(page.getByText(/per-player limit/i)).toBeVisible()
+  await expect(page.getByText(/límite por jugador/i)).toBeVisible()
 })
 
 test("edits a reservation", async ({ page }) => {
   const player = await createReservation(page)
-  await expect(page.getByText("Reservation created")).toBeVisible()
+  await expect(page.getByText("Reserva creada")).toBeVisible()
 
-  await page.getByPlaceholder("Search reservations...").fill(player)
+  await page.getByPlaceholder("Buscar reservas...").fill(player)
   const row = page.getByRole("row", { name: new RegExp(player) })
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Edit" }).click()
+  await page.getByRole("menuitem", { name: "Editar" }).click()
 
   const dialog = page.getByRole("dialog")
   const updated = `${player} edited`
-  await dialog.getByLabel("Player").fill(updated)
-  await dialog.getByRole("button", { name: "Save Changes" }).click()
-  await expect(page.getByText("Reservation updated")).toBeVisible()
+  await dialog.getByLabel("Jugador").fill(updated)
+  await dialog.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByText("Reserva actualizada")).toBeVisible()
 
   // Verify on a fresh load: the edit drawer's auto-close can be cancelled by the
   // post-save reload, leaving the (modal) drawer open and the table aria-hidden.
   await page.goto("/reservations")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search reservations...").fill(updated)
+  await page.getByPlaceholder("Buscar reservas...").fill(updated)
   await expect(
     page.getByRole("cell", { name: updated, exact: true })
   ).toBeVisible()
@@ -140,16 +140,16 @@ test("edits a reservation", async ({ page }) => {
 
 test("cancels a reservation", async ({ page }) => {
   const player = await createReservation(page)
-  await expect(page.getByText("Reservation created")).toBeVisible()
+  await expect(page.getByText("Reserva creada")).toBeVisible()
 
-  await page.getByPlaceholder("Search reservations...").fill(player)
+  await page.getByPlaceholder("Buscar reservas...").fill(player)
   const row = page.getByRole("row", { name: new RegExp(player) })
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Delete" }).click()
+  await page.getByRole("menuitem", { name: "Eliminar" }).click()
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" })
+    .getByRole("button", { name: "Eliminar" })
     .click()
 
-  await expect(page.getByText("Reservation deleted")).toBeVisible()
+  await expect(page.getByText("Reserva eliminada")).toBeVisible()
 })

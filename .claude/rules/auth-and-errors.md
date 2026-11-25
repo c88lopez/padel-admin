@@ -11,5 +11,5 @@
 
 # Error handling
 
-- Server functions throw `AppError(code, params)` from `src/lib/errors.ts`. The `code` maps to an `errors.*` i18n key, is serialized across the server→client boundary, and is localized on the client with `translateError(err, t)`.
+- Server functions throw `AppError(code, message, params?)` from `src/lib/errors.ts`: a stable `code` for logic, the Spanish `message` to show, and optional `params` the client acts on. All three are serialized across the server→client boundary; show the message with `errorMessage(err, fallback?)` and read code/params with `appErrorPayload`.
 - REST API routes keep their own English JSON contract via `ApiError` — do not mix the two models.

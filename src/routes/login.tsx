@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
 import { ProgressButton } from "@/components/progress-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,7 +21,6 @@ import {
 export const Route = createFileRoute("/login")({ component: LoginPage })
 
 function LoginPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -45,7 +43,14 @@ function LoginPage() {
     const result = await authClient.signIn.email({ email, password })
     setLoading(false)
     if (result.error) {
-      setError(result.error.message ?? t("auth.invalidCredentials"))
+      // Better Auth's own messages are in English; ours (e.g. archived
+      // accounts) are already in Spanish.
+      setError(
+        result.error.code === "INVALID_EMAIL_OR_PASSWORD" ||
+          !result.error.message
+          ? "Correo o contraseña no válidos."
+          : result.error.message
+      )
       return
     }
     await router.navigate({ to: "/" })
@@ -55,13 +60,13 @@ function LoginPage() {
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">{t("auth.welcomeBack")}</CardTitle>
-          <CardDescription>{t("auth.signInToAccount")}</CardDescription>
+          <CardTitle className="text-xl">Bienvenido de nuevo</CardTitle>
+          <CardDescription>Inicia sesión en tu cuenta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">{t("auth.email")}</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -72,7 +77,7 @@ function LoginPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">{t("auth.password")}</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -84,7 +89,7 @@ function LoginPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <ProgressButton type="submit" className="w-full" loading={loading}>
-              {t("auth.signIn")}
+              Iniciar sesión
             </ProgressButton>
           </form>
         </CardContent>

@@ -1,4 +1,3 @@
-import type { TFunction } from "i18next"
 import { z } from "zod"
 import { parseISO } from "date-fns"
 import type { ActivityRecord } from "@/lib/activities.functions"
@@ -15,15 +14,20 @@ export function isCapacity(value: string): boolean {
   return Number.isInteger(n) && n >= 1 && n <= 500
 }
 
-export function makeClassSchema(t: TFunction) {
+export function makeClassSchema() {
   return z.object({
-    activityId: z.string().min(1, t("validation.activityRequired")),
-    coachId: z.string().min(1, t("validation.coachRequired")),
-    spaceId: z.string().min(1, t("validation.spaceRequired")),
-    date: z.date({ error: t("validation.dateRequired") }),
-    time: z.string().min(1, t("validation.timeRequired")),
-    duration: z.string().min(1, t("validation.durationRequired")),
-    capacity: z.string().refine(isCapacity, t("validation.capacityRange")),
+    activityId: z.string().min(1, "La actividad es obligatoria"),
+    coachId: z.string().min(1, "El entrenador es obligatorio"),
+    spaceId: z.string().min(1, "El espacio es obligatorio"),
+    date: z.date({ error: "La fecha es obligatoria" }),
+    time: z.string().min(1, "La hora es obligatoria"),
+    duration: z.string().min(1, "La duración es obligatoria"),
+    capacity: z
+      .string()
+      .refine(
+        isCapacity,
+        "Ingresa un número del 1 al 500, o déjalo vacío para no poner límite"
+      ),
   })
 }
 

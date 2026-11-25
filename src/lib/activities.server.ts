@@ -98,7 +98,8 @@ export async function requireActiveActivity(
   const found = (await listActivityRecords(clubId)).find(
     (a) => a.id === activityId && a.active
   )
-  if (!found) throw new AppError("errors.activity.notFound")
+  if (!found)
+    throw new AppError("errors.activity.notFound", "Actividad no encontrada.")
   return found
 }
 
@@ -126,7 +127,8 @@ export async function renameActivityRecord(
     .returning()
   const updated = rows.at(0)
   const record = updated ? toRecord(updated) : null
-  if (!record) throw new AppError("errors.activity.notFound")
+  if (!record)
+    throw new AppError("errors.activity.notFound", "Actividad no encontrada.")
   return record
 }
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import i18n from "@/lib/i18n"
 import {
   addDays,
   addMonths,
@@ -32,9 +31,6 @@ function rule(overrides: Partial<RecurrenceRule>): RecurrenceRule {
     ...overrides,
   }
 }
-
-const en = i18n.getFixedT("en")
-const es = i18n.getFixedT("es")
 
 describe("date helpers", () => {
   it("gives the ISO weekday", () => {
@@ -251,21 +247,19 @@ describe("monthlyOptions", () => {
 
 describe("presetRules", () => {
   it("builds Calendar's presets from the date", () => {
-    expect(
-      presetRules("2026-03-17").map((preset) => presetLabel(preset, en))
-    ).toEqual([
-      "Does not repeat",
-      "Daily",
-      "Weekly on Tuesday",
-      "Monthly on the third Tuesday",
-      "Annually on 17 March",
-      "Every weekday (Monday to Friday)",
+    expect(presetRules("2026-03-17").map(presetLabel)).toEqual([
+      "No se repite",
+      "Todos los días",
+      "Semanalmente el martes",
+      "Mensualmente el tercer martes",
+      "Anualmente el 17 de marzo",
+      "Todos los días hábiles (de lunes a viernes)",
     ])
   })
 
   it("uses the last weekday for a fifth one", () => {
-    expect(presetLabel(presetRules("2026-03-31")[3], en)).toBe(
-      "Monthly on the last Tuesday"
+    expect(presetLabel(presetRules("2026-03-31")[3])).toBe(
+      "Mensualmente el último martes"
     )
   })
 
@@ -278,22 +272,27 @@ describe("presetRules", () => {
 })
 
 describe("describeRule", () => {
-  it("describes every frequency and interval in English", () => {
-    expect(describeRule(rule({ frequency: "daily", interval: 2 }), en)).toBe(
-      "Every 2 days"
+  it("describes every frequency and interval", () => {
+    expect(describeRule(rule({ frequency: "daily", interval: 2 }))).toBe(
+      "Cada 2 días"
     )
     expect(
-      describeRule(rule({ interval: 2, weekdays: [3, 1], count: 10 }), en)
-    ).toBe("Every 2 weeks on Mon, Wed, 10 times")
-    expect(describeRule(rule({ weekdays: [1, 2, 3, 4, 5] }), en)).toBe(
-      "Every weekday"
+      describeRule(rule({ interval: 2, weekdays: [3, 1], count: 10 }))
+    ).toBe("Cada 2 semanas el lun., mié., 10 veces")
+    expect(describeRule(rule({ weekdays: [1, 2, 3, 4, 5] }))).toBe(
+      "Todos los días hábiles"
     )
+    expect(describeRule(rule({}))).toBe("Semanalmente el martes")
     expect(
       describeRule(
-        rule({ frequency: "monthly", startDate: "2026-03-18", count: 1 }),
-        en
+        rule({ frequency: "monthly", startDate: "2026-03-18", count: 1 })
       )
-    ).toBe("Monthly on day 18, once")
+    ).toBe("Mensualmente el día 18, 1 vez")
+    expect(
+      describeRule(
+        rule({ frequency: "monthly", monthlyBy: "weekday_of_month" })
+      )
+    ).toBe("Mensualmente el tercer martes")
     expect(
       describeRule(
         rule({
@@ -302,28 +301,14 @@ describe("describeRule", () => {
           interval: 3,
           startDate: "2026-03-27",
           until: "2027-06-30",
-        }),
-        en
+        })
       )
-    ).toBe("Every 3 months on the last Friday, until 30 June 2027")
-    expect(describeRule(rule({ frequency: "yearly", interval: 2 }), en)).toBe(
-      "Every 2 years on 17 March"
+    ).toBe("Cada 3 meses el último viernes, hasta el 30 de junio de 2027")
+    expect(describeRule(rule({ frequency: "yearly", interval: 2 }))).toBe(
+      "Cada 2 años el 17 de marzo"
     )
-  })
-
-  it("describes rules in Spanish", () => {
     expect(
-      describeRule(rule({ interval: 2, weekdays: [1, 3], count: 10 }), es)
-    ).toBe("Cada 2 semanas el lun., mié., 10 veces")
-    expect(describeRule(rule({}), es)).toBe("Semanalmente el martes")
-    expect(
-      describeRule(
-        rule({ frequency: "monthly", monthlyBy: "weekday_of_month" }),
-        es
-      )
-    ).toBe("Mensualmente el tercer martes")
-    expect(
-      describeRule(rule({ frequency: "yearly", until: "2030-06-30" }), es)
+      describeRule(rule({ frequency: "yearly", until: "2030-06-30" }))
     ).toBe("Anualmente el 17 de marzo, hasta el 30 de junio de 2030")
   })
 })
@@ -332,19 +317,15 @@ describe("monthlyOptionLabel", () => {
   it("labels each monthly option for the date", () => {
     expect(
       monthlyOptions("2026-03-25").map((by) =>
-        monthlyOptionLabel(by, "2026-03-25", en)
+        monthlyOptionLabel(by, "2026-03-25")
       )
-    ).toEqual(["on day 25", "on the fourth Wednesday", "on the last Wednesday"])
-    expect(monthlyOptionLabel("weekday_of_month", "2026-03-25", es)).toBe(
-      "el cuarto miércoles"
-    )
+    ).toEqual(["el día 25", "el cuarto miércoles", "el último miércoles"])
   })
 })
 
 describe("fullDateLabel", () => {
-  it("writes the date out in the language", () => {
-    expect(fullDateLabel("2027-06-30", en)).toBe("30 June 2027")
-    expect(fullDateLabel("2027-06-30", es)).toBe("30 de junio de 2027")
+  it("writes the date out in Spanish", () => {
+    expect(fullDateLabel("2027-06-30")).toBe("30 de junio de 2027")
   })
 })
 

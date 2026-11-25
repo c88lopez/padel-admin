@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { IconMinus, IconZoomIn } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
-import { spaceNounKey, spaceShortName } from "@/lib/activities/spaces"
+import { spaceNoun, spaceShortName } from "@/lib/activities/spaces"
 import { cn } from "@/lib/utils"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { todayHours } from "@/lib/reservation-settings"
@@ -48,7 +47,6 @@ export function SpaceTimeline({
   hoveredId: string | null
   onHover: (id: string | null) => void
 }) {
-  const { t, i18n } = useTranslation()
   const { general } = useAppSettings()
   const dayHours = todayHours(settings)
   const fallback = dayHours.closed
@@ -106,8 +104,7 @@ export function SpaceTimeline({
     })
   }, [pxPerHour, startHour, endHour])
 
-  const dateLocale = i18n.language === "es" ? "es-ES" : "en-GB"
-  const rawTodayLabel = now.toLocaleDateString(dateLocale, {
+  const rawTodayLabel = now.toLocaleDateString("es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -123,7 +120,7 @@ export function SpaceTimeline({
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {todayLabel}
-          {fallback && ` · ${t("pages.reservations.closedToday")}`}
+          {fallback && ` · ${"Cerrado hoy"}`}
         </p>
         <div className="flex items-center gap-1">
           <Button
@@ -154,7 +151,7 @@ export function SpaceTimeline({
           {/* Hour header */}
           <div className="flex border-b">
             <div className="sticky left-0 z-30 flex w-16 shrink-0 items-center border-r bg-background px-3 text-xs font-bold">
-              {t(spaceNounKey(spaces))}
+              {spaceNoun(spaces)}
             </div>
             <div className="relative h-8 flex-1 overflow-visible">
               {hours.map((h) => (

@@ -105,10 +105,10 @@ export async function assertBookingAllowed(
     .from(reservation)
     .where(and(...filters))
   if (upcoming >= settings.maxConcurrentPerPlayer) {
-    throw new AppError("errors.booking.concurrency", {
-      player: booking.player,
-      max: settings.maxConcurrentPerPlayer,
-    })
+    throw new AppError(
+      "errors.booking.concurrency",
+      `${booking.player} ya tiene ${settings.maxConcurrentPerPlayer} reserva(s) próxima(s): el límite por jugador.`
+    )
   }
 }
 

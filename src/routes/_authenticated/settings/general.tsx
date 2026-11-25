@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { toast } from "sonner"
 import { ensurePermission } from "@/lib/route-guards"
 import { Button } from "@/components/ui/button"
@@ -29,7 +27,7 @@ import {
 } from "@/lib/app-settings"
 import type { GeneralSettings, TimeFormat, WeekStart } from "@/lib/app-settings"
 import { getClubContext, renameActiveClub } from "@/lib/clubs.functions"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
 export const Route = createFileRoute("/_authenticated/settings/general")({
   beforeLoad: ({ context }) =>
@@ -41,24 +39,21 @@ export const Route = createFileRoute("/_authenticated/settings/general")({
   component: GeneralSettingsPage,
 })
 
-function buildTimeFormats(
-  t: TFunction
-): { value: TimeFormat; label: string }[] {
+function buildTimeFormats(): { value: TimeFormat; label: string }[] {
   return [
-    { value: "24h", label: t("settings.general.timeFormat24") },
-    { value: "12h", label: t("settings.general.timeFormat12") },
+    { value: "24h", label: "24 horas" },
+    { value: "12h", label: "12 horas" },
   ]
 }
 
-function buildWeekStarts(t: TFunction): { value: WeekStart; label: string }[] {
+function buildWeekStarts(): { value: WeekStart; label: string }[] {
   return [
-    { value: "monday", label: t("settings.general.weekStartMonday") },
-    { value: "sunday", label: t("settings.general.weekStartSunday") },
+    { value: "monday", label: "Lunes" },
+    { value: "sunday", label: "Domingo" },
   ]
 }
 
 function GeneralSettingsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const { clubName: savedClubName } = Route.useLoaderData()
   const settings = useAppSettings()
@@ -66,8 +61,8 @@ function GeneralSettingsPage() {
   // skeleton so the inputs don't flash from empty defaults to real values.
   const ready = useAppSettingsHydrated()
   const { general } = settings
-  const timeFormats = useMemo(() => buildTimeFormats(t), [t])
-  const weekStarts = useMemo(() => buildWeekStarts(t), [t])
+  const timeFormats = useMemo(() => buildTimeFormats(), [])
+  const weekStarts = useMemo(() => buildWeekStarts(), [])
 
   // Club name is stored in the database (shared across users/devices and shown
   // in the sidebar), not in the per-club client settings blob.
@@ -82,10 +77,10 @@ function GeneralSettingsPage() {
     try {
       await renameActiveClub({ data: { name: trimmed } })
       await router.invalidate()
-      toast.success(t("settings.general.clubNameSaved"))
+      toast.success("Nombre del club actualizado")
     } catch (error) {
-      toast.error(t("settings.general.clubNameError"), {
-        description: translateError(error, t, t("common.tryAgain")),
+      toast.error("No se pudo actualizar el nombre del club", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
       setClubName(savedClubName)
     }
@@ -97,31 +92,33 @@ function GeneralSettingsPage() {
 
   function reset() {
     setAppSettings({ ...settings, general: DEFAULT_APP_SETTINGS.general })
-    toast.success(t("settings.general.resetToast"))
+    toast.success(
+      "Configuración general restablecida a los valores predeterminados"
+    )
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">{t("settings.general.title")}</h2>
+          <h2 className="text-lg font-medium">General</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("settings.general.description")}
+            El perfil de tu club y las preferencias regionales.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={reset}>
-          {t("common.resetToDefaults")}
+          Restablecer valores predeterminados
         </Button>
       </div>
 
       <SettingsSectionList>
         <SettingsSection
-          title={t("settings.general.clubProfile.title")}
-          description={t("settings.general.clubProfile.description")}
+          title="Perfil del club"
+          description="Se muestra en toda la app, incluida la barra lateral."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor="clubName">{t("settings.general.clubName")}</Label>
+              <Label htmlFor="clubName">Nombre del club</Label>
               {ready ? (
                 <Input
                   id="clubName"
@@ -135,11 +132,11 @@ function GeneralSettingsPage() {
               )}
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label htmlFor="address">{t("settings.general.address")}</Label>
+              <Label htmlFor="address">Dirección</Label>
               {ready ? (
                 <Input
                   id="address"
-                  placeholder={t("settings.general.addressPlaceholder")}
+                  placeholder="Calle, ciudad, país"
                   value={general.address}
                   onChange={(e) => update({ address: e.target.value })}
                 />
@@ -148,7 +145,7 @@ function GeneralSettingsPage() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="phone">{t("fields.phone")}</Label>
+              <Label htmlFor="phone">Teléfono</Label>
               {ready ? (
                 <Input
                   id="phone"
@@ -161,7 +158,7 @@ function GeneralSettingsPage() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">{t("fields.email")}</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               {ready ? (
                 <Input
                   id="email"
@@ -178,12 +175,12 @@ function GeneralSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.general.regional.title")}
-          description={t("settings.general.regional.description")}
+          title="Regional"
+          description="Controla el formato de fechas y horas en toda la app."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label>{t("settings.general.timezone")}</Label>
+              <Label>Zona horaria</Label>
               {ready ? (
                 <Select
                   value={general.timezone}
@@ -205,7 +202,7 @@ function GeneralSettingsPage() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Label>{t("settings.general.timeFormat")}</Label>
+              <Label>Formato de hora</Label>
               {ready ? (
                 <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
                   {timeFormats.map((opt) => (
@@ -238,7 +235,7 @@ function GeneralSettingsPage() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Label>{t("settings.general.weekStart")}</Label>
+              <Label>La semana empieza en</Label>
               {ready ? (
                 <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
                   {weekStarts.map((opt) => (

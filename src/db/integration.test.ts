@@ -1478,7 +1478,7 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         )
       ).rejects.toMatchObject({
         code: "errors.class.capacityBelowAttendees",
-        params: { count: 2 },
+        userMessage: expect.stringContaining("Ya hay 2 clientes inscriptos"),
       })
       const unchanged = await seriesClasses(fixture.series.id)
       expect(unchanged.every((c) => c.startTime === "10:00")).toBe(true)

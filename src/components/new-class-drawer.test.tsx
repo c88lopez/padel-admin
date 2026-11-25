@@ -138,27 +138,29 @@ describe("NewClassDrawer", () => {
 
   it("hides the activity picker when only one activity runs classes", () => {
     renderDrawer([padel])
-    expect(screen.queryByText("Activity")).not.toBeInTheDocument()
+    expect(screen.queryByText("Actividad")).not.toBeInTheDocument()
     // Padel lessons have no default capacity.
-    expect(screen.getByLabelText("Capacity")).toHaveValue(null)
+    expect(screen.getByLabelText("Capacidad")).toHaveValue(null)
   })
 
   it("asks for the activity when several run classes", async () => {
     const user = userEvent.setup()
     renderDrawer([padel, pilates])
-    expect(screen.getByText("Activity")).toBeInTheDocument()
+    expect(screen.getByText("Actividad")).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Schedule Class" }))
-    expect(await screen.findByText("Activity is required")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Programar clase" }))
+    expect(
+      await screen.findByText("La actividad es obligatoria")
+    ).toBeInTheDocument()
     expect(createClass).not.toHaveBeenCalled()
   })
 
   it("saves an edited class with its capacity", async () => {
     const user = userEvent.setup()
     renderDrawer([padel, pilates], pilatesClass)
-    expect(screen.getByLabelText("Capacity")).toHaveValue(8)
+    expect(screen.getByLabelText("Capacidad")).toHaveValue(8)
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
     await waitFor(() =>
       expect(updateClass).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -174,9 +176,9 @@ describe("NewClassDrawer", () => {
   it("sends no limit when the capacity is cleared", async () => {
     const user = userEvent.setup()
     renderDrawer([padel, pilates], pilatesClass)
-    await user.clear(screen.getByLabelText("Capacity"))
+    await user.clear(screen.getByLabelText("Capacidad"))
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
     await waitFor(() =>
       expect(updateClass).toHaveBeenCalledWith({
         data: expect.objectContaining({ capacity: null }),
@@ -187,14 +189,14 @@ describe("NewClassDrawer", () => {
   it("rejects a capacity outside 1–500", async () => {
     const user = userEvent.setup()
     renderDrawer([padel, pilates], pilatesClass)
-    const capacity = screen.getByLabelText("Capacity")
+    const capacity = screen.getByLabelText("Capacidad")
     await user.clear(capacity)
     await user.type(capacity, "0")
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
     expect(
       await screen.findByText(
-        "Enter a number from 1 to 500, or leave it empty for no limit"
+        "Ingresa un número del 1 al 500, o déjalo vacío para no poner límite"
       )
     ).toBeInTheDocument()
     expect(updateClass).not.toHaveBeenCalled()
@@ -219,52 +221,52 @@ describe("NewClassDrawer repeat", () => {
   // A pilates class on Monday 2 March 2026 at 10:00 for 50 minutes.
   async function fillClass(u: ReturnType<typeof user>) {
     renderDrawer([pilates])
-    await u.click(screen.getByRole("combobox", { name: "Coach" }))
+    await u.click(screen.getByRole("combobox", { name: "Entrenador" }))
     await u.click(await screen.findByRole("option", { name: "Coach K" }))
-    await u.click(screen.getByRole("combobox", { name: "Studio" }))
-    await u.click(await screen.findByRole("option", { name: "Studio 1" }))
-    await u.click(screen.getByRole("button", { name: "Date" }))
+    await u.click(screen.getByRole("combobox", { name: "Sala" }))
+    await u.click(await screen.findByRole("option", { name: "Sala 1" }))
+    await u.click(screen.getByRole("button", { name: "Fecha" }))
     await u.click(
       document.querySelector<HTMLElement>(
         '[data-day="3/2/2026"]'
       ) as HTMLElement
     )
-    await u.type(screen.getByLabelText("Start Time"), "10:00")
-    await u.click(screen.getByRole("combobox", { name: "Duration" }))
+    await u.type(screen.getByLabelText("Hora de inicio"), "10:00")
+    await u.click(screen.getByRole("combobox", { name: "Duración" }))
     await u.click(await screen.findByRole("option", { name: "50 min" }))
   }
 
   async function chooseRepeat(u: ReturnType<typeof user>, name: string) {
-    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
+    await u.click(screen.getByRole("combobox", { name: "Repetir" }))
     await u.click(await screen.findByRole("option", { name }))
   }
 
   it("needs a date before it can repeat", () => {
     renderDrawer([pilates])
-    expect(screen.getByRole("combobox", { name: "Repeat" })).toBeDisabled()
+    expect(screen.getByRole("combobox", { name: "Repetir" })).toBeDisabled()
   })
 
   it("offers Calendar's presets for the date", async () => {
     const u = user()
     await fillClass(u)
-    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
+    await u.click(screen.getByRole("combobox", { name: "Repetir" }))
     expect(
       (await screen.findAllByRole("option")).map((o) => o.textContent)
     ).toEqual([
-      "Does not repeat",
-      "Daily",
-      "Weekly on Monday",
-      "Monthly on the first Monday",
-      "Annually on 2 March",
-      "Every weekday (Monday to Friday)",
-      "Custom…",
+      "No se repite",
+      "Todos los días",
+      "Semanalmente el lunes",
+      "Mensualmente el primer lunes",
+      "Anualmente el 2 de marzo",
+      "Todos los días hábiles (de lunes a viernes)",
+      "Personalizar…",
     ])
   })
 
   it("schedules a single class when it doesn't repeat", async () => {
     const u = user()
     await fillClass(u)
-    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+    await u.click(screen.getByRole("button", { name: "Programar clase" }))
     await waitFor(() =>
       expect(createClass).toHaveBeenCalledWith({
         data: expect.objectContaining({ date: "2026-03-02" }),
@@ -276,11 +278,11 @@ describe("NewClassDrawer repeat", () => {
   it("creates a weekly series", async () => {
     const u = user()
     await fillClass(u)
-    await chooseRepeat(u, "Weekly on Monday")
-    expect(screen.getByText("Starts")).toBeInTheDocument()
-    expect(screen.getByText("First 12 months: 53 classes")).toBeInTheDocument()
+    await chooseRepeat(u, "Semanalmente el lunes")
+    expect(screen.getByText("Empieza")).toBeInTheDocument()
+    expect(screen.getByText("Primeros 12 meses: 53 clases")).toBeInTheDocument()
 
-    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+    await u.click(screen.getByRole("button", { name: "Programar clase" }))
     await waitFor(() =>
       expect(createClassSeries).toHaveBeenCalledWith({
         data: {
@@ -305,32 +307,32 @@ describe("NewClassDrawer repeat", () => {
   it("builds a custom rule", async () => {
     const u = user()
     await fillClass(u)
-    await chooseRepeat(u, "Custom…")
+    await chooseRepeat(u, "Personalizar…")
     const dialog = await screen.findByRole("dialog", {
-      name: "Custom recurrence",
+      name: "Repetición personalizada",
     })
-    const interval = within(dialog).getByLabelText("Repeat every")
+    const interval = within(dialog).getByLabelText("Repetir cada")
     await u.clear(interval)
     await u.type(interval, "2")
-    await u.click(within(dialog).getByRole("button", { name: "Wednesday" }))
-    await u.click(within(dialog).getByRole("radio", { name: "After" }))
-    const count = within(dialog).getByRole("spinbutton", { name: "After" })
+    await u.click(within(dialog).getByRole("button", { name: "miércoles" }))
+    await u.click(within(dialog).getByRole("radio", { name: "Después de" }))
+    const count = within(dialog).getByRole("spinbutton", { name: "Después de" })
     await u.clear(count)
     await u.type(count, "4")
-    await u.click(within(dialog).getByRole("button", { name: "Done" }))
+    await u.click(within(dialog).getByRole("button", { name: "Listo" }))
 
-    expect(screen.getByText("4 classes will be created")).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
-      "Every 2 weeks on Mon, Wed, 4 times"
+    expect(screen.getByText("Se crearán 4 clases")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Repetir" })).toHaveTextContent(
+      "Cada 2 semanas el lun., mié., 4 veces"
     )
   })
 
   it("keeps at least one weekday on", async () => {
     const u = user()
     await fillClass(u)
-    await chooseRepeat(u, "Custom…")
+    await chooseRepeat(u, "Personalizar…")
     const dialog = await screen.findByRole("dialog")
-    const monday = within(dialog).getByRole("button", { name: "Monday" })
+    const monday = within(dialog).getByRole("button", { name: "lunes" })
     expect(monday).toHaveAttribute("aria-pressed", "true")
     await u.click(monday)
     expect(monday).toHaveAttribute("aria-pressed", "true")
@@ -340,24 +342,24 @@ describe("NewClassDrawer repeat", () => {
     vi.mocked(createClassSeries).mockRejectedValueOnce(
       // As it arrives from the server: only the message survives.
       new Error(
-        new AppError("errors.class.seriesConflicts", {
-          dates: "2026-03-09, 2026-03-16",
-          count: -1,
-          all: "2026-03-09,2026-03-16",
-        }).message
+        new AppError(
+          "errors.class.seriesConflicts",
+          "El espacio está ocupado a esa hora el 2026-03-09, 2026-03-16.",
+          { dates: "2026-03-09, 2026-03-16", all: "2026-03-09,2026-03-16" }
+        ).message
       )
     )
     const u = user()
     await fillClass(u)
-    await chooseRepeat(u, "Weekly on Monday")
-    await u.click(screen.getByRole("button", { name: "Schedule Class" }))
+    await chooseRepeat(u, "Semanalmente el lunes")
+    await u.click(screen.getByRole("button", { name: "Programar clase" }))
 
     const alert = await screen.findByRole("alert")
-    expect(within(alert).getByText("9 March 2026")).toBeInTheDocument()
-    expect(within(alert).getByText("16 March 2026")).toBeInTheDocument()
+    expect(within(alert).getByText("9 de marzo de 2026")).toBeInTheDocument()
+    expect(within(alert).getByText("16 de marzo de 2026")).toBeInTheDocument()
 
     await u.click(
-      within(alert).getByRole("button", { name: "Skip these dates" })
+      within(alert).getByRole("button", { name: "Omitir estas fechas" })
     )
     await waitFor(() =>
       expect(createClassSeries).toHaveBeenLastCalledWith({
@@ -403,25 +405,25 @@ describe("NewClassDrawer editing a series' class", () => {
     u: ReturnType<typeof userEvent.setup>,
     scope: string
   ) {
-    await u.click(screen.getByRole("button", { name: "Save Changes" }))
+    await u.click(screen.getByRole("button", { name: "Guardar cambios" }))
     const dialog = await screen.findByRole("alertdialog", {
-      name: "Edit repeating class",
+      name: "Editar clase recurrente",
     })
     await u.click(within(dialog).getByRole("radio", { name: scope }))
-    await u.click(within(dialog).getByRole("button", { name: "OK" }))
+    await u.click(within(dialog).getByRole("button", { name: "Aceptar" }))
   }
 
   it("shows the series' repeat", () => {
     renderDrawer([pilates], seriesClass)
-    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
-      "Weekly on Monday, 6 times"
+    expect(screen.getByRole("combobox", { name: "Repetir" })).toHaveTextContent(
+      "Semanalmente el lunes, 6 veces"
     )
   })
 
   it("saves only this class", async () => {
     const u = userEvent.setup()
     renderDrawer([pilates], seriesClass)
-    await saveWithScope(u, "This class")
+    await saveWithScope(u, "Esta clase")
     await waitFor(() =>
       expect(updateClass).toHaveBeenCalledWith({
         data: expect.objectContaining({ id: "class-1", date: "2026-03-09" }),
@@ -433,7 +435,7 @@ describe("NewClassDrawer editing a series' class", () => {
   it("saves this and following classes with the rule", async () => {
     const u = userEvent.setup()
     renderDrawer([pilates], seriesClass)
-    await saveWithScope(u, "This and following classes")
+    await saveWithScope(u, "Esta clase y las siguientes")
     await waitFor(() =>
       expect(updateClassSeries).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -451,17 +453,17 @@ describe("NewClassDrawer editing a series' class", () => {
   it("doesn't offer this class alone for a new repeat", async () => {
     const u = userEvent.setup()
     renderDrawer([pilates], seriesClass)
-    await u.click(screen.getByRole("combobox", { name: "Repeat" }))
-    await u.click(await screen.findByRole("option", { name: "Daily" }))
-    await u.click(screen.getByRole("button", { name: "Save Changes" }))
+    await u.click(screen.getByRole("combobox", { name: "Repetir" }))
+    await u.click(await screen.findByRole("option", { name: "Todos los días" }))
+    await u.click(screen.getByRole("button", { name: "Guardar cambios" }))
     const dialog = await screen.findByRole("alertdialog", {
-      name: "Edit repeating class",
+      name: "Editar clase recurrente",
     })
     expect(
-      within(dialog).queryByRole("radio", { name: "This class" })
+      within(dialog).queryByRole("radio", { name: "Esta clase" })
     ).not.toBeInTheDocument()
     expect(
-      within(dialog).getByRole("radio", { name: "This and following classes" })
+      within(dialog).getByRole("radio", { name: "Esta clase y las siguientes" })
     ).toBeChecked()
   })
 
@@ -473,12 +475,12 @@ describe("NewClassDrawer editing a series' class", () => {
     })
     const u = userEvent.setup()
     renderDrawer([pilates], seriesClass)
-    await saveWithScope(u, "All classes")
+    await saveWithScope(u, "Todas las clases")
 
     const confirm = await screen.findByRole("alertdialog")
-    expect(confirm).toHaveTextContent("2 classes and 3 sign-ups")
+    expect(confirm).toHaveTextContent("2 clases y 3 inscripciones")
     await u.click(
-      within(confirm).getByRole("button", { name: "Remove and save" })
+      within(confirm).getByRole("button", { name: "Eliminar y guardar" })
     )
     await waitFor(() =>
       expect(updateClassSeries).toHaveBeenLastCalledWith({
@@ -490,14 +492,14 @@ describe("NewClassDrawer editing a series' class", () => {
   it("moves the series' weekday with the date", async () => {
     const u = userEvent.setup()
     renderDrawer([pilates], seriesClass)
-    await u.click(screen.getByRole("button", { name: "Date" }))
+    await u.click(screen.getByRole("button", { name: "Fecha" }))
     await u.click(
       document.querySelector<HTMLElement>(
         '[data-day="3/10/2026"]'
       ) as HTMLElement
     )
-    expect(screen.getByRole("combobox", { name: "Repeat" })).toHaveTextContent(
-      "Weekly on Tuesday, 6 times"
+    expect(screen.getByRole("combobox", { name: "Repetir" })).toHaveTextContent(
+      "Semanalmente el martes, 6 veces"
     )
   })
 })

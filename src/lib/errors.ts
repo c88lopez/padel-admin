@@ -1,28 +1,29 @@
-import type { TFunction } from "i18next"
-
 // Shared, dependency-free error model. Server functions throw `AppError` with a
-// stable `code` (mapping to an `errors.*` i18n key) plus optional interpolation
-// `params`. The code + params are serialized into the Error `message` so they
-// survive the server→client boundary, then `translateError` localizes them in
-// the user's language on the client. API routes keep their own English JSON
-// contract (see api-auth.ts) and don't use this.
+// stable `code`, the message to show the user, and optional `params` the client
+// can act on. All three are serialized into the Error `message` so they survive
+// the server→client boundary, where `errorMessage` reads the message back. API
+// routes keep their own English JSON contract (see api-auth.ts) and don't use
+// this.
 
 export type ErrorParams = Record<string, string | number>
 
 interface SerializedAppError {
   __appError: true
   code: string
+  message: string
   params?: ErrorParams
 }
 
 export class AppError extends Error {
   code: string
+  userMessage: string
   params?: ErrorParams
 
-  constructor(code: string, params?: ErrorParams) {
-    super(JSON.stringify({ __appError: true, code, params }))
+  constructor(code: string, message: string, params?: ErrorParams) {
+    super(JSON.stringify({ __appError: true, code, message, params }))
     this.name = "AppError"
     this.code = code
+    this.userMessage = message
     this.params = params
   }
 }
@@ -53,25 +54,13 @@ export function appErrorPayload(
 }
 
 /**
- * Localizes a thrown error for display. Errors thrown as `AppError` carry a code
- * (+ params) that maps to an `errors.*` i18n key; anything else falls back to
- * the provided `fallback`, then the raw message, then a generic message.
+ * The message to show for a thrown error. Errors thrown as `AppError` carry
+ * their own message; anything else falls back to the provided `fallback`, then
+ * the raw message, then a generic message.
  */
-export function translateError(
-  error: unknown,
-  t: TFunction,
-  fallback?: string
-): string {
+export function errorMessage(error: unknown, fallback?: string): string {
   const message = error instanceof Error ? error.message : ""
   const payload = parsePayload(message)
-  // Codes/params are dynamic at runtime, so bypass the per-key typed-params
-  // overload of `t` with a loose signature.
-  const translate = t as unknown as (
-    key: string,
-    params?: ErrorParams
-  ) => string
-  if (payload) {
-    return translate(payload.code, payload.params)
-  }
-  return fallback ?? (message || translate("common.genericError"))
+  if (payload) return payload.message
+  return fallback ?? (message || "Algo salió mal")
 }

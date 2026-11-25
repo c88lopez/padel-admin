@@ -74,7 +74,11 @@ export const createSale = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requirePermission("inventory:manage")
     const clubId = await resolveActiveClubId(session.user)
-    if (!clubId) throw new AppError("errors.clubContextRequired")
+    if (!clubId)
+      throw new AppError(
+        "errors.clubContextRequired",
+        "Esta acción requiere un club activo."
+      )
 
     return db.transaction(async (tx) => {
       const ids = [...new Set(data.items.map((i) => i.stockItemId))]
@@ -92,7 +96,10 @@ export const createSale = createServerFn({ method: "POST" })
         const detail = shortages
           .map((s) => `${s.name} (${s.requested}/${s.available})`)
           .join(", ")
-        throw new AppError("errors.sale.insufficientStock", { detail })
+        throw new AppError(
+          "errors.sale.insufficientStock",
+          `Stock insuficiente: ${detail}`
+        )
       }
 
       const nameById = new Map(levels.map((l) => [l.id, l.name]))

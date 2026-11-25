@@ -56,7 +56,11 @@ async function resolveMembership(
     : await defaultCustomerActivity(clubId)
   if (!target) return undefined
   const hasLevels = activityProvides(target, "levels")
-  if (hasLevels && !level) throw new AppError("errors.activity.levelRequired")
+  if (hasLevels && !level)
+    throw new AppError(
+      "errors.activity.levelRequired",
+      "Elige un nivel para esta actividad."
+    )
   return { activityId: target.id, level: hasLevels ? level : null }
 }
 

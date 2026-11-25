@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { z } from "zod"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
   IconPlus,
@@ -47,7 +45,8 @@ export const Route = createFileRoute("/_authenticated/players")({
   loader: async ({ deps }) => {
     const active = (await listActivities()).filter((a) => a.active)
     const activity = active.find((a) => a.id === deps.activity) ?? active.at(0)
-    if (!activity) throw new AppError("errors.activity.notFound")
+    if (!activity)
+      throw new AppError("errors.activity.notFound", "Actividad no encontrada.")
     return {
       activity,
       players: await listPlayers({ data: { activityId: activity.id } }),
@@ -64,9 +63,9 @@ function levelFill(scale: LevelScale, level: string): string {
   return `var(--chart-${(Math.max(levelRank(scale, level), 0) % 5) + 1})`
 }
 
-function buildCategoryChartConfig(t: TFunction): ChartConfig {
+function buildCategoryChartConfig(): ChartConfig {
   return {
-    count: { label: t("pages.players.chartPlayers") },
+    count: { label: "Jugadores" },
   }
 }
 
@@ -88,7 +87,6 @@ function PlayerActions({
   player: Player
   view: CustomerView
 }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("players:manage")
   const [editOpen, setEditOpen] = useState(false)
@@ -103,8 +101,8 @@ function PlayerActions({
       })
       router.invalidate()
     } catch {
-      toast.error(t("pages.players.deleteError"), {
-        description: t("common.tryAgain"),
+      toast.error("No se pudo eliminar el cliente", {
+        description: "Inténtalo de nuevo.",
       })
     }
   }
@@ -129,24 +127,24 @@ function PlayerActions({
   )
 }
 
-function buildColumns(t: TFunction, view: CustomerView): ColumnDef<Player>[] {
+function buildColumns(view: CustomerView): ColumnDef<Player>[] {
   const { levelScale } = view
   const hasLevels = levelScale !== NO_LEVELS
   const columns: ColumnDef<Player>[] = [
     {
       accessorKey: "fullName",
-      header: t("fields.fullName"),
+      header: "Nombre completo",
     },
     {
       accessorKey: "gender",
-      header: t("fields.gender"),
+      header: "Género",
       cell: ({ row }) => {
         const gender = row.getValue<string>("gender")
         const label =
           gender === "Male"
-            ? t("options.male")
+            ? "Masculino"
             : gender === "Female"
-              ? t("options.female")
+              ? "Femenino"
               : gender
         return <span className="text-sm text-muted-foreground">{label}</span>
       },
@@ -155,7 +153,7 @@ function buildColumns(t: TFunction, view: CustomerView): ColumnDef<Player>[] {
   if (hasLevels) {
     columns.push({
       accessorKey: "category",
-      header: t("fields.category"),
+      header: "Categoría",
       meta: { className: "w-[384px] text-center" },
       cell: ({ row }) => {
         const cat = row.getValue<string | null>("category")
@@ -170,12 +168,12 @@ function buildColumns(t: TFunction, view: CustomerView): ColumnDef<Player>[] {
   columns.push(
     {
       accessorKey: "phone",
-      header: t("fields.phone"),
+      header: "Teléfono",
       enableSorting: false,
     },
     {
       accessorKey: "age",
-      header: t("fields.age"),
+      header: "Edad",
     },
     {
       id: "actions",
@@ -188,7 +186,6 @@ function buildColumns(t: TFunction, view: CustomerView): ColumnDef<Player>[] {
 }
 
 function PlayersPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("players:manage")
   const { activity, players, stats } = Route.useLoaderData()
@@ -196,8 +193,8 @@ function PlayersPage() {
   const { levelScale } = view
   const hasLevels = levelScale !== NO_LEVELS
   const hasBookings = activityProvides(activity, "bookings")
-  const columns = useMemo(() => buildColumns(t, view), [t, view])
-  const categoryChartConfig = useMemo(() => buildCategoryChartConfig(t), [t])
+  const columns = useMemo(() => buildColumns(view), [view])
+  const categoryChartConfig = useMemo(() => buildCategoryChartConfig(), [])
 
   const maleCount = players.filter((p) => p.gender === "Male").length
   const femaleCount = players.filter((p) => p.gender === "Female").length
@@ -218,7 +215,7 @@ function PlayersPage() {
       <div>
         <h1 className="text-2xl font-semibold">{view.text("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("pages.players.description")}
+          Administra los socios del club.
         </p>
       </div>
 
@@ -234,7 +231,7 @@ function PlayersPage() {
           <CardContent>
             <p className="text-3xl font-bold">{players.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("pages.players.mf", { m: maleCount, f: femaleCount })}
+              {`${maleCount}H · ${femaleCount}M`}
             </p>
           </CardContent>
         </Card>
@@ -243,7 +240,7 @@ function PlayersPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
-                {t("pages.players.statsMostReservations")}
+                Más reservas
               </CardTitle>
               <IconCalendar className="size-4 text-muted-foreground" />
             </CardHeader>
@@ -254,13 +251,9 @@ function PlayersPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 {stats.topReservationPlayer
                   ? stats.topReservationPlayer.count === 1
-                    ? t("stats.reservationOne", {
-                        count: stats.topReservationPlayer.count,
-                      })
-                    : t("stats.reservationOther", {
-                        count: stats.topReservationPlayer.count,
-                      })
-                  : t("stats.noReservationsYet")}
+                    ? `${stats.topReservationPlayer.count} reserva`
+                    : `${stats.topReservationPlayer.count} reservas`
+                  : "Aún no hay reservas"}
               </p>
             </CardContent>
           </Card>
@@ -270,26 +263,20 @@ function PlayersPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
-                {t("pages.players.statsBusiestCourt")}
+                Pista más activa
               </CardTitle>
               <IconLayoutGrid className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <p className="truncate text-xl font-bold">
-                {stats.busiestCourt
-                  ? t("stats.court", { court: stats.busiestCourt.court })
-                  : "—"}
+                {stats.busiestCourt ? `Pista ${stats.busiestCourt.court}` : "—"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {stats.busiestCourt
                   ? stats.busiestCourt.count === 1
-                    ? t("stats.reservationOne", {
-                        count: stats.busiestCourt.count,
-                      })
-                    : t("stats.reservationOther", {
-                        count: stats.busiestCourt.count,
-                      })
-                  : t("stats.noReservationsYet")}
+                    ? `${stats.busiestCourt.count} reserva`
+                    : `${stats.busiestCourt.count} reservas`
+                  : "Aún no hay reservas"}
               </p>
             </CardContent>
           </Card>
@@ -299,7 +286,7 @@ function PlayersPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
-                {t("pages.players.statsTopCategory")}
+                Categoría principal
               </CardTitle>
               <IconMedal className="size-4 text-muted-foreground" />
             </CardHeader>
@@ -307,12 +294,8 @@ function PlayersPage() {
               <p className="text-3xl font-bold">{topCategory.category}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {topCategory.count === 1
-                  ? t("pages.players.playersCountOne", {
-                      count: topCategory.count,
-                    })
-                  : t("pages.players.playersCountOther", {
-                      count: topCategory.count,
-                    })}
+                  ? `${topCategory.count} jugador`
+                  : `${topCategory.count} jugadores`}
               </p>
             </CardContent>
           </Card>
@@ -324,7 +307,7 @@ function PlayersPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">
-              {t("pages.players.categoryDistribution")}
+              Distribución por categoría
             </CardTitle>
           </CardHeader>
           <CardContent>

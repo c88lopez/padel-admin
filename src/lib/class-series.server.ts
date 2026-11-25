@@ -30,24 +30,33 @@ const CONFLICT_DATES_SHOWN = 3
 // the drawer to resend them as exdates.
 export function seriesConflictsError(seriesDates: string[]): AppError {
   const more = seriesDates.length - CONFLICT_DATES_SHOWN
+  const dates = seriesDates.slice(0, CONFLICT_DATES_SHOWN).join(", ")
+  const all = seriesDates.join(",")
+  if (more > 0) {
+    return new AppError(
+      "errors.class.seriesConflictsMore",
+      `El espacio está ocupado a esa hora el ${dates} y ${more} fechas más. Omite esas fechas, o elige otra hora u otro espacio.`,
+      { dates, count: more, all }
+    )
+  }
   return new AppError(
-    more > 0
-      ? "errors.class.seriesConflictsMore"
-      : "errors.class.seriesConflicts",
-    {
-      dates: seriesDates.slice(0, CONFLICT_DATES_SHOWN).join(", "),
-      count: more,
-      all: seriesDates.join(","),
-    }
+    "errors.class.seriesConflicts",
+    `El espacio está ocupado a esa hora el ${dates}. Omite esas fechas, o elige otra hora u otro espacio.`,
+    { dates, all }
   )
 }
 
 export function assertSeriesSize(dates: string[]): void {
-  if (dates.length === 0) throw new AppError("errors.class.seriesEmpty")
+  if (dates.length === 0)
+    throw new AppError(
+      "errors.class.seriesEmpty",
+      "Esta repetición no da ninguna fecha en los próximos 12 meses. Cambia el inicio o el final."
+    )
   if (dates.length > MAX_SERIES_CLASSES) {
-    throw new AppError("errors.class.seriesTooLong", {
-      max: MAX_SERIES_CLASSES,
-    })
+    throw new AppError(
+      "errors.class.seriesTooLong",
+      `Son más de ${MAX_SERIES_CLASSES} clases de una vez. Elige una serie más corta.`
+    )
   }
 }
 
@@ -254,7 +263,8 @@ export async function lockSeries(
     .where(eq(classSeries.id, seriesId))
     .for("update")
   const series = rows.at(0)
-  if (!series) throw new AppError("errors.class.notFound")
+  if (!series)
+    throw new AppError("errors.class.notFound", "Esa clase ya no existe.")
   return series
 }
 

@@ -122,7 +122,7 @@ All app routes live under the `_authenticated` layout (redirects to `/login` whe
 - Server-side validation and club scoping for reads and writes
 - Reservation conflict detection, court availability checks, opening hours, advance booking limits, and cancellation cutoff rules
 - Inventory dashboard, low-stock notifications, stock management, sales logging, and sale item snapshots
-- English and Spanish UI translations
+- Spanish-only UI
 - Unit tests for shared domain logic and component behavior, plus Playwright e2e setup
 
 ## Project layout
@@ -135,7 +135,6 @@ src/
   db/                 # Drizzle schema, migrations helpers, seed/reset scripts
   lib/                # server functions, auth, permissions, settings, domain logic
   hooks/             # shared hooks
-  locales/           # i18n resources
 ```
 
 ## Conventions & gotchas

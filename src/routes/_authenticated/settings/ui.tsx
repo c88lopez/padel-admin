@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react"
-import {
-  createFileRoute,
-  useLoaderData,
-  useRouter,
-} from "@tanstack/react-router"
+import { createFileRoute, useLoaderData } from "@tanstack/react-router"
 import {
   IconCheck,
   IconDeviceDesktop,
@@ -11,7 +7,6 @@ import {
   IconSun,
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,11 +26,6 @@ import {
   saveUiSettings,
 } from "@/lib/ui-settings"
 import type { ThemeMode, UiSettings } from "@/lib/ui-settings"
-import i18n from "@/lib/i18n"
-import type { TranslationKey } from "@/lib/i18n"
-import { setLocale } from "@/lib/i18n.functions"
-import { SUPPORTED_LOCALES } from "@/lib/locale"
-import type { Locale } from "@/lib/locale"
 
 export const Route = createFileRoute("/_authenticated/settings/ui")({
   component: UiSettingsPage,
@@ -43,28 +33,26 @@ export const Route = createFileRoute("/_authenticated/settings/ui")({
 
 const themeOptions: {
   value: ThemeMode
-  labelKey: TranslationKey
+  label: string
   icon: Icon
 }[] = [
-  { value: "light", labelKey: "settings.ui.theme.light", icon: IconSun },
-  { value: "dark", labelKey: "settings.ui.theme.dark", icon: IconMoon },
+  { value: "light", label: "Claro", icon: IconSun },
+  { value: "dark", label: "Oscuro", icon: IconMoon },
   {
     value: "system",
-    labelKey: "settings.ui.theme.system",
+    label: "Sistema",
     icon: IconDeviceDesktop,
   },
 ]
 
-const fontSizeLabelKeys: Record<string, TranslationKey> = {
-  sm: "settings.ui.fontSize.small",
-  md: "settings.ui.fontSize.default",
-  lg: "settings.ui.fontSize.large",
-  xl: "settings.ui.fontSize.extraLarge",
+const fontSizeLabels: Record<string, string> = {
+  sm: "Pequeño",
+  md: "Predeterminado",
+  lg: "Grande",
+  xl: "Muy grande",
 }
 
 function UiSettingsPage() {
-  const { t } = useTranslation()
-  const router = useRouter()
   const { clubContext } = useLoaderData({ from: "/_authenticated" })
   const clubId = clubContext.activeClubId
   const [settings, setSettings] = useState<UiSettings>(() => loadUiSettings())
@@ -72,14 +60,6 @@ function UiSettingsPage() {
   const [accent, setAccent] = useState<string>(() =>
     resolveAccent(clubId, loadUiSettings())
   )
-  // Language is per club; i18n already reflects the active club's locale (resolved
-  // by the root route). Re-sync the selection when the active club changes.
-  const [activeLocale, setActiveLocale] = useState<Locale>(
-    () => i18n.language as Locale
-  )
-  useEffect(() => {
-    setActiveLocale(i18n.language as Locale)
-  }, [clubId])
   // Theme/accent/font size resolve from localStorage on the client only, so the
   // selected state would otherwise pop in after mount. Gate on mount and show a
   // skeleton until the real selections are known.
@@ -107,81 +87,33 @@ function UiSettingsPage() {
     applyUiSettings(settings, accentKey)
   }
 
-  async function changeLanguage(locale: Locale) {
-    setActiveLocale(locale)
-    await i18n.changeLanguage(locale)
-    await setLocale({ data: { locale } })
-    // Refresh root context so its resolved locale stays in sync after navigation.
-    await router.invalidate()
-  }
-
   function resetDefaults() {
     setSettings(DEFAULT_UI_SETTINGS)
     saveUiSettings(DEFAULT_UI_SETTINGS)
     setAccent(DEFAULT_UI_SETTINGS.accent)
     if (clubId) saveClubAccent(clubId, DEFAULT_UI_SETTINGS.accent)
     applyUiSettings(DEFAULT_UI_SETTINGS, DEFAULT_UI_SETTINGS.accent)
-    toast.success(t("settings.ui.resetToast"))
+    toast.success("Apariencia restablecida a los valores predeterminados")
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">{t("settings.ui.title")}</h2>
+          <h2 className="text-lg font-medium">Interfaz</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("settings.ui.description")}
+            Personaliza el tema, el color de acento y el tamaño del texto.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={resetDefaults}>
-          {t("common.resetToDefaults")}
+          Restablecer valores predeterminados
         </Button>
       </div>
 
       <SettingsSectionList>
         <SettingsSection
-          title={t("settings.ui.language.title")}
-          description={t("settings.ui.language.description")}
-        >
-          {ready ? (
-            <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-              {SUPPORTED_LOCALES.map((locale) => {
-                const active = activeLocale === locale.code
-                return (
-                  <button
-                    key={locale.code}
-                    type="button"
-                    onClick={() => void changeLanguage(locale.code)}
-                    className={cn(
-                      "flex items-center justify-center gap-2 rounded-lg border p-4 text-sm transition-colors hover:bg-muted",
-                      active
-                        ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-background"
-                        : "border-border"
-                    )}
-                  >
-                    {active && <IconCheck className="size-4" />}
-                    {locale.label}
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-              {SUPPORTED_LOCALES.map((locale) => (
-                <Skeleton
-                  key={locale.code}
-                  className="rounded-lg border border-transparent p-4 text-sm"
-                >
-                  <span className="invisible">{locale.label}</span>
-                </Skeleton>
-              ))}
-            </div>
-          )}
-        </SettingsSection>
-
-        <SettingsSection
-          title={t("settings.ui.theme.title")}
-          description={t("settings.ui.theme.description")}
+          title="Tema"
+          description="Elige claro, oscuro o sigue tu sistema operativo."
         >
           {ready ? (
             <div className="grid grid-cols-3 gap-3 sm:max-w-md">
@@ -200,7 +132,7 @@ function UiSettingsPage() {
                     )}
                   >
                     <opt.icon className="size-5" />
-                    {t(opt.labelKey)}
+                    {opt.label}
                   </button>
                 )
               })}
@@ -213,7 +145,7 @@ function UiSettingsPage() {
                   className="flex flex-col items-center gap-2 rounded-lg border border-transparent p-4 text-sm"
                 >
                   <span className="block size-5" />
-                  <span className="invisible">{t(opt.labelKey)}</span>
+                  <span className="invisible">{opt.label}</span>
                 </Skeleton>
               ))}
             </div>
@@ -221,8 +153,8 @@ function UiSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.ui.accent.title")}
-          description={t("settings.ui.accent.description")}
+          title="Color de acento"
+          description="Se guarda para el club actual: se usa en botones principales, resaltados y estados activos."
         >
           {ready ? (
             <div className="flex flex-wrap gap-3">
@@ -259,8 +191,8 @@ function UiSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.ui.fontSize.title")}
-          description={t("settings.ui.fontSize.description")}
+          title="Tamaño de fuente"
+          description="Escala el texto y el espaciado en toda la app."
         >
           {ready ? (
             <div className="grid grid-cols-4 gap-3 sm:max-w-md">
@@ -285,7 +217,7 @@ function UiSettingsPage() {
                       A
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {t(fontSizeLabelKeys[size.key])}
+                      {fontSizeLabels[size.key]}
                     </span>
                   </button>
                 )
@@ -305,7 +237,7 @@ function UiSettingsPage() {
                     A
                   </span>
                   <span className="invisible text-xs">
-                    {t(fontSizeLabelKeys[size.key])}
+                    {fontSizeLabels[size.key]}
                   </span>
                 </Skeleton>
               ))}

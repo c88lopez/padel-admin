@@ -1,58 +1,50 @@
-import { describe, expect, it, vi } from "vitest"
-import type { TFunction } from "i18next"
-import { AppError, appErrorPayload, translateError } from "./errors"
-
-// Minimal fake translator: echoes the key plus any params so assertions can see
-// that the code and interpolation values were passed through.
-const t = ((key: string, params?: Record<string, unknown>) =>
-  params ? `${key}:${JSON.stringify(params)}` : key) as unknown as TFunction
+import { describe, expect, it } from "vitest"
+import { AppError, appErrorPayload, errorMessage } from "./errors"
 
 describe("AppError", () => {
-  it("serializes its code and params into the message", () => {
-    const err = new AppError("errors.booking.tooSoon", { hours: 2 })
+  it("serializes its code, message and params into the message", () => {
+    const err = new AppError("errors.booking.tooSoon", "Muy pronto", {
+      hours: 2,
+    })
     expect(err.code).toBe("errors.booking.tooSoon")
     expect(err.params).toEqual({ hours: 2 })
     expect(JSON.parse(err.message)).toMatchObject({
       __appError: true,
       code: "errors.booking.tooSoon",
+      message: "Muy pronto",
       params: { hours: 2 },
     })
   })
 })
 
-describe("translateError", () => {
-  it("translates an AppError using its code and params", () => {
-    const result = translateError(
-      new AppError("errors.reservation.conflict", {
-        start: "10:00",
-        end: "11:00",
-        player: "Ana",
-      }),
-      t
+describe("errorMessage", () => {
+  it("shows an AppError's own message, also after crossing to the client", () => {
+    const thrown = new AppError("errors.reservation.conflict", "Ocupado (Ana)")
+    expect(errorMessage(thrown)).toBe("Ocupado (Ana)")
+    expect(errorMessage(new Error(thrown.message), "fallback")).toBe(
+      "Ocupado (Ana)"
     )
-    expect(result).toContain("errors.reservation.conflict")
-    expect(result).toContain("Ana")
   })
 
   it("falls back to the provided fallback for a non-AppError", () => {
-    expect(translateError(new Error("boom"), t, "fallback")).toBe("fallback")
+    expect(errorMessage(new Error("boom"), "fallback")).toBe("fallback")
   })
 
   it("uses the raw message when there is no fallback", () => {
-    expect(translateError(new Error("boom"), t)).toBe("boom")
+    expect(errorMessage(new Error("boom"))).toBe("boom")
   })
 
   it("uses a generic message for non-Error values with no fallback", () => {
-    const generic = vi.fn(() => "generic") as unknown as TFunction
-    expect(translateError("nope", generic)).toBe("generic")
+    expect(errorMessage("nope")).toBe("Algo salió mal")
   })
 })
 
 describe("appErrorPayload", () => {
   it("reads the code and params of a serialized AppError", () => {
     const crossed = new Error(
-      new AppError("errors.class.seriesConflicts", { all: "2026-03-09" })
-        .message
+      new AppError("errors.class.seriesConflicts", "Ocupado", {
+        all: "2026-03-09",
+      }).message
     )
     expect(appErrorPayload(crossed)).toEqual({
       code: "errors.class.seriesConflicts",

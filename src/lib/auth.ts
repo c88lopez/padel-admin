@@ -7,7 +7,7 @@ import { db } from "@/db"
 import * as schema from "@/db/schema"
 
 const ARCHIVED_MESSAGE =
-  "This account has been archived. Contact an administrator."
+  "Esta cuenta está archivada. Contacta con un administrador."
 
 async function isArchived(where: ReturnType<typeof eq>): Promise<boolean> {
   const rows = await db

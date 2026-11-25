@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { zodFormResolver } from "@/lib/form"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -37,17 +35,17 @@ import {
 import { levelsFor, NO_LEVELS } from "@/lib/activities/levels"
 import type { CustomerView } from "@/hooks/use-customer-view"
 
-function makeSchema(t: TFunction, hasLevels: boolean) {
+function makeSchema(hasLevels: boolean) {
   return z.object({
-    fullName: z.string().min(1, t("validation.fullNameRequired")),
-    email: z.string().email(t("validation.emailInvalid")),
-    phone: z.string().min(1, t("validation.phoneRequired")),
+    fullName: z.string().min(1, "El nombre completo es obligatorio"),
+    email: z.string().email("Correo electrónico no válido"),
+    phone: z.string().min(1, "El teléfono es obligatorio"),
     age: z.coerce.number().int().min(5).max(99),
     gender: z.enum(["Male", "Female"], {
-      error: t("validation.genderRequired"),
+      error: "El género es obligatorio",
     }),
     category: hasLevels
-      ? z.string().min(1, t("validation.categoryRequired"))
+      ? z.string().min(1, "La categoría es obligatoria")
       : z.string(),
   })
 }
@@ -86,7 +84,6 @@ export function NewPlayerDrawer({
   onOpenChange: controlledOnOpenChange,
   onSaved,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
@@ -95,7 +92,7 @@ export function NewPlayerDrawer({
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
   const { levelScale } = view
   const hasLevels = levelScale !== NO_LEVELS
-  const schema = useMemo(() => makeSchema(t, hasLevels), [t, hasLevels])
+  const schema = useMemo(() => makeSchema(hasLevels), [hasLevels])
 
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
@@ -149,14 +146,14 @@ export function NewPlayerDrawer({
           : createPlayer({ data: payload }),
       onSuccess: () => {
         toast.success(isEditing ? view.text("updated") : view.text("created"), {
-          description: t("common.savedSuccess", { name: values.fullName }),
+          description: `${values.fullName} se ha guardado correctamente.`,
         })
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
       onError: () => {
-        toast.error(t("common.genericError"), {
-          description: t("forms.player.errorDescription"),
+        toast.error("Algo salió mal", {
+          description: "No se pudo guardar el cliente. Inténtalo de nuevo.",
         })
       },
     })
@@ -181,12 +178,9 @@ export function NewPlayerDrawer({
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.fullName")}</FormLabel>
+                  <FormLabel>Nombre completo</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t("placeholders.fullName")}
-                      {...field}
-                    />
+                    <Input placeholder="Nombre completo" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -198,11 +192,11 @@ export function NewPlayerDrawer({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.email")}</FormLabel>
+                  <FormLabel>Correo electrónico</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder={t("forms.player.emailPlaceholder")}
+                      placeholder="nombre@email.com"
                       {...field}
                     />
                   </FormControl>
@@ -216,11 +210,11 @@ export function NewPlayerDrawer({
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.phone")}</FormLabel>
+                  <FormLabel>Teléfono</FormLabel>
                   <FormControl>
                     <Input
                       type="tel"
-                      placeholder={t("forms.player.phonePlaceholder")}
+                      placeholder="+54 9 11 5000 0000"
                       {...field}
                     />
                   </FormControl>
@@ -234,13 +228,13 @@ export function NewPlayerDrawer({
               name="age"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.age")}</FormLabel>
+                  <FormLabel>Edad</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       min="5"
                       max="99"
-                      placeholder={t("forms.player.agePlaceholder")}
+                      placeholder="25"
                       {...field}
                     />
                   </FormControl>
@@ -254,7 +248,7 @@ export function NewPlayerDrawer({
               name="gender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.gender")}</FormLabel>
+                  <FormLabel>Género</FormLabel>
                   <Select
                     onValueChange={(val) => {
                       field.onChange(val)
@@ -264,16 +258,12 @@ export function NewPlayerDrawer({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectGender")}
-                        />
+                        <SelectValue placeholder="Selecciona el género" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Male">{t("options.male")}</SelectItem>
-                      <SelectItem value="Female">
-                        {t("options.female")}
-                      </SelectItem>
+                      <SelectItem value="Male">Masculino</SelectItem>
+                      <SelectItem value="Female">Femenino</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -287,7 +277,7 @@ export function NewPlayerDrawer({
                 name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("fields.category")}</FormLabel>
+                    <FormLabel>Categoría</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
@@ -298,8 +288,8 @@ export function NewPlayerDrawer({
                           <SelectValue
                             placeholder={
                               gender
-                                ? t("placeholders.selectCategory")
-                                : t("placeholders.selectGenderFirst")
+                                ? "Selecciona la categoría"
+                                : "Selecciona el género primero"
                             }
                           />
                         </SelectTrigger>
@@ -322,13 +312,11 @@ export function NewPlayerDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing ? t("common.saveChanges") : view.text("submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : view.text("submitNew")}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

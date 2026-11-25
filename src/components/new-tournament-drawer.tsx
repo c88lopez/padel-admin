@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { zodFormResolver } from "@/lib/form"
 import { z } from "zod"
 import { format } from "date-fns"
@@ -54,15 +52,15 @@ const TOURNAMENT_FORMATS = [
 
 type TournamentFormat = (typeof TOURNAMENT_FORMATS)[number]
 
-function makeSchema(t: TFunction) {
+function makeSchema() {
   return z.object({
-    name: z.string().min(1, t("validation.nameRequired")),
-    date: z.date({ error: t("validation.dateRequired") }),
-    category: z.string().min(1, t("validation.categoryRequired")),
+    name: z.string().min(1, "El nombre es obligatorio"),
+    date: z.date({ error: "La fecha es obligatoria" }),
+    category: z.string().min(1, "La categoría es obligatoria"),
     format: z.enum(TOURNAMENT_FORMATS, {
-      error: t("validation.formatRequired"),
+      error: "El formato es obligatorio",
     }),
-    maxTeams: z.coerce.number().int().min(2, t("validation.minTeams")),
+    maxTeams: z.coerce.number().int().min(2, "Se requieren al menos 2 equipos"),
   })
 }
 
@@ -108,14 +106,13 @@ export function NewTournamentDrawer({
   onOpenChange: controlledOnOpenChange,
   onSaved,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
   const isEditing = !!tournament
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  const schema = useMemo(() => makeSchema(), [])
 
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
@@ -143,18 +140,15 @@ export function NewTournamentDrawer({
           ? updateTournament({ data: { id: tournament.id, ...payload } })
           : createTournament({ data: payload }),
       onSuccess: () => {
-        toast.success(
-          isEditing
-            ? t("forms.tournament.updated")
-            : t("forms.tournament.created"),
-          { description: t("common.savedSuccess", { name: values.name }) }
-        )
+        toast.success(isEditing ? "Torneo actualizado" : "Torneo creado", {
+          description: `${values.name} se ha guardado correctamente.`,
+        })
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
       onError: () => {
-        toast.error(t("common.genericError"), {
-          description: t("forms.tournament.errorDescription"),
+        toast.error("Algo salió mal", {
+          description: "No se pudo guardar el torneo. Inténtalo de nuevo.",
         })
       },
     })
@@ -166,9 +160,7 @@ export function NewTournamentDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing
-              ? t("forms.tournament.titleEdit")
-              : t("forms.tournament.title")}
+            {isEditing ? "Editar torneo" : "Nuevo torneo"}
           </DrawerTitle>
         </DrawerHeader>
         <Form {...form}>
@@ -181,12 +173,9 @@ export function NewTournamentDrawer({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("forms.tournament.nameLabel")}</FormLabel>
+                  <FormLabel>Nombre del torneo</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t("forms.tournament.namePlaceholder")}
-                      {...field}
-                    />
+                    <Input placeholder="p. ej. Summer Open 2026" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -198,7 +187,7 @@ export function NewTournamentDrawer({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.date")}</FormLabel>
+                  <FormLabel>Fecha</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -212,7 +201,7 @@ export function NewTournamentDrawer({
                           <IconCalendar className="mr-2 size-4" />
                           {field.value
                             ? format(field.value, "PPP")
-                            : t("common.pickDate")}
+                            : "Elige una fecha"}
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -237,19 +226,17 @@ export function NewTournamentDrawer({
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.category")}</FormLabel>
+                  <FormLabel>Categoría</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectCategory")}
-                        />
+                        <SelectValue placeholder="Selecciona la categoría" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {[...allLevels(levelScale), "Mixed"].map((c) => (
                         <SelectItem key={c} value={c}>
-                          {c === "Mixed" ? t("options.mixed") : c}
+                          {c === "Mixed" ? "Mixto" : c}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -264,24 +251,22 @@ export function NewTournamentDrawer({
               name="format"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("forms.tournament.formatLabel")}</FormLabel>
+                  <FormLabel>Formato</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectFormat")}
-                        />
+                        <SelectValue placeholder="Selecciona el formato" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="round_robin">
-                        {t("options.roundRobin")}
+                        Todos contra todos
                       </SelectItem>
                       <SelectItem value="elimination">
-                        {t("options.singleElimination")}
+                        Eliminación simple
                       </SelectItem>
                       <SelectItem value="double_elimination">
-                        {t("options.doubleElimination")}
+                        Eliminación doble
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -295,7 +280,7 @@ export function NewTournamentDrawer({
               name="maxTeams"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("forms.tournament.maxTeamsLabel")}</FormLabel>
+                  <FormLabel>Máx. de equipos</FormLabel>
                   <FormControl>
                     <Input type="number" min="2" placeholder="8" {...field} />
                   </FormControl>
@@ -308,15 +293,11 @@ export function NewTournamentDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.tournament.submit")
-                }
+                label={isEditing ? "Guardar cambios" : "Crear torneo"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

@@ -53,13 +53,17 @@ export async function addAttendeeRecord(
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const locked = await lockClass(tx, clubId, classId)
-    if (!locked) throw new AppError("errors.class.notFound")
+    if (!locked)
+      throw new AppError("errors.class.notFound", "Esa clase ya no existe.")
     const customers = await tx
       .select({ id: player.id })
       .from(player)
       .where(and(eq(player.id, playerId), eq(player.clubId, clubId)))
     if (customers.length === 0)
-      throw new AppError("errors.class.playerNotFound")
+      throw new AppError(
+        "errors.class.playerNotFound",
+        "Ese cliente ya no existe."
+      )
     const existing = await tx
       .select({ playerId: coachClassAttendee.playerId })
       .from(coachClassAttendee)
@@ -74,7 +78,7 @@ export async function addAttendeeRecord(
       locked.capacity !== null &&
       (await countAttendees(tx, classId)) >= locked.capacity
     ) {
-      throw new AppError("errors.class.full")
+      throw new AppError("errors.class.full", "Esta clase está completa.")
     }
     await tx.insert(coachClassAttendee).values({ classId, playerId, clubId })
     // Taking a class makes them a customer of its activity (e.g. a student).
@@ -110,7 +114,8 @@ async function thisAndFollowing(
   classId: string
 ): Promise<CoachClass[]> {
   const found = await classWithSeries(clubId, classId)
-  if (!found) throw new AppError("errors.class.notFound")
+  if (!found)
+    throw new AppError("errors.class.notFound", "Esa clase ya no existe.")
   const { cls } = found
   if (!cls.seriesId || !cls.seriesDate) return [cls]
   return db

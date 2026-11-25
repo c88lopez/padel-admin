@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import i18n from "@/lib/i18n"
 import {
   capacityValue,
   isCapacity,
@@ -86,7 +85,7 @@ describe("toClassFormValues", () => {
 })
 
 describe("makeClassSchema", () => {
-  const schema = makeClassSchema(i18n.t)
+  const schema = makeClassSchema()
 
   it("refuses a capacity out of range", () => {
     const result = schema.safeParse({

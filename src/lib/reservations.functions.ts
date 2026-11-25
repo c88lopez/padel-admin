@@ -74,7 +74,11 @@ export const createReservation = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requirePermission("reservations:manage")
     const clubId = await resolveActiveClubId(session.user)
-    if (!clubId) throw new AppError("errors.clubContextRequired")
+    if (!clubId)
+      throw new AppError(
+        "errors.clubContextRequired",
+        "Esta acción requiere un club activo."
+      )
     await assertSpaceBookable(clubId, data.spaceId, "bookings")
     await assertBookingAllowed(clubId, data)
     await assertSpaceFree(clubId, data)

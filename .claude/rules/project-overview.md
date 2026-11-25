@@ -1,6 +1,6 @@
 # Padel Club Admin
 
-A database-backed admin dashboard for managing padel clubs (court reservations, players, coaches/classes, tournaments, inventory, sales, users, settings, appearance). Real Postgres persistence, Better Auth sessions, role-based permissions, per-club scoping, English/Spanish i18n, an AI assistant, Prometheus metrics, and JSON logs with OpenTelemetry traces.
+A database-backed admin dashboard for managing padel clubs (court reservations, players, coaches/classes, tournaments, inventory, sales, users, settings, appearance). Real Postgres persistence, Better Auth sessions, role-based permissions, per-club scoping, a Spanish-only UI, an AI assistant, Prometheus metrics, and JSON logs with OpenTelemetry traces.
 
 ## Stack
 
@@ -10,7 +10,6 @@ A database-backed admin dashboard for managing padel clubs (court reservations, 
 - **Database**: Postgres + Drizzle ORM (`pg` driver)
 - **Data/forms**: TanStack server functions, `@tanstack/react-table`, `react-hook-form` + `zod`, `recharts`, `date-fns`
 - **AI**: Vercel AI SDK (`ai`) via AI Gateway
-- **i18n**: `i18next` / `react-i18next` (bundled `en`/`es`)
 - **Tooling**: React 19, TypeScript, Vite, Bun, Vitest, Playwright
 
 ## Commands
@@ -44,9 +43,8 @@ src/
   components/     # App components + create/edit "drawers"
   components/ui/  # shadcn/ui primitives
   db/             # Drizzle schema, migrate/seed/reset scripts
-  lib/            # server functions, auth, permissions, domain logic, i18n, ai/
+  lib/            # server functions, auth, permissions, domain logic, ai/
   hooks/          # shared hooks
-  locales/        # en.ts / es.ts
   styles.css      # Tailwind v4 theme tokens (OKLCH)
 ```
 
@@ -58,7 +56,7 @@ Clubs offer one or more **activities** (padel and pilates; football and swim pla
 - `ensureDefaultActivities(clubId)` (`src/lib/activities.server.ts`) gives a club padel when it has no activities. It runs on club creation and lazily on reads, so it also covers databases baselined without running migration backfills.
 - Only the app's owners enable/disable activities, through the hidden platform API (`PUT /api/platform/clubs/:clubId/activities/:templateKey` with `{ "active": bool }`, `GET …/activities` to inspect). The first enable also creates the activity's default spaces. Templates marked `available: false` (for ones whose building blocks aren't built yet) can't be enabled, and a club must keep at least one enabled activity. e2e enables pilates only on North Branch, so the Default Club the other specs use stays padel-only. Club admins can only rename activities in Settings → Activities.
 - Spaces: the bookable place is a `space` row (`src/lib/spaces.server.ts`) with a `type` and an `indoor` flag. Don't name new code or tables after courts; "Court" is only the padel type's label.
-  - Space types are code-defined in `src/lib/activities/spaces.ts` (`court`, `studio`, …) with their translated name and numbered label. Show spaces with `spaceDisplayName` / `spaceNumberLabel` / `spaceNounKey`, never a hardcoded "Court".
+  - Space types are code-defined in `src/lib/activities/spaces.ts` (`court`, `studio`, …) with their Spanish name ("Pista", "Sala"). Show spaces with `spaceDisplayName` / `spaceNumberLabel` / `spaceNoun`, never a hardcoded "Pista" or "Court".
   - A template's `spaces` says which types its spaces can be (first = default) and how many a club starts with (`defaultCount`). `seedActivitySpaces` creates them when a club gets the activity (club creation, seeding, first enable through the platform API).
   - Spaces belong to an activity (`activity_id`) and are numbered per activity (`sortOrder`: Court 1–4 and Studio 1 coexist). `linkUnassignedSpaces` links legacy rows lazily.
   - A space holds one thing at a time: reservations and classes can't overlap on it, in either direction. Every write goes through `assertSpaceFree` / `findSpaceConflict` (reservations, classes, the AI tool); existing overlapping rows aren't touched.
@@ -67,7 +65,7 @@ Clubs offer one or more **activities** (padel and pilates; football and swim pla
 - Classes belong to an activity (`coach_class.activity_id`, set from the class's space) and have an optional `capacity` (null = no limit; defaults to the activity's `sessions.defaultCapacity`). Customers sign up through `coach_class_attendee` (Attendees in a class's row menu). Sign-ups and capacity changes lock the class row (`SELECT … FOR UPDATE`) before counting, so the last place can't be taken twice and the capacity can't drop below who's signed up. Data access is in `classes.server.ts` (one-off classes and shared helpers), `class-series.server.ts` (creating and filling series), `class-series-edit.server.ts` (scoped edits and deletes) and `class-attendees.server.ts` (sign-ups); the class form's spaces, durations (`sessionDurations`) and coaches follow the chosen activity.
 - Coaches: `coach_activity` lists the activities each coach teaches (`coaches.server.ts`). A class's coach must teach its activity (`assertCoachTeaches`). With one activity that runs classes, new coaches get it automatically and the UI hides the choice; with several, it's picked in the coach form. Updating a coach's activities only replaces the active ones, so links to a disabled activity survive.
 - Customers: one `player` row per person per club. A customer belongs to an activity when they have a `customer_activity_profile` row for it, which also holds the activity's level (`src/lib/players.server.ts`); one person can be in several. Migration 0019 put every existing customer in their club's padel, and signing up to a class adds the customer to its activity.
-  - Each template names its customers (`customersKey`: padel "Players"/"Jugadores", pilates "Students"/"Alumnos") with a full set of phrases under `activities.<key>.customers` in both locales; read them with `customerTextKey` / `useCustomerView`. Don't hardcode "player" in customer UI.
+  - Each template names its customers (`customers`: padel "Jugadores", pilates "Alumnos") with a full set of phrases; read them through `useCustomerView` (`text(key)`). Don't hardcode "jugador" in customer UI.
   - `/players` lists one activity's customers (`?activity=<id>`, default: the first active one); the level column and chart show only for activities with `levels`, the booking stats only with `bookings`. Saving without an activity (AI tool, seed) uses `defaultCustomerActivity`. Deleting from a list removes the customer from that activity and deletes them once they're in none.
   - Level scales live in the template (`src/lib/activities/levels.ts`); UI outside the customers page reads them with `usePrimaryLevelScale()`.
 - Bookings keep the typed name and link `customer_id` only when it matches exactly one player (`findCustomerIdByName`).

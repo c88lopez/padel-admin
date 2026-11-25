@@ -6,9 +6,6 @@
 
 import { IconBallTennis, IconStretching } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
-import type { TFunction } from "i18next"
-import type { TranslationKey } from "@/lib/i18n"
-import type { en } from "@/locales/en"
 import { PADEL_LEVELS } from "./levels"
 import type { LevelScale } from "./levels"
 import type { SpaceTypeKey } from "./spaces"
@@ -44,17 +41,28 @@ export interface SpacesConfig {
   defaultCount: number
 }
 
-// What an activity calls its customers ("Players" for a sport, "Students"
-// for pilates): a full set of phrases under `activities.<key>.customers`, so
-// each language keeps its own grammar.
-export type CustomerTextKey =
-  keyof (typeof en)["activities"]["padel"]["customers"]
+// What an activity calls its customers ("Jugadores" for a sport, "Alumnos"
+// for pilates): a full set of phrases, since the noun's gender changes the
+// rest of each phrase.
+export interface CustomerText {
+  title: string
+  newButton: string
+  titleEdit: string
+  submitNew: string
+  created: string
+  updated: string
+  deleted: string
+  searchPlaceholder: string
+  statsTotal: string
+}
+
+export type CustomerTextKey = keyof CustomerText
 
 export interface ActivityTemplate {
   key: string
-  nameKey: TranslationKey
-  descriptionKey: TranslationKey
-  customersKey: `activities.${string}.customers`
+  name: string
+  description: string
+  customers: CustomerText
   icon: Icon
   // Whether clubs can use it yet. Templates are defined ahead of the features
   // they need and switched on once those blocks exist.
@@ -70,9 +78,19 @@ export interface ActivityTemplate {
 export const ACTIVITY_TEMPLATES = [
   {
     key: "padel",
-    nameKey: "activities.padel.name",
-    descriptionKey: "activities.padel.description",
-    customersKey: "activities.padel.customers",
+    name: "Pádel",
+    description: "Reservas de pistas, clases, torneos y niveles de jugadores.",
+    customers: {
+      title: "Jugadores",
+      newButton: "Nuevo jugador",
+      titleEdit: "Editar jugador",
+      submitNew: "Agregar jugador",
+      created: "Jugador creado",
+      updated: "Jugador actualizado",
+      deleted: "Jugador eliminado",
+      searchPlaceholder: "Buscar jugadores...",
+      statsTotal: "Total de jugadores",
+    },
     icon: IconBallTennis,
     available: true,
     blocks: ["bookings", "sessions", "competitions", "levels"],
@@ -88,9 +106,19 @@ export const ACTIVITY_TEMPLATES = [
   },
   {
     key: "pilates",
-    nameKey: "activities.pilates.name",
-    descriptionKey: "activities.pilates.description",
-    customersKey: "activities.pilates.customers",
+    name: "Pilates",
+    description: "Clases grupales con plazas limitadas.",
+    customers: {
+      title: "Alumnos",
+      newButton: "Nuevo alumno",
+      titleEdit: "Editar alumno",
+      submitNew: "Agregar alumno",
+      created: "Alumno creado",
+      updated: "Alumno actualizado",
+      deleted: "Alumno eliminado",
+      searchPlaceholder: "Buscar alumnos...",
+      statsTotal: "Total de alumnos",
+    },
     icon: IconStretching,
     available: true,
     blocks: ["sessions"],
@@ -128,7 +156,7 @@ export function enableRefusal(
 export interface ActivitySummary {
   id: string
   templateKey: string
-  // Club-chosen name; null shows the template's translated name.
+  // Club-chosen name; null shows the template's name.
   name: string | null
   active: boolean
 }
@@ -162,22 +190,10 @@ export function enabledBlocks(
   return blocks
 }
 
-/** One of the phrases the template uses for its customers. */
-export function customerTextKey(
-  template: Pick<ActivityTemplate, "customersKey">,
-  key: CustomerTextKey
-): TranslationKey {
-  return `${template.customersKey}.${key}` as TranslationKey
-}
-
-/** The club's name for an activity, else its template's translated name. */
-export function activityDisplayName(
-  activity: ActivitySummary,
-  t: TFunction
-): string {
+/** The club's name for an activity, else its template's name. */
+export function activityDisplayName(activity: ActivitySummary): string {
   if (activity.name) return activity.name
-  const template = getTemplate(activity.templateKey)
-  return template ? t(template.nameKey) : activity.templateKey
+  return getTemplate(activity.templateKey)?.name ?? activity.templateKey
 }
 
 /** Whether an activity is active and its template provides the block. */

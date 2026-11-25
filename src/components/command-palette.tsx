@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
 import {
   IconCornerDownLeft,
   IconSearch,
@@ -12,14 +11,13 @@ import { cn } from "@/lib/utils"
 import { commandItems } from "@/lib/navigation"
 import { enabledBlocks } from "@/lib/activities/templates"
 import type { ActivitySummary } from "@/lib/activities/templates"
-import type { TranslationKey } from "@/lib/i18n"
 import { useAssistant } from "@/components/assistant-panel"
 
 interface Command {
   id: string
   icon: Icon
-  labelKey: TranslationKey
-  groupKey: TranslationKey
+  label: string
+  group: string
   keywords?: string
   run: () => void
 }
@@ -30,7 +28,6 @@ export function CommandPalette({
   activities: ActivitySummary[]
 }) {
   const router = useRouter()
-  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [activeIdx, setActiveIdx] = useState(0)
@@ -44,8 +41,8 @@ export function CommandPalette({
       {
         id: "assistant",
         icon: IconSparkles,
-        labelKey: "commandPalette.items.assistant",
-        groupKey: "commandPalette.groups.assistant",
+        label: "Asistente IA",
+        group: "Asistente",
         keywords: "ai chat search assistant ia",
         run: () => {
           skipReturnFocus.current = true
@@ -76,11 +73,9 @@ export function CommandPalette({
     const q = query.trim().toLowerCase()
     if (!q) return commands
     return commands.filter((c) =>
-      `${t(c.labelKey)} ${t(c.groupKey)} ${c.keywords ?? ""}`
-        .toLowerCase()
-        .includes(q)
+      `${c.label} ${c.group} ${c.keywords ?? ""}`.toLowerCase().includes(q)
     )
-  }, [commands, query, t])
+  }, [commands, query])
 
   useEffect(() => {
     setActiveIdx(0)
@@ -114,9 +109,7 @@ export function CommandPalette({
         className="flex h-8 w-full max-w-sm items-center gap-2 rounded-md bg-muted/50 px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
       >
         <IconSearch className="size-4" />
-        <span className="flex-1 text-left">
-          {t("commandPalette.searchAnything")}
-        </span>
+        <span className="flex-1 text-left">Buscar cualquier cosa...</span>
         <kbd className="hidden items-center gap-0.5 rounded border bg-background px-1.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
           ⌘K
         </kbd>
@@ -137,10 +130,10 @@ export function CommandPalette({
             }}
           >
             <DialogPrimitive.Title className="sr-only">
-              {t("commandPalette.srTitle")}
+              Paleta de comandos
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
-              {t("commandPalette.srDescription")}
+              Busca y salta a cualquier página.
             </DialogPrimitive.Description>
 
             <div className="flex items-center gap-2 border-b px-3">
@@ -150,7 +143,7 @@ export function CommandPalette({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKeyDown}
-                placeholder={t("commandPalette.placeholder")}
+                placeholder="Ir a una página..."
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -158,7 +151,7 @@ export function CommandPalette({
             <div className="max-h-80 overflow-y-auto p-1.5">
               {results.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  {t("commandPalette.noResults")}
+                  No se encontraron resultados.
                 </p>
               ) : (
                 results.map((item, i) => {
@@ -175,9 +168,9 @@ export function CommandPalette({
                       )}
                     >
                       <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1">{t(item.labelKey)}</span>
+                      <span className="flex-1">{item.label}</span>
                       <span className="text-xs text-muted-foreground">
-                        {t(item.groupKey)}
+                        {item.group}
                       </span>
                       {active && (
                         <IconCornerDownLeft className="size-3.5 text-muted-foreground" />

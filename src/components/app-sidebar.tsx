@@ -7,7 +7,6 @@ import {
   IconCheck,
 } from "@tabler/icons-react"
 import { Link, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -26,11 +25,10 @@ import {
   resolveAccent,
   UI_ACCENT_EVENT,
 } from "@/lib/ui-settings"
-import type { TranslationKey } from "@/lib/i18n"
 import { sidebarGroups } from "@/lib/navigation"
 import { activityDisplayName } from "@/lib/activities/templates"
 import type { SidebarNavItem } from "@/lib/navigation"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
 import {
   Sidebar,
@@ -46,7 +44,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const settingsItem = {
-  titleKey: "nav.items.settings" as TranslationKey,
+  title: "Configuración",
   url: "/settings",
   icon: IconSettings,
 }
@@ -58,7 +56,6 @@ function NavGroup({
   label?: string
   items: SidebarNavItem[]
 }) {
-  const { t } = useTranslation()
   return (
     <SidebarGroup>
       {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
@@ -69,7 +66,7 @@ function NavGroup({
               <SidebarMenuButton asChild>
                 <Link to={item.to} search={item.search}>
                   <item.icon />
-                  <span>{t(item.labelKey)}</span>
+                  <span>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -151,7 +148,6 @@ function ClubSwitcher({
   activeInitials: string
 }) {
   const router = useRouter()
-  const { t } = useTranslation()
   const [pending, setPending] = useState(false)
   const mounted = useMounted()
   useAccentVersion()
@@ -170,8 +166,8 @@ function ClubSwitcher({
       await setActiveClub({ data: { clubId } })
       await router.invalidate()
     } catch (error) {
-      toast.error(t("clubSwitcher.switchError"), {
-        description: translateError(error, t, t("clubSwitcher.tryAgain")),
+      toast.error("No se pudo cambiar de club", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
     } finally {
       setPending(false)
@@ -245,11 +241,9 @@ export function AppSidebar({
   user: SidebarUser
 }) {
   const router = useRouter()
-  const { t } = useTranslation()
   const groups = useMemo(
-    () =>
-      sidebarGroups(clubContext.activities, (a) => activityDisplayName(a, t)),
-    [clubContext.activities, t]
+    () => sidebarGroups(clubContext.activities, (a) => activityDisplayName(a)),
+    [clubContext.activities]
   )
 
   async function handleSignOut() {
@@ -261,7 +255,7 @@ export function AppSidebar({
   }
 
   // The club name comes from the database (single source of truth).
-  const activeName = clubContext.activeClubName ?? t("nav.account.noClub")
+  const activeName = clubContext.activeClubName ?? "Sin club"
   const activeInitials = clubContext.activeClubName
     ? initialsFromName(clubContext.activeClubName)
     : "?"
@@ -281,12 +275,8 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        {groups.map(({ key, labelKey, label, items }) => (
-          <NavGroup
-            key={key}
-            label={labelKey ? t(labelKey) : label}
-            items={items}
-          />
+        {groups.map(({ key, label, items }) => (
+          <NavGroup key={key} label={label} items={items} />
         ))}
       </SidebarContent>
 
@@ -298,7 +288,7 @@ export function AppSidebar({
                 <SidebarMenuButton asChild>
                   <Link to={settingsItem.url}>
                     <settingsItem.icon />
-                    <span>{t(settingsItem.titleKey)}</span>
+                    <span>{settingsItem.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -319,7 +309,7 @@ export function AppSidebar({
                   </Avatar>
                   <div className="flex flex-col text-left leading-tight">
                     <span className="truncate text-sm font-medium">
-                      {user.name ?? t("nav.account.account")}
+                      {user.name ?? "Cuenta"}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {user.email ?? ""}
@@ -329,9 +319,9 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-56">
-                <DropdownMenuItem>{t("nav.account.profile")}</DropdownMenuItem>
+                <DropdownMenuItem>Perfil</DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleSignOut}>
-                  {t("nav.account.signOut")}
+                  Cerrar sesión
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

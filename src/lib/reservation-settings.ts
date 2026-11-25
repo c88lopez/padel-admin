@@ -33,13 +33,13 @@ export interface ReservationSettingsData {
 }
 
 export const WEEKDAYS: { key: Weekday; label: string }[] = [
-  { key: "mon", label: "Monday" },
-  { key: "tue", label: "Tuesday" },
-  { key: "wed", label: "Wednesday" },
-  { key: "thu", label: "Thursday" },
-  { key: "fri", label: "Friday" },
-  { key: "sat", label: "Saturday" },
-  { key: "sun", label: "Sunday" },
+  { key: "mon", label: "Lunes" },
+  { key: "tue", label: "Martes" },
+  { key: "wed", label: "Miércoles" },
+  { key: "thu", label: "Jueves" },
+  { key: "fri", label: "Viernes" },
+  { key: "sat", label: "Sábado" },
+  { key: "sun", label: "Domingo" },
 ]
 
 export const SLOT_DURATIONS = [30, 60, 90] as const
@@ -177,29 +177,35 @@ export function validateCancellation(
   return null
 }
 
-/** Maps a rule violation to a coded, localizable AppError (thrown by server fns). */
+/** Maps a rule violation to a coded AppError (thrown by server fns). */
 export function bookingRuleError(
   error: BookingRuleError | CancellationRuleError
 ): AppError {
   switch (error.code) {
     case "CLOSED":
-      return new AppError("errors.booking.closed")
+      return new AppError(
+        "errors.booking.closed",
+        "El club está cerrado ese día. Elige otra fecha."
+      )
     case "OUTSIDE_HOURS":
-      return new AppError("errors.booking.outsideHours", {
-        open: error.open,
-        close: error.close,
-      })
+      return new AppError(
+        "errors.booking.outsideHours",
+        `Esa hora está fuera del horario de apertura (${error.open}–${error.close}).`
+      )
     case "TOO_SOON":
-      return new AppError("errors.booking.tooSoon", {
-        hours: error.minAdvanceHours,
-      })
+      return new AppError(
+        "errors.booking.tooSoon",
+        `Las reservas deben hacerse con al menos ${error.minAdvanceHours}h de antelación.`
+      )
     case "TOO_FAR":
-      return new AppError("errors.booking.tooFar", {
-        days: error.maxAdvanceDays,
-      })
+      return new AppError(
+        "errors.booking.tooFar",
+        `Las reservas no pueden hacerse con más de ${error.maxAdvanceDays} días de antelación.`
+      )
     case "CUTOFF_PASSED":
-      return new AppError("errors.booking.cutoffPassed", {
-        hours: error.cancellationCutoffHours,
-      })
+      return new AppError(
+        "errors.booking.cutoffPassed",
+        `Esta reserva ya no se puede cancelar (dentro de ${error.cancellationCutoffHours}h del inicio).`
+      )
   }
 }

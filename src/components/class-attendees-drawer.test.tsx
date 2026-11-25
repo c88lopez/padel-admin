@@ -57,7 +57,7 @@ function renderDrawer(inSeries: boolean) {
   )
 }
 
-const following = "Also every following class of the series"
+const following = "También todas las clases siguientes de la serie"
 
 describe("ClassAttendeesDrawer", () => {
   beforeEach(() => {
@@ -76,15 +76,15 @@ describe("ClassAttendeesDrawer", () => {
     await user.click(await screen.findByRole("combobox"))
     await user.click(await screen.findByRole("option", { name: "Ana" }))
     await user.click(screen.getByLabelText(following))
-    await user.click(screen.getByRole("button", { name: "Add" }))
+    await user.click(screen.getByRole("button", { name: "Agregar" }))
 
     await waitFor(() =>
       expect(addClassAttendee).toHaveBeenCalledWith({
         data: { classId: "class-1", playerId: "p-1", following: true },
       })
     )
-    expect(toast.warning).toHaveBeenCalledWith("Ana signed up to 3 classes", {
-      description: "Full, not signed up: 16 March 2026",
+    expect(toast.warning).toHaveBeenCalledWith("Ana inscripto en 3 clases", {
+      description: "Completas, sin inscribir: 16 de marzo de 2026",
     })
   })
 
@@ -92,14 +92,16 @@ describe("ClassAttendeesDrawer", () => {
     const user = userEvent.setup()
     renderDrawer(true)
     await user.click(screen.getByLabelText(following))
-    await user.click(await screen.findByRole("button", { name: "Remove Ben" }))
+    await user.click(
+      await screen.findByRole("button", { name: "Quitar a Ben" })
+    )
     await waitFor(() =>
       expect(removeClassAttendee).toHaveBeenCalledWith({
         data: { classId: "class-1", playerId: "p-2", following: true },
       })
     )
     expect(toast.success).toHaveBeenCalledWith(
-      "Ben removed from this and following classes"
+      "Ben quitado de esta clase y las siguientes"
     )
   })
 })

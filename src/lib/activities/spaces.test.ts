@@ -1,45 +1,18 @@
 import { describe, expect, it } from "vitest"
-import i18n from "@/lib/i18n"
-import { en } from "@/locales/en"
-import { es } from "@/locales/es"
 import {
   SPACE_TYPES,
   defaultSpaceName,
   getSpaceType,
   spaceDisplayName,
-  spaceNounKey,
+  spaceNoun,
   spaceNumberLabel,
   spaceShortName,
 } from "./spaces"
-
-const t = i18n.getFixedT("en")
-const tEs = i18n.getFixedT("es")
-
-function lookup(resources: object, key: string): unknown {
-  return key
-    .split(".")
-    .reduce<unknown>(
-      (node, part) =>
-        node && typeof node === "object"
-          ? (node as Record<string, unknown>)[part]
-          : undefined,
-      resources
-    )
-}
 
 describe("space types", () => {
   it("have unique keys", () => {
     const keys = SPACE_TYPES.map((type) => type.key)
     expect(new Set(keys).size).toBe(keys.length)
-  })
-
-  it("are translated in every locale", () => {
-    for (const type of SPACE_TYPES) {
-      for (const key of [type.nameKey, type.labelKey]) {
-        expect(lookup(en, key), `en ${key}`).toEqual(expect.any(String))
-        expect(lookup(es, key), `es ${key}`).toEqual(expect.any(String))
-      }
-    }
   })
 
   it("returns undefined for unknown types", () => {
@@ -55,29 +28,25 @@ describe("defaultSpaceName", () => {
 })
 
 describe("spaceDisplayName", () => {
-  it("localizes default names", () => {
-    expect(spaceDisplayName({ name: "Court 3", type: "court" }, tEs)).toBe(
-      "Pista 3"
-    )
-    expect(spaceDisplayName({ name: "studio 2", type: "studio" }, t)).toBe(
-      "Studio 2"
+  it("shows default names with the type's Spanish name", () => {
+    expect(spaceDisplayName({ name: "Court 3", type: "court" })).toBe("Pista 3")
+    expect(spaceDisplayName({ name: "studio 2", type: "studio" })).toBe(
+      "Sala 2"
     )
   })
 
   it("leaves names a club chose as they are", () => {
-    expect(spaceDisplayName({ name: "Center Court", type: "court" }, tEs)).toBe(
+    expect(spaceDisplayName({ name: "Center Court", type: "court" })).toBe(
       "Center Court"
     )
     // Another type's default name is a custom name for this one.
-    expect(spaceDisplayName({ name: "Studio 1", type: "court" }, tEs)).toBe(
+    expect(spaceDisplayName({ name: "Studio 1", type: "court" })).toBe(
       "Studio 1"
     )
   })
 
   it("leaves spaces of unknown types as they are", () => {
-    expect(spaceDisplayName({ name: "Court 1", type: "lane" }, t)).toBe(
-      "Court 1"
-    )
+    expect(spaceDisplayName({ name: "Court 1", type: "lane" })).toBe("Court 1")
   })
 })
 
@@ -93,22 +62,18 @@ describe("spaceShortName", () => {
 
 describe("spaceNumberLabel", () => {
   it("labels a number with the type", () => {
-    expect(spaceNumberLabel("court", 4, t)).toBe("Court 4")
-    expect(spaceNumberLabel("studio", 1, tEs)).toBe("Sala 1")
+    expect(spaceNumberLabel("court", 4)).toBe("Pista 4")
+    expect(spaceNumberLabel("studio", 1)).toBe("Sala 1")
   })
 })
 
-describe("spaceNounKey", () => {
+describe("spaceNoun", () => {
   it("uses the type's name when every space shares it", () => {
-    expect(spaceNounKey([{ type: "court" }, { type: "court" }])).toBe(
-      "spaces.types.court.name"
-    )
+    expect(spaceNoun([{ type: "court" }, { type: "court" }])).toBe("Pista")
   })
 
   it("falls back to the generic noun for mixed or no spaces", () => {
-    expect(spaceNounKey([{ type: "court" }, { type: "studio" }])).toBe(
-      "spaces.name"
-    )
-    expect(spaceNounKey([])).toBe("spaces.name")
+    expect(spaceNoun([{ type: "court" }, { type: "studio" }])).toBe("Espacio")
+    expect(spaceNoun([])).toBe("Espacio")
   })
 })

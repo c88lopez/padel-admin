@@ -64,9 +64,10 @@ export async function updateClassRecord(
     if (typeof values.capacity === "number") {
       const signedUp = await countAttendees(tx, id)
       if (signedUp > values.capacity) {
-        throw new AppError("errors.class.capacityBelowAttendees", {
-          count: signedUp,
-        })
+        throw new AppError(
+          "errors.class.capacityBelowAttendees",
+          `Ya hay ${signedUp} clientes inscriptos. Pon una capacidad de al menos ${signedUp}, o quita algunos primero.`
+        )
       }
     }
     const [updated] = await tx

@@ -5,8 +5,7 @@ import userEvent from "@testing-library/user-event"
 import { NewPlayerDrawer } from "./new-player-drawer"
 import { createPlayer, updatePlayer } from "@/lib/players.functions"
 import { NO_LEVELS } from "@/lib/activities/levels"
-import i18n from "@/lib/i18n"
-import { customerTextKey, getTemplate } from "@/lib/activities/templates"
+import { getTemplate } from "@/lib/activities/templates"
 import type { CustomerView } from "@/hooks/use-customer-view"
 
 // `vaul` reads computed transforms on pointer events and crashes under jsdom;
@@ -44,7 +43,7 @@ function viewFor(templateKey: "padel" | "pilates"): CustomerView {
       active: true,
     },
     levelScale: template.levels ?? NO_LEVELS,
-    text: (key) => i18n.t(customerTextKey(template, key)),
+    text: (key) => template.customers[key],
   }
 }
 
@@ -69,9 +68,11 @@ describe("NewPlayerDrawer", () => {
     const user = userEvent.setup()
     render(<NewPlayerDrawer view={padel} open onOpenChange={vi.fn()} />)
 
-    await user.click(screen.getByRole("button", { name: "Add Player" }))
+    await user.click(screen.getByRole("button", { name: "Agregar jugador" }))
 
-    expect(await screen.findByText("Full name is required")).toBeInTheDocument()
+    expect(
+      await screen.findByText("El nombre completo es obligatorio")
+    ).toBeInTheDocument()
     expect(createPlayer).not.toHaveBeenCalled()
   })
 
@@ -83,7 +84,7 @@ describe("NewPlayerDrawer", () => {
     expect(categoryTrigger).toBeDisabled()
 
     await user.click(genderTrigger)
-    await user.click(await screen.findByRole("option", { name: "Female" }))
+    await user.click(await screen.findByRole("option", { name: "Femenino" }))
 
     const enabledCategory = screen.getAllByRole("combobox")[1]
     expect(enabledCategory).toBeEnabled()
@@ -100,20 +101,23 @@ describe("NewPlayerDrawer", () => {
     const user = userEvent.setup()
     render(<NewPlayerDrawer view={padel} open onOpenChange={vi.fn()} />)
 
-    await user.type(screen.getByLabelText("Full Name"), "Jane Doe")
-    await user.type(screen.getByLabelText("Email"), "jane@example.com")
-    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5011 1222")
-    await user.type(screen.getByLabelText("Age"), "28")
+    await user.type(screen.getByLabelText("Nombre completo"), "Jane Doe")
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "jane@example.com"
+    )
+    await user.type(screen.getByLabelText("Teléfono"), "+54 9 11 5011 1222")
+    await user.type(screen.getByLabelText("Edad"), "28")
 
     const [genderTrigger] = screen.getAllByRole("combobox")
     await user.click(genderTrigger)
-    await user.click(await screen.findByRole("option", { name: "Male" }))
+    await user.click(await screen.findByRole("option", { name: "Masculino" }))
 
     const categoryTrigger = screen.getAllByRole("combobox")[1]
     await user.click(categoryTrigger)
     await user.click(await screen.findByRole("option", { name: "C5" }))
 
-    await user.click(screen.getByRole("button", { name: "Add Player" }))
+    await user.click(screen.getByRole("button", { name: "Agregar jugador" }))
 
     await waitFor(() =>
       expect(createPlayer).toHaveBeenCalledWith({
@@ -141,10 +145,10 @@ describe("NewPlayerDrawer", () => {
       />
     )
 
-    expect(screen.getByLabelText("Full Name")).toHaveValue("John Smith")
-    expect(screen.getByLabelText("Age")).toHaveValue(40)
+    expect(screen.getByLabelText("Nombre completo")).toHaveValue("John Smith")
+    expect(screen.getByLabelText("Edad")).toHaveValue(40)
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
 
     await waitFor(() =>
       expect(updatePlayer).toHaveBeenCalledWith({
@@ -169,16 +173,19 @@ describe("NewPlayerDrawer", () => {
       <NewPlayerDrawer view={viewFor("pilates")} open onOpenChange={vi.fn()} />
     )
 
-    expect(screen.getByText("New Student")).toBeInTheDocument()
-    expect(screen.queryByText("Category")).not.toBeInTheDocument()
+    expect(screen.getByText("Nuevo alumno")).toBeInTheDocument()
+    expect(screen.queryByText("Categoría")).not.toBeInTheDocument()
 
-    await user.type(screen.getByLabelText("Full Name"), "Lucía Pérez")
-    await user.type(screen.getByLabelText("Email"), "lucia@example.com")
-    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5033 3444")
-    await user.type(screen.getByLabelText("Age"), "35")
+    await user.type(screen.getByLabelText("Nombre completo"), "Lucía Pérez")
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "lucia@example.com"
+    )
+    await user.type(screen.getByLabelText("Teléfono"), "+54 9 11 5033 3444")
+    await user.type(screen.getByLabelText("Edad"), "35")
     await user.click(screen.getByRole("combobox"))
-    await user.click(await screen.findByRole("option", { name: "Female" }))
-    await user.click(screen.getByRole("button", { name: "Add Student" }))
+    await user.click(await screen.findByRole("option", { name: "Femenino" }))
+    await user.click(screen.getByRole("button", { name: "Agregar alumno" }))
 
     await waitFor(() =>
       expect(createPlayer).toHaveBeenCalledWith({

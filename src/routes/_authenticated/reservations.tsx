@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconPlus } from "@tabler/icons-react"
 import { format, parseISO } from "date-fns"
@@ -14,7 +12,7 @@ import { SpaceTimeline } from "@/components/space-timeline"
 import type { TimelineItem } from "@/components/space-timeline"
 import { listActivities } from "@/lib/activities.functions"
 import { spacesForBlock } from "@/lib/activities/templates"
-import { spaceNounKey } from "@/lib/activities/spaces"
+import { spaceNoun } from "@/lib/activities/spaces"
 import { RowActions } from "@/components/row-actions"
 import {
   deleteReservation,
@@ -24,7 +22,6 @@ import type { ReservationListItem } from "@/lib/reservations.functions"
 import { listSpaces } from "@/lib/spaces.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import { getReservationSettings } from "@/lib/reservation-settings.functions"
-import type { TranslationKey } from "@/lib/i18n"
 import { useCan } from "@/hooks/use-permissions"
 import { formatTimeRange, useAppSettings } from "@/lib/app-settings"
 
@@ -83,7 +80,6 @@ function ReservationActions({
   reservation: ReservationRow
   courts: SpaceRecord[]
 }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("reservations:manage")
   const { activities } = Route.useLoaderData()
@@ -92,13 +88,13 @@ function ReservationActions({
   async function handleDelete() {
     try {
       await deleteReservation({ data: { id: reservation.id } })
-      toast.success(t("pages.reservations.deleted"), {
+      toast.success("Reserva eliminada", {
         description: `${reservation.player} · ${reservation.timeRange}`,
       })
       router.invalidate()
     } catch {
-      toast.error(t("pages.reservations.deleteError"), {
-        description: t("common.tryAgain"),
+      toast.error("No se pudo eliminar la reserva", {
+        description: "Inténtalo de nuevo.",
       })
     }
   }
@@ -122,42 +118,39 @@ function ReservationActions({
 
 const PAYMENT_BADGE: Record<
   string,
-  { labelKey: TranslationKey; variant: "default" | "secondary" | "outline" }
+  { labelKey: string; variant: "default" | "secondary" | "outline" }
 > = {
-  paid: { labelKey: "options.paid", variant: "default" },
+  paid: { labelKey: "Pagado", variant: "default" },
   partial: {
-    labelKey: "pages.reservations.statusPartial",
+    labelKey: "Parcial",
     variant: "secondary",
   },
-  unpaid: { labelKey: "options.unpaid", variant: "outline" },
+  unpaid: { labelKey: "Sin pagar", variant: "outline" },
 }
 
-function buildColumns(
-  t: TFunction,
-  courts: SpaceRecord[]
-): ColumnDef<ReservationRow>[] {
+function buildColumns(courts: SpaceRecord[]): ColumnDef<ReservationRow>[] {
   return [
     {
       accessorKey: "spaceNumber",
-      header: t(spaceNounKey(courts)),
+      header: spaceNoun(courts),
       cell: ({ row }) => `# ${row.getValue<number>("spaceNumber")}`,
     },
     {
       accessorKey: "player",
-      header: t("pages.reservations.reservedTo"),
+      header: "Reservado para",
     },
     {
       accessorKey: "bookedBy",
-      header: t("pages.reservations.reservedBy"),
+      header: "Reservado por",
     },
     {
       accessorKey: "timeRange",
-      header: t("pages.reservations.time"),
+      header: "Hora",
       cell: ({ row }) => <TimeCell time={row.getValue<string>("timeRange")} />,
     },
     {
       accessorKey: "paymentStatus",
-      header: t("common.status"),
+      header: "Estado",
       meta: { className: "w-[384px] text-center" },
       cell: ({ row }) => {
         const badge =
@@ -165,7 +158,7 @@ function buildColumns(
           PAYMENT_BADGE.unpaid
         return (
           <div className="flex justify-center">
-            <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
+            <Badge variant={badge.variant}>{badge.labelKey}</Badge>
           </div>
         )
       },
@@ -184,11 +177,10 @@ function buildColumns(
 // --- Page ---
 
 function ReservationsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("reservations:manage")
   const { reservations, courts, settings, activities } = Route.useLoaderData()
-  const columns = useMemo(() => buildColumns(t, courts), [t, courts])
+  const columns = useMemo(() => buildColumns(courts), [courts])
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const rows: ReservationRow[] = reservations.map((r) => ({
@@ -205,18 +197,16 @@ function ReservationsPage() {
       label: r.player,
       startTime: r.startTime,
       durationMinutes: r.durationMinutes,
-      detail: r.paymentStatus === "paid" ? undefined : t("options.unpaid"),
+      detail: r.paymentStatus === "paid" ? undefined : "Sin pagar",
     }))
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">
-            {t("pages.reservations.title")}
-          </h1>
+          <h1 className="text-2xl font-semibold">Reservas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("pages.reservations.description")}
+            Administra las reservas de pistas.
           </p>
         </div>
         {canManage && (
@@ -227,7 +217,7 @@ function ReservationsPage() {
             trigger={
               <Button size="sm">
                 <IconPlus className="size-4" />
-                {t("pages.reservations.newButton")}
+                {"Nueva reserva"}
               </Button>
             }
           />
@@ -235,9 +225,7 @@ function ReservationsPage() {
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">
-          {t("pages.reservations.todaysTimeline")}
-        </h2>
+        <h2 className="text-lg font-medium">Cronograma de hoy</h2>
         <SpaceTimeline
           items={todayReservations}
           spaces={courts}
@@ -248,13 +236,11 @@ function ReservationsPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">
-          {t("pages.reservations.allReservations")}
-        </h2>
+        <h2 className="text-lg font-medium">Todas las reservas</h2>
         <DataTable
           columns={columns}
           data={rows}
-          searchPlaceholder={t("pages.reservations.searchPlaceholder")}
+          searchPlaceholder="Buscar reservas..."
           onRowHover={(r) => setHoveredId(r ? r.id : null)}
           isRowHighlighted={(r) => r.id === hoveredId}
         />

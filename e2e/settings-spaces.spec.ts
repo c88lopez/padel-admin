@@ -6,25 +6,29 @@ test("lists the club's courts under Spaces", async ({ page }) => {
   await waitForHydration(page)
 
   await expect(
-    page.getByRole("heading", { name: "Spaces", level: 2 })
+    page.getByRole("heading", { name: "Espacios", level: 2 })
   ).toBeVisible()
   // The four default padel courts, named after their type.
-  const names = page.getByLabel("Name", { exact: true })
+  const names = page.getByLabel("Nombre", { exact: true })
   await expect(names.first()).toHaveValue("Court 1")
-  await expect(page.getByRole("button", { name: "Add court" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Agregar pista" })
+  ).toBeVisible()
   // Courts moved out of the reservation settings.
   await page.goto("/settings/reservations")
   await waitForHydration(page)
-  await expect(page.getByRole("button", { name: "Add court" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Agregar pista" })).toHaveCount(
+    0
+  )
 })
 
 test("adds, renames and deletes a court", async ({ page }) => {
   await page.goto("/settings/spaces")
   await waitForHydration(page)
 
-  const names = page.getByLabel("Name", { exact: true })
+  const names = page.getByLabel("Nombre", { exact: true })
   const before = await names.count()
-  await page.getByRole("button", { name: "Add court" }).click()
+  await page.getByRole("button", { name: "Agregar pista" }).click()
   await expect(names).toHaveCount(before + 1)
   const added = names.last()
   await expect(added).toHaveValue(`Court ${before + 1}`)
@@ -40,11 +44,11 @@ test("adds, renames and deletes a court", async ({ page }) => {
   await waitForHydration(page)
   await expect(names.last()).toHaveValue("Center Court")
 
-  await page.getByRole("button", { name: "Remove Center Court" }).click()
+  await page.getByRole("button", { name: "Eliminar Center Court" }).click()
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" })
+    .getByRole("button", { name: "Eliminar" })
     .click()
-  await expect(page.getByText("Center Court removed")).toBeVisible()
+  await expect(page.getByText("Se eliminó Center Court")).toBeVisible()
   await expect(names).toHaveCount(before)
 })

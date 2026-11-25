@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { z } from "zod"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconPlus, IconRepeat } from "@tabler/icons-react"
 import { format } from "date-fns"
@@ -44,7 +42,7 @@ import {
   activityProvides,
   spacesForBlock,
 } from "@/lib/activities/templates"
-import { spaceNounKey, spaceNumberLabel } from "@/lib/activities/spaces"
+import { spaceNoun, spaceNumberLabel } from "@/lib/activities/spaces"
 import { classStatus, formatDuration } from "@/lib/classes"
 import type { ClassStatus } from "@/lib/classes"
 import { describeRule } from "@/lib/recurrence"
@@ -91,7 +89,6 @@ function ClassActions({
   coachClass: ClassRecord
   options: ClassOptions
 }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
   const [editOpen, setEditOpen] = useState(false)
@@ -103,10 +100,10 @@ function ClassActions({
       await deleteClass({ data: { id: coachClass.id, scope } })
       // Reloaded first, so the toast shows with the list already updated.
       await router.invalidate()
-      toast.success(t("pages.classes.deleted"))
+      toast.success("Clase eliminada")
     } catch {
-      toast.error(t("pages.classes.deleteError"), {
-        description: t("common.tryAgain"),
+      toast.error("No se pudo eliminar la clase", {
+        description: "Inténtalo de nuevo.",
       })
     }
   }
@@ -133,7 +130,7 @@ function ClassActions({
       <RowActions
         extraItems={[
           {
-            label: t("pages.classes.attendees"),
+            label: "Inscriptos",
             onClick: () => setAttendeesOpen(true),
           },
         ]}
@@ -148,8 +145,8 @@ function ClassActions({
         <SeriesScopeDialog
           open={deleteScopeOpen}
           onOpenChange={setDeleteScopeOpen}
-          title={t("recurrence.scope.deleteTitle")}
-          actionLabel={t("recurrence.scope.delete")}
+          title="Eliminar clase recurrente"
+          actionLabel="Eliminar"
           destructive
           onConfirm={(scope) => void handleDelete(scope)}
         />
@@ -159,47 +156,45 @@ function ClassActions({
 }
 
 function buildColumns(
-  t: TFunction,
   canManage: boolean,
   options: ClassOptions,
   showActivity: boolean
 ): ColumnDef<ClassRecord>[] {
   const activityName = new Map(
-    options.activities.map((a) => [a.id, activityDisplayName(a, t)])
+    options.activities.map((a) => [a.id, activityDisplayName(a)])
   )
   const statusLabel: Record<ClassStatus, string> = {
-    Upcoming: t("pages.classes.statusUpcoming"),
-    Ongoing: t("pages.classes.statusOngoing"),
-    Completed: t("pages.classes.statusCompleted"),
+    Upcoming: "Próxima",
+    Ongoing: "En curso",
+    Completed: "Completada",
   }
 
   const columns: ColumnDef<ClassRecord>[] = [
     {
       accessorKey: "coachName",
-      header: t("fields.coach"),
+      header: "Entrenador",
     },
     ...(showActivity
       ? [
           {
             id: "activity",
-            header: t("fields.activity"),
+            header: "Actividad",
             accessorFn: (c: ClassRecord) => activityName.get(c.activityId),
           },
         ]
       : []),
     {
       accessorKey: "spaceNumber",
-      header: t(spaceNounKey(options.courts)),
+      header: spaceNoun(options.courts),
       cell: ({ row }) =>
         spaceNumberLabel(
           row.original.spaceType,
-          row.getValue<number>("spaceNumber"),
-          t
+          row.getValue<number>("spaceNumber")
         ),
     },
     {
       accessorKey: "date",
-      header: t("fields.date"),
+      header: "Fecha",
       cell: ({ row }) => {
         const { date, series } = row.original
         if (!series) return date
@@ -211,14 +206,18 @@ function buildColumns(
               <TooltipTrigger asChild>
                 <IconRepeat
                   className="size-4 text-muted-foreground"
-                  aria-label={t("recurrence.repeating")}
+                  aria-label="Clase recurrente"
                   role="img"
                 />
               </TooltipTrigger>
               <TooltipContent>
-                <p>{describeRule(series.rule, t)}</p>
+                <p>{describeRule(series.rule)}</p>
                 {skipped > 0 && (
-                  <p>{t("recurrence.skipped", { count: skipped })}</p>
+                  <p>
+                    {skipped === 1
+                      ? `${skipped} fecha omitida`
+                      : `${skipped} fechas omitidas`}
+                  </p>
                 )}
               </TooltipContent>
             </Tooltip>
@@ -228,16 +227,16 @@ function buildColumns(
     },
     {
       accessorKey: "startTime",
-      header: t("pages.classes.time"),
+      header: "Hora",
     },
     {
       id: "duration",
-      header: t("fields.duration"),
+      header: "Duración",
       cell: ({ row }) => formatDuration(row.original.durationMinutes),
     },
     {
       id: "attendees",
-      header: t("pages.classes.attendees"),
+      header: "Inscriptos",
       // "2 / 8", or just "2" without a limit.
       accessorFn: (c) =>
         c.capacity === null
@@ -246,7 +245,7 @@ function buildColumns(
     },
     {
       id: "status",
-      header: t("common.status"),
+      header: "Estado",
       meta: { className: "text-center" },
       cell: ({ row }) => {
         const c = row.original
@@ -275,7 +274,6 @@ function buildColumns(
 }
 
 function ClassesPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
   const { classes, coaches, courts, settings, activities } =
@@ -302,8 +300,8 @@ function ClassesPage() {
     })
   }
   const columns = useMemo(
-    () => buildColumns(t, canManage, options, showActivity),
-    [t, canManage, options, showActivity]
+    () => buildColumns(canManage, options, showActivity),
+    [canManage, options, showActivity]
   )
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const filtered = classes.filter(
@@ -328,7 +326,7 @@ function ClassesPage() {
       label: c.coachName,
       startTime: c.startTime,
       durationMinutes: c.durationMinutes,
-      detail: `${t("pages.classes.attendees")}: ${
+      detail: `${"Inscriptos"}: ${
         c.capacity === null
           ? c.attendeeCount
           : `${c.attendeeCount} / ${c.capacity}`
@@ -341,7 +339,7 @@ function ClassesPage() {
         .filter((a) => activityFilter === "all" || a.id === activityFilter)
         .map((a) => ({
           key: a.id,
-          title: activityDisplayName(a, t),
+          title: activityDisplayName(a),
           spaces: courts.filter((s) => s.activityId === a.id),
         }))
     : [{ key: "all", title: null, spaces: courts }]
@@ -349,16 +347,14 @@ function ClassesPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold">{t("pages.classes.title")}</h1>
+        <h1 className="text-2xl font-semibold">Clases</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("pages.classes.description")}
+          Clases dirigidas por entrenadores.
         </p>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">
-          {t("pages.classes.todaysTimeline")}
-        </h2>
+        <h2 className="text-lg font-medium">Cronograma de hoy</h2>
         {timelines.map((timeline) => (
           <div key={timeline.key} className="flex flex-col gap-2">
             {timeline.title && (
@@ -376,11 +372,11 @@ function ClassesPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">{t("pages.classes.allClasses")}</h2>
+        <h2 className="text-lg font-medium">Todas las clases</h2>
         <DataTable
           columns={columns}
           data={visible}
-          searchPlaceholder={t("pages.classes.searchPlaceholder")}
+          searchPlaceholder="Buscar clases..."
           exportFileName="classes"
           onRowHover={(c) => setHoveredId(c ? c.id : null)}
           isRowHighlighted={(c) => c.id === hoveredId}
@@ -393,7 +389,7 @@ function ClassesPage() {
                   onCheckedChange={setHideCompleted}
                 />
                 <Label htmlFor="hide-completed" className="font-normal">
-                  {t("pages.classes.hideCompleted")}
+                  Ocultar completadas
                 </Label>
               </div>
               {showActivity && (
@@ -404,17 +400,15 @@ function ClassesPage() {
                   <SelectTrigger
                     size="sm"
                     className="w-44"
-                    aria-label={t("fields.activity")}
+                    aria-label="Actividad"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      {t("pages.classes.allActivities")}
-                    </SelectItem>
+                    <SelectItem value="all">Todas las actividades</SelectItem>
                     {sessionActivities.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
-                        {activityDisplayName(a, t)}
+                        {activityDisplayName(a)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -427,7 +421,7 @@ function ClassesPage() {
                   trigger={
                     <Button size="sm">
                       <IconPlus className="size-4" />
-                      {t("pages.classes.newButton")}
+                      {"Nueva clase"}
                     </Button>
                   }
                 />
