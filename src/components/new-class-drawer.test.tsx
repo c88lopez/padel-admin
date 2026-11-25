@@ -126,6 +126,11 @@ function renderDrawer(
   )
 }
 
+// These tests drive the whole drawer (selects, calendar, dialogs) with
+// user-event, and under CI's coverage run the longest ones take about 5s,
+// right at Vitest's default timeout.
+vi.setConfig({ testTimeout: 15_000 })
+
 describe("NewClassDrawer", () => {
   beforeEach(() => {
     vi.clearAllMocks()
