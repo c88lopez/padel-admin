@@ -17,8 +17,8 @@ test.use({
 async function openAssistant(page: Page) {
   await page.goto("/")
   await waitForHydration(page)
-  await page.getByRole("button", { name: "Open AI assistant" }).click()
-  const panel = page.getByRole("dialog", { name: "AI Assistant" })
+  await page.getByRole("button", { name: "Abrir asistente IA" }).click()
+  const panel = page.getByRole("dialog", { name: "Asistente IA" })
   await expect(panel).toBeVisible()
   return panel
 }
@@ -34,18 +34,18 @@ test("voice input transcribes into the composer without sending", async ({
   })
 
   const panel = await openAssistant(page)
-  const input = panel.getByPlaceholder("Ask the assistant…")
+  const input = panel.getByPlaceholder("Pregunta al asistente…")
   await input.fill("players")
 
-  await panel.getByRole("button", { name: "Record a voice message" }).click()
-  await expect(panel.getByRole("status")).toContainText("Recording")
+  await panel.getByRole("button", { name: "Grabar un mensaje de voz" }).click()
+  await expect(panel.getByRole("status")).toContainText("Grabando")
   await page.waitForTimeout(1200)
-  await panel.getByRole("button", { name: "Stop recording" }).click()
+  await panel.getByRole("button", { name: "Detener grabación" }).click()
 
   // The transcript is appended for the user to review; nothing is sent.
   await expect(input).toHaveValue("players under 30 with a phone")
   expect(uploads).toBe(1)
-  await expect(panel.getByText("You", { exact: true })).toHaveCount(0)
+  await expect(panel.getByText("Tú", { exact: true })).toHaveCount(0)
 })
 
 test("cancelling a recording discards it", async ({ page }) => {
@@ -56,14 +56,14 @@ test("cancelling a recording discards it", async ({ page }) => {
   })
 
   const panel = await openAssistant(page)
-  await panel.getByRole("button", { name: "Record a voice message" }).click()
-  await expect(panel.getByRole("status")).toContainText("Recording")
-  await panel.getByRole("button", { name: "Cancel" }).click()
+  await panel.getByRole("button", { name: "Grabar un mensaje de voz" }).click()
+  await expect(panel.getByRole("status")).toContainText("Grabando")
+  await panel.getByRole("button", { name: "Cancelar" }).click()
 
   await expect(panel.getByRole("status")).toHaveCount(0)
   await expect(
-    panel.getByRole("button", { name: "Record a voice message" })
+    panel.getByRole("button", { name: "Grabar un mensaje de voz" })
   ).toBeEnabled()
-  await expect(panel.getByPlaceholder("Ask the assistant…")).toHaveValue("")
+  await expect(panel.getByPlaceholder("Pregunta al asistente…")).toHaveValue("")
   expect(uploads).toBe(0)
 })

@@ -1,5 +1,3 @@
-import type { TFunction } from "i18next"
-
 // Recurrence rules for class series, modelled on Google Calendar's options.
 // Dates are plain "YYYY-MM-DD" strings, computed on UTC day numbers, so there
 // are no time zones and no DST bugs.
@@ -302,55 +300,59 @@ export function presetRules(date: string): RecurrencePreset[] {
   ]
 }
 
-const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const
-const MONTH_KEYS = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "may",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "oct",
-  "nov",
-  "dec",
+// Indexed by ISO weekday - 1 (Monday first).
+export const WEEKDAY_NAMES = [
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+  "domingo",
 ] as const
-const ORDINAL_KEYS = ["first", "second", "third", "fourth", "fifth"] as const
+export const WEEKDAY_SHORT_NAMES = [
+  "lun.",
+  "mar.",
+  "mié.",
+  "jue.",
+  "vie.",
+  "sáb.",
+  "dom.",
+] as const
+const MONTH_NAMES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+] as const
+const ORDINALS = ["primer", "segundo", "tercer", "cuarto", "quinto"] as const
 
-function weekdayName(weekday: Weekday, t: TFunction): string {
-  return t(`recurrence.weekdays.${WEEKDAY_KEYS[weekday - 1]}`)
+function weekdayName(weekday: Weekday): string {
+  return WEEKDAY_NAMES[weekday - 1]
 }
 
-function monthName(month: number, t: TFunction): string {
-  return t(`recurrence.months.${MONTH_KEYS[month - 1]}`)
-}
-
-/** "18 March 2027" / "18 de marzo de 2027". */
-export function fullDateLabel(date: string, t: TFunction): string {
+/** "18 de marzo de 2027". */
+export function fullDateLabel(date: string): string {
   const { year, month, day } = parts(date)
-  return t("recurrence.fullDate", { day, month: monthName(month, t), year })
+  return `${day} de ${MONTH_NAMES[month - 1]} de ${year}`
 }
 
-/** "on day 18", "on the third Tuesday", "on the last Tuesday". */
-export function monthlyOptionLabel(
-  by: MonthlyBy,
-  date: string,
-  t: TFunction
-): string {
-  if (by === "day_of_month")
-    return t("recurrence.onDay", { day: parts(date).day })
-  return t("recurrence.onWeekdayOfMonth", {
-    ordinal: t(
-      `recurrence.ordinals.${
-        by === "last_weekday_of_month"
-          ? "last"
-          : ORDINAL_KEYS[weekdayOrdinal(date) - 1]
-      }`
-    ),
-    weekday: weekdayName(isoWeekday(date), t),
-  })
+/** "el día 18", "el tercer martes", "el último martes". */
+export function monthlyOptionLabel(by: MonthlyBy, date: string): string {
+  if (by === "day_of_month") return `el día ${parts(date).day}`
+  const ordinal =
+    by === "last_weekday_of_month"
+      ? "último"
+      : ORDINALS[weekdayOrdinal(date) - 1]
+  return `el ${ordinal} ${weekdayName(isoWeekday(date))}`
 }
 
 function isWorkweek(weekdays: Weekday[]): boolean {
@@ -358,79 +360,62 @@ function isWorkweek(weekdays: Weekday[]): boolean {
   return set.size === 5 && [1, 2, 3, 4, 5].every((d) => set.has(d as Weekday))
 }
 
-function describeFrequency(rule: RecurrenceRule, t: TFunction): string {
+function describeFrequency(rule: RecurrenceRule): string {
   const count = Math.max(1, Math.floor(rule.interval))
   const every = count > 1
   const { month, day } = parts(rule.startDate)
 
   switch (rule.frequency) {
     case "daily":
-      return every
-        ? t("recurrence.everyNDays", { count })
-        : t("recurrence.daily")
+      return every ? `Cada ${count} días` : "Todos los días"
 
     case "weekly": {
       const weekdays = rule.weekdays.length
         ? [...new Set(rule.weekdays)].sort((a, b) => a - b)
         : [isoWeekday(rule.startDate)]
-      if (!every && isWorkweek(weekdays)) return t("recurrence.everyWeekday")
+      if (!every && isWorkweek(weekdays)) return "Todos los días hábiles"
       const days =
         weekdays.length === 1
-          ? weekdayName(weekdays[0], t)
-          : weekdays
-              .map((d) => t(`recurrence.weekdaysShort.${WEEKDAY_KEYS[d - 1]}`))
-              .join(", ")
+          ? weekdayName(weekdays[0])
+          : weekdays.map((d) => WEEKDAY_SHORT_NAMES[d - 1]).join(", ")
       return every
-        ? t("recurrence.everyNWeeksOn", { count, days })
-        : t("recurrence.weeklyOn", { days })
+        ? `Cada ${count} semanas el ${days}`
+        : `Semanalmente el ${days}`
     }
 
     case "monthly": {
       const on = monthlyOptionLabel(
         rule.monthlyBy ?? "day_of_month",
-        rule.startDate,
-        t
+        rule.startDate
       )
-      return every
-        ? t("recurrence.everyNMonthsOn", { count, on })
-        : t("recurrence.monthlyOn", { on })
+      return every ? `Cada ${count} meses ${on}` : `Mensualmente ${on}`
     }
 
     case "yearly": {
-      const date = t("recurrence.dayMonth", {
-        day,
-        month: monthName(month, t),
-      })
-      return every
-        ? t("recurrence.everyNYearsOn", { count, date })
-        : t("recurrence.annuallyOn", { date })
+      const date = `${day} de ${MONTH_NAMES[month - 1]}`
+      return every ? `Cada ${count} años el ${date}` : `Anualmente el ${date}`
     }
   }
 }
 
 /**
- * The rule as a sentence in the current language: "Weekly on Tuesday",
- * "Every 2 weeks on Mon, Wed, 10 times", "Monthly on the last Friday, until
- * 30 June 2027".
+ * The rule as a sentence: "Semanalmente el martes", "Cada 2 semanas el lun.,
+ * mié., 10 veces", "Mensualmente el último viernes, hasta el 30 de junio de
+ * 2027".
  */
-export function describeRule(rule: RecurrenceRule, t: TFunction): string {
-  const frequency = describeFrequency(rule, t)
+export function describeRule(rule: RecurrenceRule): string {
+  const frequency = describeFrequency(rule)
   if (rule.count !== null)
-    return t("recurrence.withEnd", {
-      rule: frequency,
-      end: t("recurrence.times", { count: rule.count }),
-    })
+    return `${frequency}, ${rule.count === 1 ? "1 vez" : `${rule.count} veces`}`
   if (rule.until !== null)
-    return t("recurrence.withEnd", {
-      rule: frequency,
-      end: t("recurrence.until", { date: fullDateLabel(rule.until, t) }),
-    })
+    return `${frequency}, hasta el ${fullDateLabel(rule.until)}`
   return frequency
 }
 
 /** The Repeat select's label for a preset. */
-export function presetLabel(preset: RecurrencePreset, t: TFunction): string {
-  if (!preset.rule) return t("recurrence.doesNotRepeat")
-  if (preset.id === "weekdays") return t("recurrence.everyWeekdayMonToFri")
-  return describeRule(preset.rule, t)
+export function presetLabel(preset: RecurrencePreset): string {
+  if (!preset.rule) return "No se repite"
+  if (preset.id === "weekdays")
+    return "Todos los días hábiles (de lunes a viernes)"
+  return describeRule(preset.rule)
 }

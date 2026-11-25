@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -25,6 +24,8 @@ import {
   isoWeekday,
   monthlyOptionLabel,
   monthlyOptions,
+  WEEKDAY_NAMES,
+  WEEKDAY_SHORT_NAMES,
 } from "@/lib/recurrence"
 import type {
   Frequency,
@@ -34,15 +35,14 @@ import type {
 } from "@/lib/recurrence"
 
 const FREQUENCIES: Frequency[] = ["daily", "weekly", "monthly", "yearly"]
-const WEEKDAYS = [
-  [1, "mon"],
-  [2, "tue"],
-  [3, "wed"],
-  [4, "thu"],
-  [5, "fri"],
-  [6, "sat"],
-  [7, "sun"],
-] as const
+// Singular and plural, for "every 1 week" / "every 2 weeks".
+const FREQUENCY_UNITS: Record<Frequency, [string, string]> = {
+  daily: ["día", "días"],
+  weekly: ["semana", "semanas"],
+  monthly: ["mes", "meses"],
+  yearly: ["año", "años"],
+}
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const
 
 type Ends = "never" | "until" | "count"
 
@@ -63,7 +63,6 @@ export function RecurrenceDialog({
   initial,
   onSave,
 }: Props) {
-  const { t } = useTranslation()
   const [frequency, setFrequency] = useState<Frequency>("weekly")
   const [intervalText, setIntervalText] = useState("1")
   const [weekdays, setWeekdays] = useState<Weekday[]>([])
@@ -123,14 +122,12 @@ export function RecurrenceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{t("recurrence.customDialog.title")}</DialogTitle>
+          <DialogTitle>Repetición personalizada</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="recurrence-interval">
-              {t("recurrence.customDialog.repeatEvery")}
-            </Label>
+            <Label htmlFor="recurrence-interval">Repetir cada</Label>
             <div className="flex gap-2">
               <Input
                 id="recurrence-interval"
@@ -146,18 +143,13 @@ export function RecurrenceDialog({
                 value={frequency}
                 onValueChange={(v) => setFrequency(v as Frequency)}
               >
-                <SelectTrigger
-                  className="flex-1"
-                  aria-label={t("recurrence.repeat")}
-                >
+                <SelectTrigger className="flex-1" aria-label="Repetir">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {FREQUENCIES.map((f) => (
                     <SelectItem key={f} value={f}>
-                      {t(`recurrence.units.${f}`, {
-                        count: intervalN || 1,
-                      })}
+                      {FREQUENCY_UNITS[f][(intervalN || 1) === 1 ? 0 : 1]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -167,20 +159,20 @@ export function RecurrenceDialog({
 
           {frequency === "weekly" && (
             <div className="flex flex-col gap-2">
-              <Label>{t("recurrence.customDialog.repeatOn")}</Label>
+              <Label>Repetir el</Label>
               <div className="flex flex-wrap gap-1">
-                {WEEKDAYS.map(([day, key]) => (
+                {WEEKDAYS.map((day) => (
                   <Button
                     key={day}
                     type="button"
                     size="sm"
                     variant={weekdays.includes(day) ? "default" : "outline"}
                     aria-pressed={weekdays.includes(day)}
-                    aria-label={t(`recurrence.weekdays.${key}`)}
+                    aria-label={WEEKDAY_NAMES[day - 1]}
                     className="min-w-11"
                     onClick={() => toggleWeekday(day)}
                   >
-                    {t(`recurrence.weekdaysShort.${key}`)}
+                    {WEEKDAY_SHORT_NAMES[day - 1]}
                   </Button>
                 ))}
               </div>
@@ -192,13 +184,13 @@ export function RecurrenceDialog({
               value={monthlyBy}
               onValueChange={(v) => setMonthlyBy(v as MonthlyBy)}
             >
-              <SelectTrigger aria-label={t("recurrence.customDialog.repeatOn")}>
+              <SelectTrigger aria-label="Repetir el">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {monthlyOptions(startDate).map((by) => (
                   <SelectItem key={by} value={by}>
-                    {monthlyOptionLabel(by, startDate, t)}
+                    {monthlyOptionLabel(by, startDate)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -206,7 +198,7 @@ export function RecurrenceDialog({
           )}
 
           <div className="flex flex-col gap-2">
-            <Label>{t("recurrence.customDialog.ends")}</Label>
+            <Label>Termina</Label>
             <RadioGroup
               value={ends}
               onValueChange={(v) => setEnds(v as Ends)}
@@ -215,7 +207,7 @@ export function RecurrenceDialog({
               <div className="flex h-9 items-center gap-3">
                 <RadioGroupItem value="never" id="recurrence-ends-never" />
                 <Label htmlFor="recurrence-ends-never" className="font-normal">
-                  {t("recurrence.customDialog.never")}
+                  Nunca
                 </Label>
               </div>
               <div className="flex items-center gap-3">
@@ -224,11 +216,11 @@ export function RecurrenceDialog({
                   htmlFor="recurrence-ends-until"
                   className="w-20 font-normal"
                 >
-                  {t("recurrence.customDialog.onDate")}
+                  El
                 </Label>
                 <Input
                   type="date"
-                  aria-label={t("recurrence.customDialog.onDate")}
+                  aria-label="El"
                   min={startDate}
                   className="flex-1"
                   disabled={ends !== "until"}
@@ -242,12 +234,12 @@ export function RecurrenceDialog({
                   htmlFor="recurrence-ends-count"
                   className="w-20 font-normal"
                 >
-                  {t("recurrence.customDialog.after")}
+                  Después de
                 </Label>
                 <Input
                   type="number"
                   inputMode="numeric"
-                  aria-label={t("recurrence.customDialog.after")}
+                  aria-label="Después de"
                   min={1}
                   max={1000}
                   className="w-20"
@@ -261,9 +253,7 @@ export function RecurrenceDialog({
                     ends !== "count" && "text-muted-foreground"
                   )}
                 >
-                  {t("recurrence.customDialog.occurrences", {
-                    count: countN || 0,
-                  })}
+                  {(countN || 0) === 1 ? "vez" : "veces"}
                 </span>
               </div>
             </RadioGroup>
@@ -271,14 +261,14 @@ export function RecurrenceDialog({
 
           {rule && (
             <p className="text-sm text-muted-foreground">
-              {describeRule(rule, t)}
+              {describeRule(rule)}
             </p>
           )}
         </div>
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">{t("common.cancel")}</Button>
+            <Button variant="outline">Cancelar</Button>
           </DialogClose>
           <Button
             disabled={!rule}
@@ -288,7 +278,7 @@ export function RecurrenceDialog({
               onOpenChange(false)
             }}
           >
-            {t("recurrence.customDialog.done")}
+            Listo
           </Button>
         </DialogFooter>
       </DialogContent>

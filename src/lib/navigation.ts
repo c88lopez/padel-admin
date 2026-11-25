@@ -20,10 +20,8 @@ import {
   IconUserStar,
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
-import type { TranslationKey } from "@/lib/i18n"
 import {
   activityProvides,
-  customerTextKey,
   enabledBlocks,
   getTemplate,
 } from "@/lib/activities/templates"
@@ -41,11 +39,11 @@ export interface NavEntry {
   // Sidebar primary nav. Omit to exclude the entry from the sidebar (e.g. the
   // settings sub-pages, which only live in the command palette).
   sidebarGroup?: SidebarGroup
-  sidebarLabelKey?: TranslationKey
+  sidebarLabel?: string
   // Command palette. Omit to exclude the entry from the palette.
-  commandGroupKey?: TranslationKey
-  commandLabelKey?: TranslationKey
-  // Extra search terms for the command palette (bilingual hints welcome).
+  commandGroup?: string
+  commandLabel?: string
+  // Extra search terms for the command palette (English synonyms welcome).
   keywords?: string
   // Only shown when one of the club's active activities provides this
   // building block (e.g. tournaments need "competitions").
@@ -60,42 +58,42 @@ export const NAV_ENTRIES: NavEntry[] = [
     to: "/",
     icon: IconDashboard,
     sidebarGroup: "general",
-    sidebarLabelKey: "nav.items.dashboard",
-    commandGroupKey: "commandPalette.groups.courts",
-    commandLabelKey: "commandPalette.items.dashboard",
+    sidebarLabel: "Panel",
+    commandGroup: "Pistas",
+    commandLabel: "Panel",
   },
   {
     to: "/reservations",
     icon: IconCalendar,
     block: "bookings",
     sidebarGroup: "activity",
-    sidebarLabelKey: "nav.items.reservations",
-    commandGroupKey: "commandPalette.groups.courts",
-    commandLabelKey: "commandPalette.items.reservations",
+    sidebarLabel: "Reservas",
+    commandGroup: "Pistas",
+    commandLabel: "Reservas",
   },
   {
     to: "/inventory/dashboard",
     icon: IconChartBar,
     sidebarGroup: "inventory",
-    sidebarLabelKey: "nav.items.inventoryDashboard",
-    commandGroupKey: "commandPalette.groups.inventory",
-    commandLabelKey: "commandPalette.items.salesDashboard",
+    sidebarLabel: "Panel",
+    commandGroup: "Inventario",
+    commandLabel: "Panel de ventas",
   },
   {
     to: "/inventory",
     icon: IconBox,
     sidebarGroup: "inventory",
-    sidebarLabelKey: "nav.items.stock",
-    commandGroupKey: "commandPalette.groups.inventory",
-    commandLabelKey: "commandPalette.items.stock",
+    sidebarLabel: "Stock",
+    commandGroup: "Inventario",
+    commandLabel: "Stock",
   },
   {
     to: "/inventory/sales-log",
     icon: IconReceipt,
     sidebarGroup: "inventory",
-    sidebarLabelKey: "nav.items.salesLog",
-    commandGroupKey: "commandPalette.groups.inventory",
-    commandLabelKey: "commandPalette.items.salesLog",
+    sidebarLabel: "Registro de ventas",
+    commandGroup: "Inventario",
+    commandLabel: "Registro de ventas",
   },
   {
     to: "/coaches",
@@ -103,9 +101,9 @@ export const NAV_ENTRIES: NavEntry[] = [
     block: "sessions",
     activityFilter: true,
     sidebarGroup: "activity",
-    sidebarLabelKey: "nav.items.coaches",
-    commandGroupKey: "commandPalette.groups.coaches",
-    commandLabelKey: "commandPalette.items.coaches",
+    sidebarLabel: "Entrenadores",
+    commandGroup: "Entrenadores",
+    commandLabel: "Entrenadores",
   },
   {
     to: "/coaches/classes",
@@ -113,93 +111,91 @@ export const NAV_ENTRIES: NavEntry[] = [
     block: "sessions",
     activityFilter: true,
     sidebarGroup: "activity",
-    sidebarLabelKey: "nav.items.classes",
-    commandGroupKey: "commandPalette.groups.coaches",
-    commandLabelKey: "commandPalette.items.classes",
+    sidebarLabel: "Clases",
+    commandGroup: "Entrenadores",
+    commandLabel: "Clases",
   },
   {
     to: "/players",
     icon: IconUsers,
     activityFilter: true,
     sidebarGroup: "customers",
-    sidebarLabelKey: "nav.items.players",
-    commandGroupKey: "commandPalette.groups.players",
-    commandLabelKey: "commandPalette.items.players",
+    sidebarLabel: "Jugadores",
+    commandGroup: "Jugadores",
+    commandLabel: "Jugadores",
   },
   {
     to: "/tournaments",
     icon: IconTrophy,
     block: "competitions",
     sidebarGroup: "activity",
-    sidebarLabelKey: "nav.items.tournaments",
-    commandGroupKey: "commandPalette.groups.tournaments",
-    commandLabelKey: "commandPalette.items.tournaments",
+    sidebarLabel: "Torneos",
+    commandGroup: "Torneos",
+    commandLabel: "Torneos",
   },
   // Settings sub-pages: command palette only (the sidebar exposes a single
   // "Settings" entry in its footer).
   {
     to: "/settings/general",
     icon: IconBuildingStore,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.generalSettings",
+    commandGroup: "Configuración",
+    commandLabel: "General",
     keywords: "club currency locale profile general configuración",
   },
   {
     to: "/settings/activities",
     icon: IconLayoutGrid,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.activitySettings",
+    commandGroup: "Configuración",
+    commandLabel: "Actividades",
     keywords: "activities modules sports padel pilates actividades deportes",
   },
   {
     to: "/settings/spaces",
     icon: IconMapPin,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.spaceSettings",
+    commandGroup: "Configuración",
+    commandLabel: "Espacios",
     keywords: "spaces courts studios rooms espacios pistas salas",
   },
   {
     to: "/settings/reservations",
     icon: IconCalendarCog,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.reservationSettings",
+    commandGroup: "Configuración",
+    commandLabel: "Configuración de reservas",
     keywords: "hours booking rules horario reservas",
   },
   {
     to: "/settings/notifications",
     icon: IconBell,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.notificationSettings",
+    commandGroup: "Configuración",
+    commandLabel: "Configuración de notificaciones",
     keywords: "email whatsapp reminders notificaciones",
   },
   {
     to: "/settings/users",
     icon: IconUsers,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.users",
+    commandGroup: "Configuración",
+    commandLabel: "Usuarios",
     keywords: "roles security password usuarios",
   },
   {
     to: "/settings/ui",
     icon: IconPalette,
-    commandGroupKey: "commandPalette.groups.settings",
-    commandLabelKey: "commandPalette.items.appearance",
-    keywords: "theme accent color font size ui idioma apariencia",
+    commandGroup: "Configuración",
+    commandLabel: "Apariencia",
+    keywords: "theme accent color font size ui apariencia",
   },
 ]
 
 export interface SidebarNavItem {
   to: string
   icon: Icon
-  labelKey: TranslationKey
+  label: string
   search?: { activity: string }
 }
 
 export interface SidebarNavGroup {
   key: string
-  // Translated with t(); absent for the unlabelled top group.
-  labelKey?: TranslationKey
-  // The club's activity name, shown as is.
+  // Absent for the unlabelled top group.
   label?: string
   items: SidebarNavItem[]
 }
@@ -212,7 +208,7 @@ function toSidebarItem(entry: NavEntry, activityId?: string): SidebarNavItem {
   return {
     to: entry.to,
     icon: entry.icon,
-    labelKey: entry.sidebarLabelKey as TranslationKey,
+    label: entry.sidebarLabel as string,
     ...(activityId && entry.activityFilter
       ? { search: { activity: activityId } }
       : {}),
@@ -225,7 +221,7 @@ export function sidebarItemsForGroup(
   blocks: ReadonlySet<BlockKey>
 ): SidebarNavItem[] {
   return NAV_ENTRIES.filter(
-    (e) => e.sidebarGroup === group && e.sidebarLabelKey && isVisible(e, blocks)
+    (e) => e.sidebarGroup === group && e.sidebarLabel && isVisible(e, blocks)
   ).map((e) => toSidebarItem(e))
 }
 
@@ -236,7 +232,7 @@ export function sidebarItemsForActivity(
   return NAV_ENTRIES.filter(
     (e) =>
       e.sidebarGroup === "activity" &&
-      e.sidebarLabelKey &&
+      e.sidebarLabel &&
       e.block !== undefined &&
       activityProvides(activity, e.block)
   ).map((e) => toSidebarItem(e, activity.id))
@@ -253,7 +249,7 @@ export function sidebarCustomerItems(
     if (!a.active || !template) return []
     return entries.map((e) => ({
       ...toSidebarItem(e, a.id),
-      labelKey: customerTextKey(template, "title"),
+      label: template.customers.title,
     }))
   })
 }
@@ -278,12 +274,12 @@ export function sidebarGroups(
       })),
     {
       key: "inventory",
-      labelKey: "nav.groups.inventory",
+      label: "Inventario",
       items: sidebarItemsForGroup("inventory", blocks),
     },
     {
       key: "customers",
-      labelKey: "nav.groups.customers",
+      label: "Clientes",
       items: sidebarCustomerItems(activities),
     },
   ]
@@ -293,8 +289,8 @@ export function sidebarGroups(
 export interface CommandNavItem {
   to: string
   icon: Icon
-  labelKey: TranslationKey
-  groupKey: TranslationKey
+  label: string
+  group: string
   keywords?: string
 }
 
@@ -302,12 +298,12 @@ export interface CommandNavItem {
 // blocks the club's activities provide.
 export function commandItems(blocks: ReadonlySet<BlockKey>): CommandNavItem[] {
   return NAV_ENTRIES.filter(
-    (e) => e.commandLabelKey && e.commandGroupKey && isVisible(e, blocks)
+    (e) => e.commandLabel && e.commandGroup && isVisible(e, blocks)
   ).map((e) => ({
     to: e.to,
     icon: e.icon,
-    labelKey: e.commandLabelKey as TranslationKey,
-    groupKey: e.commandGroupKey as TranslationKey,
+    label: e.commandLabel as string,
+    group: e.commandGroup as string,
     keywords: e.keywords,
   }))
 }

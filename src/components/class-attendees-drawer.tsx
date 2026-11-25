@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { IconTrash } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
@@ -28,7 +27,7 @@ import {
 } from "@/lib/classes.functions"
 import type { AttendeeRecord } from "@/lib/classes.functions"
 import { listPlayers } from "@/lib/players.functions"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 import { fullDateLabel } from "@/lib/recurrence"
 
 interface Props {
@@ -53,7 +52,6 @@ export function ClassAttendeesDrawer({
   onOpenChange,
   onChanged,
 }: Props) {
-  const { t } = useTranslation()
   const [attendees, setAttendees] = useState<AttendeeRecord[]>([])
   // null until loaded: the picker waits for them, so its options don't
   // appear (and shift) under a click.
@@ -105,7 +103,7 @@ export function ClassAttendeesDrawer({
       changed.current = true
       await load()
     } catch (err) {
-      toast.error(translateError(err, t, t("common.genericError")))
+      toast.error(errorMessage(err, "Algo salió mal"))
       await load()
     } finally {
       setBusy(false)
@@ -119,22 +117,20 @@ export function ClassAttendeesDrawer({
         addClassAttendee({ data: { classId, playerId: selected, following } }),
       following
         ? ({ classes, full: fullDates }) => {
-            const message = t("forms.attendees.addedToSeries", {
-              name,
-              count: classes,
-            })
+            const message =
+              classes === 1
+                ? `${name} inscripto en ${classes} clase`
+                : `${name} inscripto en ${classes} clases`
             if (fullDates.length === 0) {
               toast.success(message)
               return
             }
             // Signed up to the rest; say which dates were full.
             toast.warning(message, {
-              description: t("forms.attendees.fullDates", {
-                dates: fullDates.map((d) => fullDateLabel(d, t)).join(", "),
-              }),
+              description: `Completas, sin inscribir: ${fullDates.map((d) => fullDateLabel(d)).join(", ")}`,
             })
           }
-        : t("forms.attendees.added", { name })
+        : `${name} inscripto`
     ).then(() => setSelected(""))
   }
 
@@ -145,8 +141,8 @@ export function ClassAttendeesDrawer({
           data: { classId, playerId: attendee.playerId, following },
         }),
       following
-        ? t("forms.attendees.removedFromSeries", { name: attendee.fullName })
-        : t("forms.attendees.removed", { name: attendee.fullName })
+        ? `${attendee.fullName} quitado de esta clase y las siguientes`
+        : `Se quitó a ${attendee.fullName}`
     )
   }
 
@@ -154,21 +150,18 @@ export function ClassAttendeesDrawer({
     <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>{t("forms.attendees.title")}</DrawerTitle>
+          <DrawerTitle>Inscriptos</DrawerTitle>
           <DrawerDescription>
             {capacity === null
-              ? t("forms.attendees.signedUp", { count: attendees.length })
-              : t("forms.attendees.placesTaken", {
-                  count: attendees.length,
-                  capacity,
-                })}
+              ? `${attendees.length} inscriptos, sin límite`
+              : `${attendees.length} de ${capacity} plazas ocupadas`}
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2">
           {attendees.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {t("forms.attendees.empty")}
+              Todavía no hay nadie inscripto.
             </p>
           ) : (
             <ul className="flex flex-col divide-y rounded-md border">
@@ -184,9 +177,7 @@ export function ClassAttendeesDrawer({
                     className="size-8 text-muted-foreground hover:text-destructive"
                     disabled={busy}
                     onClick={() => remove(a)}
-                    aria-label={t("forms.attendees.remove", {
-                      name: a.fullName,
-                    })}
+                    aria-label={`Quitar a ${a.fullName}`}
                   >
                     <IconTrash className="size-4" />
                   </Button>
@@ -197,18 +188,13 @@ export function ClassAttendeesDrawer({
 
           {full ? (
             <p className="text-sm text-muted-foreground">
-              {t("errors.class.full")}
+              Esta clase está completa.
             </p>
           ) : players === null ? null : (
             <div className="flex gap-2">
               <Select value={selected} onValueChange={setSelected}>
-                <SelectTrigger
-                  className="flex-1"
-                  aria-label={t("forms.attendees.addPlaceholder")}
-                >
-                  <SelectValue
-                    placeholder={t("forms.attendees.addPlaceholder")}
-                  />
+                <SelectTrigger className="flex-1" aria-label="Elige un cliente">
+                  <SelectValue placeholder="Elige un cliente" />
                 </SelectTrigger>
                 <SelectContent>
                   {choices.map((p) => (
@@ -219,7 +205,7 @@ export function ClassAttendeesDrawer({
                 </SelectContent>
               </Select>
               <Button disabled={!selected || busy} onClick={add}>
-                {t("forms.attendees.add")}
+                Agregar
               </Button>
             </div>
           )}
@@ -233,7 +219,7 @@ export function ClassAttendeesDrawer({
                 onCheckedChange={(checked) => setFollowing(checked === true)}
               />
               <Label htmlFor="attendees-following" className="font-normal">
-                {t("forms.attendees.following")}
+                También todas las clases siguientes de la serie
               </Label>
             </div>
           )}
@@ -241,7 +227,7 @@ export function ClassAttendeesDrawer({
 
         <DrawerFooter>
           <DrawerClose asChild>
-            <Button variant="outline">{t("common.close")}</Button>
+            <Button variant="outline">Cerrar</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

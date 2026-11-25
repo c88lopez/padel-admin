@@ -122,7 +122,8 @@ export async function updateClassSeriesRecord(
   now?: ClubNow
 ): Promise<SeriesEditResult> {
   const found = await classWithSeries(clubId, data.id)
-  if (!found) throw new AppError("errors.class.notFound")
+  if (!found)
+    throw new AppError("errors.class.notFound", "Esa clase ya no existe.")
   const { cls, series } = found
   const fields = {
     coachId: data.coachId,
@@ -313,6 +314,9 @@ async function assertCapacityFits(
     .groupBy(coachClassAttendee.classId)
   const most = Math.max(0, ...counts.map((c) => c.n))
   if (most > capacity) {
-    throw new AppError("errors.class.capacityBelowAttendees", { count: most })
+    throw new AppError(
+      "errors.class.capacityBelowAttendees",
+      `Ya hay ${most} clientes inscriptos. Pon una capacidad de al menos ${most}, o quita algunos primero.`
+    )
   }
 }

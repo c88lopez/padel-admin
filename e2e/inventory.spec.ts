@@ -20,16 +20,16 @@ async function createItem(
   }: { price?: number; stock?: number; threshold?: number } = {}
 ): Promise<string> {
   const name = `E2E Item ${Date.now()}-${Math.floor(Math.random() * 1e4)}`
-  const dialog = await openDrawer(page, "New Item")
-  await dialog.getByLabel("Product Name").fill(name)
-  await selectOption(page, dialog, "Category", "Drinks")
+  const dialog = await openDrawer(page, "Nuevo artículo")
+  await dialog.getByLabel("Nombre del producto").fill(name)
+  await selectOption(page, dialog, "Categoría", "Bebidas")
   // The price label includes the currency symbol, e.g. "Price ($)".
-  await dialog.getByLabel(/^Price/).fill(String(price))
+  await dialog.getByLabel(/^Precio/).fill(String(price))
   await dialog.getByLabel("Stock", { exact: true }).fill(String(stock))
-  await dialog.getByLabel("Low-stock threshold").fill(String(threshold))
-  await dialog.getByRole("button", { name: "Add Item" }).click()
+  await dialog.getByLabel("Umbral de stock bajo").fill(String(threshold))
+  await dialog.getByRole("button", { name: "Agregar artículo" }).click()
   // Toasts can briefly overlap when creating several items in a row.
-  await expect(page.getByText("Item created").first()).toBeVisible()
+  await expect(page.getByText("Artículo creado").first()).toBeVisible()
   // Wait for the drawer to finish closing so a follow-up create can't click the
   // still-animating one.
   await expect(dialog).toBeHidden()
@@ -41,7 +41,7 @@ async function createItem(
 async function findRow(page: Page, name: string): Promise<Locator> {
   await page.goto("/inventory")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search products...").fill(name)
+  await page.getByPlaceholder("Buscar productos...").fill(name)
   return page.getByRole("row", { name: new RegExp(name) })
 }
 
@@ -61,13 +61,13 @@ test("edits a stock item", async ({ page }) => {
 
   const row = await findRow(page, name)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Edit" }).click()
+  await page.getByRole("menuitem", { name: "Editar" }).click()
 
   const dialog = page.getByRole("dialog")
   const updated = `${name} edited`
-  await dialog.getByLabel("Product Name").fill(updated)
-  await dialog.getByRole("button", { name: "Save Changes" }).click()
-  await expect(page.getByText("Item updated")).toBeVisible()
+  await dialog.getByLabel("Nombre del producto").fill(updated)
+  await dialog.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByText("Artículo actualizado")).toBeVisible()
 
   await findRow(page, updated)
   await expect(
@@ -82,12 +82,12 @@ test("deletes a stock item", async ({ page }) => {
 
   const row = await findRow(page, name)
   await openRowMenu(page, row)
-  await page.getByRole("menuitem", { name: "Delete" }).click()
+  await page.getByRole("menuitem", { name: "Eliminar" }).click()
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" })
+    .getByRole("button", { name: "Eliminar" })
     .click()
-  await expect(page.getByText("Item deleted")).toBeVisible()
+  await expect(page.getByText("Artículo eliminado")).toBeVisible()
 
   await findRow(page, name)
   await expect(page.getByRole("cell", { name, exact: true })).toHaveCount(0)
@@ -102,8 +102,8 @@ test("flags an item below its low-stock threshold", async ({ page }) => {
   // new low-stock item, then open the notifications drawer.
   await page.goto("/inventory")
   await waitForHydration(page)
-  await page.getByRole("button", { name: /Notifications/ }).click()
-  await expect(page.getByText(`Low stock: ${name}`)).toBeVisible()
+  await page.getByRole("button", { name: /Notificaciones/ }).click()
+  await expect(page.getByText(`Stock bajo: ${name}`)).toBeVisible()
 })
 
 test("records a sale in the sales log", async ({ page }) => {
@@ -113,18 +113,18 @@ test("records a sale in the sales log", async ({ page }) => {
 
   await page.goto("/inventory/sales-log")
   await waitForHydration(page)
-  const dialog = await openDrawer(page, "New Sale")
+  const dialog = await openDrawer(page, "Nueva venta")
   await pickCalendarDay(page, dialog, await dateKeyAhead(page, 0, false))
   // The product option text is "{name} ({stock} in stock)" — match by name.
-  await dialog.getByLabel("Product").click()
+  await dialog.getByLabel("Producto").click()
   await page.getByRole("option", { name: new RegExp(name) }).click()
-  await dialog.getByLabel("Qty").fill("2")
-  await dialog.getByRole("button", { name: "Record Sale" }).click()
-  await expect(page.getByText("Sale recorded")).toBeVisible()
+  await dialog.getByLabel("Cant.").fill("2")
+  await dialog.getByRole("button", { name: "Registrar venta" }).click()
+  await expect(page.getByText("Venta registrada")).toBeVisible()
 
   // Stock should have decremented from 25 to 23.
   const row = await findRow(page, name)
-  await expect(row.getByText(/^23 units$/)).toBeVisible()
+  await expect(row.getByText(/^23 unidades$/)).toBeVisible()
 })
 
 test("records a multi-item sale and shows correct data when expanded", async ({
@@ -144,32 +144,32 @@ test("records a multi-item sale and shows correct data when expanded", async ({
   // Record a single sale containing all six line items.
   await page.goto("/inventory/sales-log")
   await waitForHydration(page)
-  const dialog = await openDrawer(page, "New Sale")
+  const dialog = await openDrawer(page, "Nueva venta")
   await pickCalendarDay(page, dialog, await dateKeyAhead(page, 0, false))
   // The drawer starts with one line; add the other five.
   for (let i = 1; i < lines.length; i++) {
-    await dialog.getByRole("button", { name: "Add Item" }).click()
+    await dialog.getByRole("button", { name: "Agregar artículo" }).click()
   }
   for (let i = 0; i < lines.length; i++) {
     const block = dialog.locator("div.rounded-md.border.p-3").nth(i)
-    await block.getByLabel("Product").click()
+    await block.getByLabel("Producto").click()
     const option = page.getByRole("option", {
-      name: `${lines[i].name} (50 in stock)`,
+      name: `${lines[i].name} (50 en stock)`,
       exact: true,
     })
     await option.click()
     await option.waitFor({ state: "hidden" })
-    await block.getByLabel("Qty").fill(String(lines[i].qty))
+    await block.getByLabel("Cant.").fill(String(lines[i].qty))
   }
-  await dialog.getByRole("button", { name: "Record Sale" }).click()
-  await expect(page.getByText("Sale recorded")).toBeVisible()
+  await dialog.getByRole("button", { name: "Registrar venta" }).click()
+  await expect(page.getByText("Venta registrada")).toBeVisible()
 
   // The collapsed row should summarise the sale: "6 items" and the grand total.
   await page.goto("/inventory/sales-log")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search sales...").fill(lines[0].name)
+  await page.getByPlaceholder("Buscar ventas...").fill(lines[0].name)
   const total = lines.reduce((sum, l) => sum + l.price * l.qty, 0)
-  const summaryRow = page.getByRole("row", { name: /6 items/ })
+  const summaryRow = page.getByRole("row", { name: /6 artículos/ })
   await expect(summaryRow).toBeVisible()
   await expect(summaryRow).toContainText(`$${total.toFixed(2)}`)
 

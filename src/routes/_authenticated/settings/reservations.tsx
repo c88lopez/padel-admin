@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { ensurePermission } from "@/lib/route-guards"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -41,18 +39,9 @@ export const Route = createFileRoute("/_authenticated/settings/reservations")({
   component: ReservationSettingsPage,
 })
 
-function buildWeekdays(t: TFunction): { key: Weekday; label: string }[] {
-  return WEEKDAYS.map((d) => ({
-    key: d.key,
-    label: t(`settings.reservations.weekdays.${d.key}`),
-  }))
-}
-
 function ReservationSettingsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const { settings: loadedSettings } = Route.useLoaderData()
-  const weekdays = useMemo(() => buildWeekdays(t), [t])
   // Local mirror of the DB reservation settings (hours + rules), saved to the
   // server on change (selects/switches) or on blur (text/number inputs).
   const [reservations, setReservations] =
@@ -65,8 +54,8 @@ function ReservationSettingsPage() {
     try {
       await updateReservationSettings({ data: next })
     } catch {
-      toast.error(t("common.genericError"), {
-        description: t("common.tryAgain"),
+      toast.error("Algo salió mal", {
+        description: "Inténtalo de nuevo.",
       })
       router.invalidate()
     }
@@ -116,33 +105,33 @@ function ReservationSettingsPage() {
     const next = DEFAULT_RESERVATION_SETTINGS
     setReservations(next)
     void persistSettings(next)
-    toast.success(t("settings.reservations.resetToast"))
+    toast.success(
+      "Configuración de reservas restablecida a los valores predeterminados"
+    )
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">
-            {t("settings.reservations.title")}
-          </h2>
+          <h2 className="text-lg font-medium">Reservas</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("settings.reservations.description")}
+            Horario de apertura y reglas de reserva.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={reset}>
-          {t("common.resetToDefaults")}
+          Restablecer valores predeterminados
         </Button>
       </div>
 
       <SettingsSectionList>
         <SettingsSection
-          title={t("settings.reservations.operatingHours.title")}
-          description={t("settings.reservations.operatingHours.description")}
+          title="Horario de apertura"
+          description="Las reservas fuera de este horario se rechazan. También define el rango visible del cronograma de reservas."
         >
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2 border-b pb-4 sm:max-w-xs">
-              <Label>{t("settings.reservations.timezone")}</Label>
+              <Label>Zona horaria</Label>
               <Select
                 value={reservations.timezone}
                 onValueChange={(v) => commit({ timezone: v })}
@@ -159,7 +148,7 @@ function ReservationSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {weekdays.map((day) => {
+            {WEEKDAYS.map((day) => {
               const value = reservations.hours[day.key]
               const invalid = !value.closed && value.open >= value.close
               return (
@@ -179,9 +168,7 @@ function ReservationSettingsPage() {
                         }
                       />
                       <span className="w-12 text-xs text-muted-foreground">
-                        {value.closed
-                          ? t("settings.reservations.closed")
-                          : t("settings.reservations.open")}
+                        {value.closed ? "Cerrado" : "Abierto"}
                       </span>
                     </div>
                     <Input
@@ -210,7 +197,7 @@ function ReservationSettingsPage() {
                   </div>
                   {invalid && (
                     <p className="pl-24 text-xs text-destructive">
-                      {t("settings.reservations.invalidHours")}
+                      La hora de cierre debe ser posterior a la de apertura.
                     </p>
                   )}
                 </div>
@@ -220,12 +207,12 @@ function ReservationSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.reservations.slots.title")}
-          description={t("settings.reservations.slots.description")}
+          title="Franjas"
+          description="Granularidad y duración predeterminadas para nuevas reservas."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label>{t("settings.reservations.slotDuration")}</Label>
+              <Label>Duración de la franja</Label>
               <Select
                 value={String(reservations.slotDuration)}
                 onValueChange={(v) => commit({ slotDuration: Number(v) })}
@@ -236,7 +223,7 @@ function ReservationSettingsPage() {
                 <SelectContent>
                   {SLOT_DURATIONS.map((m) => (
                     <SelectItem key={m} value={String(m)}>
-                      {t("settings.reservations.slotMinutes", { minutes: m })}
+                      {`${m} minutos`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -244,7 +231,7 @@ function ReservationSettingsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="defaultBookingLength">
-                {t("settings.reservations.defaultBookingLength")}
+                Duración de reserva predeterminada (min)
               </Label>
               <Input
                 id="defaultBookingLength"
@@ -264,14 +251,12 @@ function ReservationSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.reservations.bookingRules.title")}
-          description={t("settings.reservations.bookingRules.description")}
+          title="Reglas de reserva"
+          description="Restricciones aplicadas cuando los jugadores reservan o cancelan."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="minAdvanceHours">
-                {t("settings.reservations.minAdvance")}
-              </Label>
+              <Label htmlFor="minAdvanceHours">Antelación mínima (horas)</Label>
               <Input
                 id="minAdvanceHours"
                 type="number"
@@ -286,9 +271,7 @@ function ReservationSettingsPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="maxAdvanceDays">
-                {t("settings.reservations.maxAdvance")}
-              </Label>
+              <Label htmlFor="maxAdvanceDays">Antelación máxima (días)</Label>
               <Input
                 id="maxAdvanceDays"
                 type="number"
@@ -304,7 +287,7 @@ function ReservationSettingsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="cancellationCutoffHours">
-                {t("settings.reservations.cancellationCutoff")}
+                Límite de cancelación (horas)
               </Label>
               <Input
                 id="cancellationCutoffHours"
@@ -321,7 +304,7 @@ function ReservationSettingsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="maxConcurrentPerPlayer">
-                {t("settings.reservations.maxConcurrent")}
+                Máx. de reservas activas por jugador
               </Label>
               <Input
                 id="maxConcurrentPerPlayer"

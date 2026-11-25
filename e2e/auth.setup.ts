@@ -17,12 +17,14 @@ setup("authenticate as admin", async ({ page }) => {
   await expect(async () => {
     if (new URL(page.url()).pathname !== "/login") return // already authenticated
     await waitForHydration(page)
-    await page.getByLabel("Email").fill(ADMIN_EMAIL)
-    await page.getByLabel("Password").fill(ADMIN_PASSWORD)
-    await page.getByRole("button", { name: "Sign in" }).click()
+    await page.getByLabel("Correo electrónico").fill(ADMIN_EMAIL)
+    await page.getByLabel("Contraseña").fill(ADMIN_PASSWORD)
+    await page.getByRole("button", { name: "Iniciar sesión" }).click()
     await page.waitForURL((url) => url.pathname === "/", { timeout: 8000 })
   }).toPass({ timeout: 60_000 })
 
-  await expect(page.getByRole("button", { name: "Sign in" })).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Iniciar sesión" })
+  ).toHaveCount(0)
   await page.context().storageState({ path: authFile })
 })

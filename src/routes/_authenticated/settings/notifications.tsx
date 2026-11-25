@@ -1,8 +1,6 @@
 import { useMemo } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { IconBrandWhatsapp, IconMail } from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { ensurePermission } from "@/lib/route-guards"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -29,18 +27,16 @@ export const Route = createFileRoute("/_authenticated/settings/notifications")({
 })
 
 const OFFSET_LABEL_KEYS = {
-  1: "settings.notifications.offsets.h1",
-  2: "settings.notifications.offsets.h2",
-  24: "settings.notifications.offsets.h24",
-  48: "settings.notifications.offsets.h48",
+  1: "1 hora",
+  2: "2 horas",
+  24: "1 día",
+  48: "2 días",
 } as const
 
-function buildReminderOffsets(
-  t: TFunction
-): { hours: number; label: string }[] {
+function buildReminderOffsets(): { hours: number; label: string }[] {
   return REMINDER_OFFSETS.map((offset) => ({
     hours: offset.hours,
-    label: t(OFFSET_LABEL_KEYS[offset.hours as keyof typeof OFFSET_LABEL_KEYS]),
+    label: OFFSET_LABEL_KEYS[offset.hours as keyof typeof OFFSET_LABEL_KEYS],
   }))
 }
 
@@ -80,13 +76,12 @@ function ToggleRow({
 }
 
 function NotificationsSettingsPage() {
-  const { t } = useTranslation()
   const settings = useAppSettings()
   // Per-club settings load from localStorage after mount; until then show a
   // skeleton so the switches don't flash from default to real values.
   const ready = useAppSettingsHydrated()
   const { notifications } = settings
-  const reminderOffsets = useMemo(() => buildReminderOffsets(t), [t])
+  const reminderOffsets = useMemo(() => buildReminderOffsets(), [])
 
   function update(partial: Partial<NotificationSettings>) {
     setAppSettings({
@@ -109,35 +104,35 @@ function NotificationsSettingsPage() {
       ...settings,
       notifications: DEFAULT_APP_SETTINGS.notifications,
     })
-    toast.success(t("settings.notifications.resetToast"))
+    toast.success(
+      "Configuración de notificaciones restablecida a los valores predeterminados"
+    )
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">
-            {t("settings.notifications.title")}
-          </h2>
+          <h2 className="text-lg font-medium">Notificaciones</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("settings.notifications.description")}
+            Elige cómo y cuándo se notifica a jugadores y personal.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={reset}>
-          {t("common.resetToDefaults")}
+          Restablecer valores predeterminados
         </Button>
       </div>
 
       <SettingsSectionList>
         <SettingsSection
-          title={t("settings.notifications.channels.title")}
-          description={t("settings.notifications.channels.description")}
+          title="Canales"
+          description="Métodos de entrega para las notificaciones salientes."
         >
           <div className="flex flex-col">
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.email.title")}
-              description={t("settings.notifications.email.description")}
+              title="Correo electrónico"
+              description="Enviar notificaciones por correo electrónico."
               icon={<IconMail className="size-5" />}
               checked={notifications.channels.email}
               onChange={(checked) =>
@@ -148,8 +143,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.whatsapp.title")}
-              description={t("settings.notifications.whatsapp.description")}
+              title="WhatsApp"
+              description="Enviar notificaciones por WhatsApp."
               icon={<IconBrandWhatsapp className="size-5" />}
               checked={notifications.channels.whatsapp}
               onChange={(checked) =>
@@ -162,16 +157,14 @@ function NotificationsSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.notifications.events.title")}
-          description={t("settings.notifications.events.description")}
+          title="Eventos"
+          description="Qué eventos de reserva activan una notificación."
         >
           <div className="flex flex-col">
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.confirmations.title")}
-              description={t(
-                "settings.notifications.confirmations.description"
-              )}
+              title="Confirmaciones de reserva"
+              description="Cuando se crea una reserva."
               checked={notifications.events.confirmations}
               onChange={(checked) =>
                 update({
@@ -181,8 +174,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.reminders.title")}
-              description={t("settings.notifications.reminders.description")}
+              title="Recordatorios"
+              description="Antes de una próxima reserva."
               checked={notifications.events.reminders}
               onChange={(checked) =>
                 update({
@@ -192,10 +185,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.cancellations.title")}
-              description={t(
-                "settings.notifications.cancellations.description"
-              )}
+              title="Cancelaciones"
+              description="Cuando se cancela una reserva."
               checked={notifications.events.cancellations}
               onChange={(checked) =>
                 update({
@@ -207,8 +198,8 @@ function NotificationsSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.notifications.reminderTiming.title")}
-          description={t("settings.notifications.reminderTiming.description")}
+          title="Tiempo de recordatorio"
+          description="Envía recordatorios con esta antelación al inicio de la reserva."
         >
           <div className="flex flex-wrap gap-2">
             {reminderOffsets.map((offset) => {
@@ -221,11 +212,7 @@ function NotificationsSettingsPage() {
                     key={offset.hours}
                     className="rounded-full border border-transparent px-4 py-1.5 text-sm"
                   >
-                    <span className="invisible">
-                      {t("settings.notifications.offsetBefore", {
-                        label: offset.label,
-                      })}
-                    </span>
+                    <span className="invisible">{`${offset.label} antes`}</span>
                   </Skeleton>
                 )
               }
@@ -242,9 +229,7 @@ function NotificationsSettingsPage() {
                       : "border-border text-muted-foreground"
                   )}
                 >
-                  {t("settings.notifications.offsetBefore", {
-                    label: offset.label,
-                  })}
+                  {`${offset.label} antes`}
                 </button>
               )
             })}
@@ -252,14 +237,14 @@ function NotificationsSettingsPage() {
         </SettingsSection>
 
         <SettingsSection
-          title={t("settings.notifications.inApp.title")}
-          description={t("settings.notifications.inApp.description")}
+          title="Notificaciones en la app"
+          description="Qué eventos aparecen en el menú de notificaciones."
         >
           <div className="flex flex-col">
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.bookings.title")}
-              description={t("settings.notifications.bookings.description")}
+              title="Reservas"
+              description="Reservas nuevas y actualizadas."
               checked={notifications.inApp.bookings}
               onChange={(checked) =>
                 update({ inApp: { ...notifications.inApp, bookings: checked } })
@@ -267,8 +252,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.payments.title")}
-              description={t("settings.notifications.payments.description")}
+              title="Pagos"
+              description="Actividad de ventas y pagos."
               checked={notifications.inApp.payments}
               onChange={(checked) =>
                 update({ inApp: { ...notifications.inApp, payments: checked } })
@@ -276,8 +261,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.lowStock.title")}
-              description={t("settings.notifications.lowStock.description")}
+              title="Stock bajo"
+              description="Cuando el inventario cae por debajo del umbral."
               checked={notifications.inApp.lowStock}
               onChange={(checked) =>
                 update({ inApp: { ...notifications.inApp, lowStock: checked } })
@@ -285,8 +270,8 @@ function NotificationsSettingsPage() {
             />
             <ToggleRow
               loading={!ready}
-              title={t("settings.notifications.system.title")}
-              description={t("settings.notifications.system.description")}
+              title="Sistema"
+              description="Actualizaciones del producto y avisos de mantenimiento."
               checked={notifications.inApp.system}
               onChange={(checked) =>
                 update({ inApp: { ...notifications.inApp, system: checked } })

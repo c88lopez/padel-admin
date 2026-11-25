@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +23,6 @@ interface Props {
 
 /** Asks before a series edit removes classes (and their sign-ups). */
 export function SeriesRemovalsDialog({ removals, onCancel, onConfirm }: Props) {
-  const { t } = useTranslation()
   return (
     <AlertDialog
       open={!!removals}
@@ -34,20 +32,15 @@ export function SeriesRemovalsDialog({ removals, onCancel, onConfirm }: Props) {
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("recurrence.removeConfirm.title")}
-          </AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar clases?</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("recurrence.removeConfirm.description", {
-              classes: removals?.classes ?? 0,
-              signUps: removals?.signUps ?? 0,
-            })}
+            {`Se eliminarán las clases que no encajan con la nueva repetición: ${removals?.classes ?? 0} clases y ${removals?.signUps ?? 0} inscripciones.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
-            {t("recurrence.removeConfirm.action")}
+            Eliminar y guardar
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

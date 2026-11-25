@@ -117,7 +117,7 @@ async function activityWithSpaces(
     (a) => a.id === activityId
   )
   if (!found || !getTemplate(found.templateKey)?.spaces) {
-    throw new AppError("errors.activity.notFound")
+    throw new AppError("errors.activity.notFound", "Actividad no encontrada.")
   }
   return found
 }
@@ -125,7 +125,11 @@ async function activityWithSpaces(
 function assertTypeAllowed(activity: ActivityRecord, type: string): void {
   const allowed: readonly string[] =
     getTemplate(activity.templateKey)?.spaces?.types ?? []
-  if (!allowed.includes(type)) throw new AppError("errors.space.wrongType")
+  if (!allowed.includes(type))
+    throw new AppError(
+      "errors.space.wrongType",
+      "Esa actividad no usa este tipo de espacio."
+    )
 }
 
 // Next number within the activity, so new spaces append ("Court 7").
@@ -250,8 +254,16 @@ export async function assertSpaceBookable(
     .where(and(eq(space.id, spaceId), eq(space.clubId, clubId)))
     .limit(1)
   const row = rows.at(0)
-  if (!row) throw new AppError("errors.space.gone")
-  if (!row.active) throw new AppError("errors.space.inactive")
+  if (!row)
+    throw new AppError(
+      "errors.space.gone",
+      "Ese espacio ya no existe. Elige otro."
+    )
+  if (!row.active)
+    throw new AppError(
+      "errors.space.inactive",
+      "Ese espacio está inactivo. Elige otro."
+    )
   // Spaces from before activities belong to the bookings activity, which
   // linkUnassignedSpaces sets on the next read.
   const activityId = row.activityId ?? (await bookingsActivityId(clubId))
@@ -259,7 +271,10 @@ export async function assertSpaceBookable(
     (a) => a.id === activityId
   )
   if (!activity || !activityProvides(activity, block)) {
-    throw new AppError("errors.space.wrongActivity")
+    throw new AppError(
+      "errors.space.wrongActivity",
+      "Ese espacio no se puede usar para esto. Elige otro."
+    )
   }
   return activity
 }
@@ -378,17 +393,18 @@ export async function assertSpaceFree(
 ): Promise<void> {
   const conflict = await findSpaceConflict(clubId, slot, ignore)
   if (!conflict) return
-  const params = {
-    start: conflict.startTime,
-    end: endTime(conflict.startTime, conflict.durationMinutes),
-  }
+  const start = conflict.startTime
+  const end = endTime(conflict.startTime, conflict.durationMinutes)
   if (conflict.kind === "reservation") {
-    throw new AppError("errors.reservation.conflict", {
-      ...params,
-      player: conflict.who ?? "",
-    })
+    throw new AppError(
+      "errors.reservation.conflict",
+      `Ese espacio ya está reservado ${start}–${end} (${conflict.who ?? ""}). Elige otra hora o espacio.`
+    )
   }
-  throw new AppError("errors.space.classConflict", params)
+  throw new AppError(
+    "errors.space.classConflict",
+    `Hay una clase en ese espacio ${start}–${end}. Elige otra hora o espacio.`
+  )
 }
 
 /**

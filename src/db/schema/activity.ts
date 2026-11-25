@@ -25,7 +25,7 @@ export const activity = pgTable(
       .notNull()
       .references(() => club.id, { onDelete: "cascade" }),
     templateKey: text("template_key").notNull(),
-    // Club-chosen display name; null uses the template's translated name.
+    // Club-chosen display name; null uses the template's name.
     name: text("name"),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),

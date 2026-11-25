@@ -1,8 +1,8 @@
 import { expect } from "@playwright/test"
 import type { Locator, Page } from "@playwright/test"
 
-// Signed-out storage state that pins the UI to English (see global-setup.ts).
-export const ENGLISH_STATE = "e2e/.auth/english.json"
+// Storage state for specs that start signed out.
+export const SIGNED_OUT_STATE = { cookies: [], origins: [] }
 
 // Key for the hidden platform API on the E2E server (see playwright.config.ts).
 export const PLATFORM_API_KEY =
@@ -40,9 +40,9 @@ export async function loginAs(
   await expect(async () => {
     if (new URL(page.url()).pathname !== "/login") return // already signed in
     await waitForHydration(page)
-    await page.getByLabel("Email").fill(email)
-    await page.getByLabel("Password").fill(password)
-    await page.getByRole("button", { name: "Sign in" }).click()
+    await page.getByLabel("Correo electrónico").fill(email)
+    await page.getByLabel("Contraseña").fill(password)
+    await page.getByRole("button", { name: "Iniciar sesión" }).click()
     await page.waitForURL((url) => url.pathname === "/", { timeout: 8000 })
   }).toPass({ timeout: 60_000 })
 }
@@ -128,7 +128,7 @@ export async function openRowMenu(page: Page, row: Locator): Promise<void> {
 // uses. The Default Club has 4 courts, one per local worker.
 export function workerCourt(): string {
   const worker = Number(process.env.TEST_PARALLEL_INDEX ?? 0)
-  return `Court ${(worker % 4) + 1}`
+  return `Pista ${(worker % 4) + 1}`
 }
 
 // Computes the locale date string (matching the calendar's data-day attribute) a
@@ -156,7 +156,7 @@ export async function pickCalendarDay(
   page: Page,
   scope: Locator,
   key: string,
-  dateLabel = "Date"
+  dateLabel = "Fecha"
 ): Promise<void> {
   const dateButton = scope.getByLabel(dateLabel)
   const days = page.locator("[data-day]")

@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test"
-import { loginAs, waitForHydration, ENGLISH_STATE } from "./helpers"
+import { loginAs, waitForHydration, SIGNED_OUT_STATE } from "./helpers"
 
 // The Coach role (seeded as laura@padelclub.com) only has `coaches:manage`. These
 // tests sign in fresh as the coach instead of reusing the admin storage state.
-test.use({ storageState: ENGLISH_STATE })
+test.use({ storageState: SIGNED_OUT_STATE })
 
 const COACH_EMAIL = "laura@padelclub.com"
 const COACH_PASSWORD = "padel1234"
@@ -13,13 +13,15 @@ test("coach cannot create players or reservations", async ({ page }) => {
 
   await page.goto("/players")
   await waitForHydration(page)
-  await expect(page.getByRole("button", { name: "New Player" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Nuevo jugador" })).toHaveCount(
+    0
+  )
 
   await page.goto("/reservations")
   await waitForHydration(page)
-  await expect(
-    page.getByRole("button", { name: "New Reservation" })
-  ).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Nueva reserva" })).toHaveCount(
+    0
+  )
 })
 
 test("coach only sees appearance settings", async ({ page }) => {

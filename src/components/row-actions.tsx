@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { useTranslation } from "react-i18next"
 import { IconDotsVertical } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,9 +39,8 @@ export function RowActions({
   deleteLabel,
   confirmDelete = true,
 }: RowActionsProps) {
-  const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const resolvedDeleteLabel = deleteLabel ?? t("rowActions.delete")
+  const resolvedDeleteLabel = deleteLabel ?? "Eliminar"
 
   return (
     <>
@@ -58,12 +56,8 @@ export function RowActions({
               {item.label}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuItem onClick={onEdit}>
-            {t("rowActions.edit")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onDuplicate}>
-            {t("rowActions.duplicate")}
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onEdit}>Editar</DropdownMenuItem>
+          <DropdownMenuItem onClick={onDuplicate}>Duplicar</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -79,13 +73,13 @@ export function RowActions({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("rowActions.areYouSure")}</AlertDialogTitle>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("rowActions.cannotBeUndone")}
+              Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("rowActions.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {

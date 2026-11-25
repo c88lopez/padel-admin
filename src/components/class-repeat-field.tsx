@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -19,11 +18,10 @@ interface Props {
 
 /** The class drawer's Repeat select, with its Custom… dialog. */
 export function ClassRepeatField({ recurrence, startDate }: Props) {
-  const { t } = useTranslation()
   const { series, presets, customForDate, preview, rule } = recurrence
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor="class-repeat">{t("recurrence.repeat")}</Label>
+      <Label htmlFor="class-repeat">Repetir</Label>
       <Select
         value={recurrence.repeat}
         onValueChange={recurrence.changeRepeat}
@@ -37,23 +35,27 @@ export function ClassRepeatField({ recurrence, startDate }: Props) {
             .filter((preset) => !series || preset.rule)
             .map((preset) => (
               <SelectItem key={preset.id} value={preset.id}>
-                {presetLabel(preset, t)}
+                {presetLabel(preset)}
               </SelectItem>
             ))}
           {customForDate && (
             <SelectItem value="custom">
-              {describeRule(customForDate, t)}
+              {describeRule(customForDate)}
             </SelectItem>
           )}
-          <SelectItem value={CUSTOMIZE}>{t("recurrence.custom")}</SelectItem>
+          <SelectItem value={CUSTOMIZE}>Personalizar…</SelectItem>
         </SelectContent>
       </Select>
       {/* The select already shows the rule; this says what it creates. */}
       {preview && (
         <p className="text-sm text-muted-foreground">
           {preview.capped
-            ? t("recurrence.firstYearCount", { count: preview.count })
-            : t("recurrence.classCount", { count: preview.count })}
+            ? preview.count === 1
+              ? `Primeros 12 meses: ${preview.count} clase`
+              : `Primeros 12 meses: ${preview.count} clases`
+            : preview.count === 1
+              ? `Se creará ${preview.count} clase`
+              : `Se crearán ${preview.count} clases`}
         </p>
       )}
       {startDate && (

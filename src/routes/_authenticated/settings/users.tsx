@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { ensurePermission } from "@/lib/route-guards"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconDotsVertical, IconPlus } from "@tabler/icons-react"
@@ -54,7 +52,7 @@ import {
 import type { SecuritySettings } from "@/lib/app-settings"
 import { can } from "@/lib/permissions"
 import { listClubOptions } from "@/lib/clubs.functions"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 import {
   createUser,
   deleteUser,
@@ -96,7 +94,6 @@ function UserActions({
   clubs: ClubOption[]
   canManageClubs: boolean
 }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -107,16 +104,13 @@ function UserActions({
       const { tempPassword } = await resetUserPassword({
         data: { id: user.id },
       })
-      toast.success(t("settings.users.tempPasswordSet"), {
-        description: t("settings.users.tempPasswordDescription", {
-          email: user.email,
-          password: tempPassword,
-        }),
+      toast.success("Contraseña temporal establecida", {
+        description: `${user.email} — ${tempPassword}`,
         duration: 10000,
       })
     } catch (error) {
-      toast.error(t("settings.users.resetPasswordError"), {
-        description: translateError(error, t, t("common.tryAgain")),
+      toast.error("No se pudo restablecer la contraseña", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
     }
   }
@@ -126,20 +120,15 @@ function UserActions({
       await setUserArchived({
         data: { id: user.id, archived: !isArchived },
       })
-      toast.success(
-        isArchived
-          ? t("settings.users.userRestored")
-          : t("settings.users.userArchived"),
-        {
-          description: isArchived
-            ? t("settings.users.restoredDescription", { name: user.name })
-            : t("settings.users.archivedDescription", { name: user.name }),
-        }
-      )
+      toast.success(isArchived ? "Usuario restaurado" : "Usuario archivado", {
+        description: isArchived
+          ? `${user.name} ahora está activo.`
+          : `${user.name} ahora está archivado.`,
+      })
       router.invalidate()
     } catch (error) {
-      toast.error(t("settings.users.updateError"), {
-        description: translateError(error, t, t("common.tryAgain")),
+      toast.error("No se pudo actualizar el usuario", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
     }
   }
@@ -147,15 +136,13 @@ function UserActions({
   async function handleDelete() {
     try {
       await deleteUser({ data: { id: user.id } })
-      toast.success(t("settings.users.deleted"), {
-        description: t("settings.users.deletedDescription", {
-          name: user.name,
-        }),
+      toast.success("Usuario eliminado", {
+        description: `${user.name} se ha eliminado.`,
       })
       router.invalidate()
     } catch (error) {
-      toast.error(t("settings.users.deleteError"), {
-        description: translateError(error, t, t("common.tryAgain")),
+      toast.error("No se pudo eliminar el usuario", {
+        description: errorMessage(error, "Inténtalo de nuevo."),
       })
     } finally {
       setConfirmOpen(false)
@@ -198,22 +185,20 @@ function UserActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            {t("common.edit")}
+            Editar
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleResetPassword}>
-            {t("settings.users.resetPassword")}
+            Restablecer contraseña
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleToggleArchive}>
-            {isArchived
-              ? t("settings.users.restore")
-              : t("settings.users.archive")}
+            {isArchived ? "Restaurar" : "Archivar"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setConfirmOpen(true)}
           >
-            {t("common.delete")}
+            Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -221,20 +206,19 @@ function UserActions({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.users.deleteTitle", { name: user.name })}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{`¿Eliminar ${user.name}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("settings.users.deleteDescription")}
+              Esto elimina permanentemente al usuario y su acceso. Esta acción
+              no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={handleDelete}
             >
-              {t("common.delete")}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -244,7 +228,6 @@ function UserActions({
 }
 
 function SecuritySection() {
-  const { t } = useTranslation()
   const settings = useAppSettings()
   // Per-club settings load from localStorage after mount; until then show a
   // skeleton so the controls don't flash from default to real values.
@@ -258,13 +241,13 @@ function SecuritySection() {
   return (
     <SettingsSectionList>
       <SettingsSection
-        title={t("settings.users.security.title")}
-        description={t("settings.users.security.description")}
+        title="Seguridad"
+        description="Valores predeterminados para nuevas cuentas, política de contraseñas y sesiones."
       >
         <div className="flex flex-col gap-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label>{t("settings.users.security.defaultRole")}</Label>
+              <Label>Rol predeterminado para nuevos usuarios</Label>
               {ready ? (
                 <Select
                   value={security.defaultRole}
@@ -275,11 +258,8 @@ function SecuritySection() {
                   </SelectTrigger>
                   <SelectContent>
                     {USER_ROLES.map((role) => (
-                      <SelectItem
-                        key={roleLabel(t, role)}
-                        value={roleLabel(t, role)}
-                      >
-                        {roleLabel(t, role)}
+                      <SelectItem key={roleLabel(role)} value={roleLabel(role)}>
+                        {roleLabel(role)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -290,7 +270,7 @@ function SecuritySection() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="sessionTimeout">
-                {t("settings.users.security.sessionTimeout")}
+                Tiempo de espera de sesión (minutos)
               </Label>
               {ready ? (
                 <Input
@@ -311,14 +291,10 @@ function SecuritySection() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium">
-              {t("settings.users.security.passwordPolicy")}
-            </p>
+            <p className="text-sm font-medium">Política de contraseñas</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="minLength">
-                  {t("settings.users.security.minLength")}
-                </Label>
+                <Label htmlFor="minLength">Longitud mínima</Label>
                 {ready ? (
                   <Input
                     id="minLength"
@@ -336,9 +312,7 @@ function SecuritySection() {
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="expiryDays">
-                  {t("settings.users.security.expiry")}
-                </Label>
+                <Label htmlFor="expiryDays">Caducidad (días, 0 = nunca)</Label>
                 {ready ? (
                   <Input
                     id="expiryDays"
@@ -368,9 +342,7 @@ function SecuritySection() {
                 ) : (
                   <Skeleton className="h-5 w-9 rounded-full" />
                 )}
-                <span className="text-sm">
-                  {t("settings.users.security.requireUppercase")}
-                </span>
+                <span className="text-sm">Requerir una letra mayúscula</span>
               </div>
               <div className="flex items-center gap-3 px-3 py-2.5">
                 {ready ? (
@@ -383,9 +355,7 @@ function SecuritySection() {
                 ) : (
                   <Skeleton className="h-5 w-9 rounded-full" />
                 )}
-                <span className="text-sm">
-                  {t("settings.users.security.requireNumber")}
-                </span>
+                <span className="text-sm">Requerir un número</span>
               </div>
               <div className="flex items-center gap-3 px-3 py-2.5">
                 {ready ? (
@@ -398,9 +368,7 @@ function SecuritySection() {
                 ) : (
                   <Skeleton className="h-5 w-9 rounded-full" />
                 )}
-                <span className="text-sm">
-                  {t("settings.users.security.requireSymbol")}
-                </span>
+                <span className="text-sm">Requerir un símbolo</span>
               </div>
             </div>
           </div>
@@ -411,14 +379,13 @@ function SecuritySection() {
 }
 
 function buildColumns(
-  t: TFunction,
   clubs: ClubOption[],
   canManageClubs: boolean
 ): ColumnDef<User>[] {
   return [
     {
       accessorKey: "name",
-      header: t("settings.users.colName"),
+      header: "Nombre",
       cell: ({ row }) => (
         <span
           className={cn(
@@ -432,29 +399,29 @@ function buildColumns(
     },
     {
       accessorKey: "email",
-      header: t("fields.email"),
+      header: "Correo electrónico",
       cell: ({ row }) => (
         <span className="text-muted-foreground">{row.original.email}</span>
       ),
     },
     {
       accessorKey: "role",
-      header: t("fields.role"),
+      header: "Rol",
       cell: ({ row }) => (
         <Badge variant="secondary">
-          {roleLabel(t, row.getValue<UserRole>("role"))}
+          {roleLabel(row.getValue<UserRole>("role"))}
         </Badge>
       ),
     },
     {
       accessorKey: "status",
-      header: t("common.status"),
+      header: "Estado",
       cell: ({ row }) =>
         row.getValue<string>("status") === "active" ? (
-          <Badge variant="default">{t("common.active")}</Badge>
+          <Badge variant="default">Activo</Badge>
         ) : (
           <Badge variant="outline" className="text-muted-foreground">
-            {t("settings.users.archived")}
+            Archivado
           </Badge>
         ),
     },
@@ -463,12 +430,12 @@ function buildColumns(
           {
             id: "clubs",
             accessorFn: (u) => u.clubs.map((c) => c.name).join(", "),
-            header: t("fields.club"),
+            header: "Club",
             cell: ({ row }) => (
               <span className="text-muted-foreground">
                 {row.original.clubs.length > 0
                   ? row.original.clubs.map((c) => c.name).join(", ")
-                  : t("settings.users.platformPlaceholder")}
+                  : "— Plataforma —"}
               </span>
             ),
           } satisfies ColumnDef<User>,
@@ -490,7 +457,6 @@ function buildColumns(
 }
 
 function UsersSettingsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const { users: rawUsers, clubs, canManageClubs } = Route.useLoaderData()
   const users: User[] = rawUsers.map((u) => ({
@@ -499,23 +465,23 @@ function UsersSettingsPage() {
   }))
 
   const columns = useMemo(
-    () => buildColumns(t, clubs, canManageClubs),
-    [t, clubs, canManageClubs]
+    () => buildColumns(clubs, canManageClubs),
+    [clubs, canManageClubs]
   )
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-lg font-medium">{t("settings.users.title")}</h2>
+        <h2 className="text-lg font-medium">Usuarios</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("settings.users.description")}
+          Invita compañeros, asigna roles y administra el acceso.
         </p>
       </div>
 
       <DataTable
         columns={columns}
         data={users}
-        searchPlaceholder={t("settings.users.searchPlaceholder")}
+        searchPlaceholder="Buscar usuarios..."
         exportFileName="users"
         action={
           <NewUserDrawer
@@ -537,7 +503,7 @@ function UsersSettingsPage() {
             trigger={
               <Button size="sm">
                 <IconPlus className="size-4" />
-                {t("settings.users.newButton")}
+                {"Nuevo usuario"}
               </Button>
             }
           />

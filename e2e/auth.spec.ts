@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test"
-import { waitForHydration, ENGLISH_STATE } from "./helpers"
+import { waitForHydration, SIGNED_OUT_STATE } from "./helpers"
 
 // These run without the saved admin session.
-test.use({ storageState: ENGLISH_STATE })
+test.use({ storageState: SIGNED_OUT_STATE })
 
 test("unauthenticated users are redirected to login", async ({ page }) => {
   await page.goto("/reservations")
@@ -12,11 +12,11 @@ test("unauthenticated users are redirected to login", async ({ page }) => {
 test("invalid credentials show an error", async ({ page }) => {
   await page.goto("/login")
   await waitForHydration(page)
-  await page.getByLabel("Email").fill("admin@club.test")
-  await page.getByLabel("Password").fill("definitely-the-wrong-password")
-  await page.getByRole("button", { name: "Sign in" }).click()
+  await page.getByLabel("Correo electrónico").fill("admin@club.test")
+  await page.getByLabel("Contraseña").fill("definitely-the-wrong-password")
+  await page.getByRole("button", { name: "Iniciar sesión" }).click()
 
-  await expect(page.getByText(/invalid email or password/i)).toBeVisible()
+  await expect(page.getByText("Correo o contraseña no válidos.")).toBeVisible()
   await expect(page).toHaveURL(/\/login$/)
 })
 
@@ -25,12 +25,12 @@ test("archived users cannot sign in", async ({ page }) => {
   // credentials, the Better Auth before-hook rejects the sign-in.
   await page.goto("/login")
   await waitForHydration(page)
-  await page.getByLabel("Email").fill("pedro@padelclub.com")
-  await page.getByLabel("Password").fill("padel1234")
-  await page.getByRole("button", { name: "Sign in" }).click()
+  await page.getByLabel("Correo electrónico").fill("pedro@padelclub.com")
+  await page.getByLabel("Contraseña").fill("padel1234")
+  await page.getByRole("button", { name: "Iniciar sesión" }).click()
 
   await expect(
-    page.getByText("This account has been archived. Contact an administrator.")
+    page.getByText("Esta cuenta está archivada. Contacta con un administrador.")
   ).toBeVisible()
   await expect(page).toHaveURL(/\/login$/)
 })

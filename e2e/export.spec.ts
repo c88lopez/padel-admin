@@ -6,10 +6,10 @@ test("exports a data table to CSV", async ({ page }) => {
   await page.goto("/players")
   await waitForHydration(page)
 
-  await page.getByRole("button", { name: "Export" }).click()
+  await page.getByRole("button", { name: "Exportar" }).click()
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("menuitem", { name: "Export as CSV" }).click(),
+    page.getByRole("menuitem", { name: "Exportar como CSV" }).click(),
   ])
 
   expect(download.suggestedFilename()).toMatch(
@@ -18,5 +18,5 @@ test("exports a data table to CSV", async ({ page }) => {
 
   const path = await download.path()
   const header = readFileSync(path, "utf8").split("\n")[0]
-  expect(header).toContain("Full Name")
+  expect(header).toContain("Nombre completo")
 })

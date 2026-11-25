@@ -74,14 +74,21 @@ async function resolveClubIds(
 ): Promise<string[]> {
   if (role === SUPER_ADMIN_ROLE) {
     if (!can(actor.role, "clubs:manage")) {
-      throw new AppError("errors.user.cannotAssignSuperAdmin")
+      throw new AppError(
+        "errors.user.cannotAssignSuperAdmin",
+        "No puedes asignar el rol de Super Admin."
+      )
     }
     return []
   }
 
   let ids = clubIds && clubIds.length > 0 ? [...new Set(clubIds)] : current
   if (ids.length === 0) {
-    if (!activeClubId) throw new AppError("errors.user.selectClub")
+    if (!activeClubId)
+      throw new AppError(
+        "errors.user.selectClub",
+        "Selecciona un club para este usuario."
+      )
     ids = [activeClubId]
   }
 
@@ -90,7 +97,10 @@ async function resolveClubIds(
     .from(club)
     .where(inArray(club.id, ids))
   if (found.length !== ids.length) {
-    throw new AppError("errors.user.invalidClub")
+    throw new AppError(
+      "errors.user.invalidClub",
+      "Selección de club no válida."
+    )
   }
   return ids
 }
@@ -113,7 +123,8 @@ async function assertManageable(
       )
     )
     .limit(1)
-  if (rows.length === 0) throw new AppError("errors.user.notFound")
+  if (rows.length === 0)
+    throw new AppError("errors.user.notFound", "Usuario no encontrado.")
 }
 
 // Generates a temporary password that satisfies common policy requirements.
@@ -180,7 +191,10 @@ export const createUser = createServerFn({ method: "POST" })
       .where(eq(user.email, data.email))
       .limit(1)
     if (existing.length > 0) {
-      throw new AppError("errors.user.emailExists")
+      throw new AppError(
+        "errors.user.emailExists",
+        "Ya existe un usuario con este correo."
+      )
     }
 
     const id = crypto.randomUUID()
@@ -229,7 +243,10 @@ export const updateUser = createServerFn({ method: "POST" })
       .where(eq(user.email, data.email))
       .limit(1)
     if (clash.length > 0 && clash[0].id !== data.id) {
-      throw new AppError("errors.user.emailExists")
+      throw new AppError(
+        "errors.user.emailExists",
+        "Ya existe un usuario con este correo."
+      )
     }
 
     await db
@@ -262,7 +279,10 @@ export const resetUserPassword = createServerFn({ method: "POST" })
       .where(eq(account.userId, data.id))
       .returning({ id: account.id })
     if (updated.length === 0) {
-      throw new AppError("errors.user.noPasswordReset")
+      throw new AppError(
+        "errors.user.noPasswordReset",
+        "Este usuario no tiene acceso con contraseña para restablecer."
+      )
     }
     return { tempPassword }
   })
@@ -279,7 +299,10 @@ export const setUserArchived = createServerFn({ method: "POST" })
       data.id
     )
     if (data.archived && data.id === session.user.id) {
-      throw new AppError("errors.user.cannotArchiveSelf")
+      throw new AppError(
+        "errors.user.cannotArchiveSelf",
+        "No puedes archivar tu propia cuenta."
+      )
     }
     await db
       .update(user)
@@ -301,7 +324,10 @@ export const deleteUser = createServerFn({ method: "POST" })
       data.id
     )
     if (data.id === session.user.id) {
-      throw new AppError("errors.user.cannotDeleteSelf")
+      throw new AppError(
+        "errors.user.cannotDeleteSelf",
+        "No puedes eliminar tu propia cuenta."
+      )
     }
     await db.delete(user).where(eq(user.id, data.id))
     return { id: data.id }

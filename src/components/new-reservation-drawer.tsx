@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { zodFormResolver } from "@/lib/form"
 import { z } from "zod"
 import { format } from "date-fns"
@@ -16,7 +14,7 @@ import {
   updateReservation,
 } from "@/lib/reservations.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
-import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
+import { spaceDisplayName, spaceNoun } from "@/lib/activities/spaces"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { bookingDurations } from "@/lib/activities/config"
 import { durationLabel } from "@/lib/duration-label"
@@ -51,16 +49,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
-function makeSchema(t: TFunction) {
+function makeSchema() {
   return z.object({
-    player: z.string().min(1, t("validation.playerRequired")),
-    spaceId: z.string().min(1, t("validation.spaceRequired")),
-    date: z.date({ error: t("validation.dateRequired") }),
-    time: z.string().min(1, t("validation.timeRequired")),
-    duration: z.string().min(1, t("validation.durationRequired")),
-    paymentStatus: z.string().min(1, t("validation.paymentStatusRequired")),
+    player: z.string().min(1, "El jugador es obligatorio"),
+    spaceId: z.string().min(1, "El espacio es obligatorio"),
+    date: z.date({ error: "La fecha es obligatoria" }),
+    time: z.string().min(1, "La hora es obligatoria"),
+    duration: z.string().min(1, "La duración es obligatoria"),
+    paymentStatus: z.string().min(1, "El estado de pago es obligatorio"),
   })
 }
 
@@ -96,7 +94,6 @@ export function NewReservationDrawer({
   onOpenChange: controlledOnOpenChange,
   onSaved,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
@@ -109,7 +106,7 @@ export function NewReservationDrawer({
   )
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  const schema = useMemo(() => makeSchema(), [])
 
   const form = useForm<FormInput>({
     resolver: zodFormResolver<FormInput>(schema),
@@ -163,25 +160,17 @@ export function NewReservationDrawer({
           ? updateReservation({ data: { id: reservation.id, ...payload } })
           : createReservation({ data: payload }),
       onSuccess: () => {
-        toast.success(
-          isEditing
-            ? t("forms.reservation.updated")
-            : t("forms.reservation.created"),
-          {
-            description: t("forms.reservation.savedDescription", {
-              player: values.player,
-            }),
-          }
-        )
+        toast.success(isEditing ? "Reserva actualizada" : "Reserva creada", {
+          description: `La reserva para ${values.player} se ha guardado.`,
+        })
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
       onError: (error) => {
-        toast.error(t("forms.reservation.errorTitle"), {
-          description: translateError(
+        toast.error("No se pudo guardar la reserva", {
+          description: errorMessage(
             error,
-            t,
-            t("forms.reservation.errorDescription")
+            "No se pudo guardar la reserva. Inténtalo de nuevo."
           ),
         })
       },
@@ -194,9 +183,7 @@ export function NewReservationDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing
-              ? t("forms.reservation.titleEdit")
-              : t("forms.reservation.titleNew")}
+            {isEditing ? "Editar reserva" : "Nueva reserva"}
           </DrawerTitle>
         </DrawerHeader>
 
@@ -210,12 +197,9 @@ export function NewReservationDrawer({
               name="player"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.player")}</FormLabel>
+                  <FormLabel>Jugador</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t("forms.reservation.playerPlaceholder")}
-                      {...field}
-                    />
+                    <Input placeholder="Nombre completo" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -227,19 +211,17 @@ export function NewReservationDrawer({
               name="spaceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t(spaceNounKey(courts))}</FormLabel>
+                  <FormLabel>{spaceNoun(courts)}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectSpace")}
-                        />
+                        <SelectValue placeholder="Selecciona un espacio" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {courts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {spaceDisplayName(c, t)}
+                          {spaceDisplayName(c)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -254,7 +236,7 @@ export function NewReservationDrawer({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.date")}</FormLabel>
+                  <FormLabel>Fecha</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -268,7 +250,7 @@ export function NewReservationDrawer({
                           <IconCalendar className="mr-2 size-4" />
                           {field.value
                             ? format(field.value, "PPP")
-                            : t("common.pickDate")}
+                            : "Elige una fecha"}
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -293,7 +275,7 @@ export function NewReservationDrawer({
               name="time"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.startTime")}</FormLabel>
+                  <FormLabel>Hora de inicio</FormLabel>
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>
@@ -307,19 +289,17 @@ export function NewReservationDrawer({
               name="duration"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.duration")}</FormLabel>
+                  <FormLabel>Duración</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectDuration")}
-                        />
+                        <SelectValue placeholder="Selecciona la duración" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {durations.map((minutes) => (
                         <SelectItem key={minutes} value={String(minutes)}>
-                          {durationLabel(minutes, t)}
+                          {durationLabel(minutes)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -334,23 +314,17 @@ export function NewReservationDrawer({
               name="paymentStatus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.payment")}</FormLabel>
+                  <FormLabel>Pago</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectPaymentStatus")}
-                        />
+                        <SelectValue placeholder="Selecciona el estado de pago" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="paid">{t("options.paid")}</SelectItem>
-                      <SelectItem value="partial">
-                        {t("options.partiallyPaid")}
-                      </SelectItem>
-                      <SelectItem value="unpaid">
-                        {t("options.unpaid")}
-                      </SelectItem>
+                      <SelectItem value="paid">Pagado</SelectItem>
+                      <SelectItem value="partial">Pago parcial</SelectItem>
+                      <SelectItem value="unpaid">Sin pagar</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -362,15 +336,11 @@ export function NewReservationDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.reservation.submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : "Crear reserva"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

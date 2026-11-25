@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconPlus } from "@tabler/icons-react"
 import { parseISO } from "date-fns"
@@ -15,7 +13,6 @@ import { deleteTournament, listTournaments } from "@/lib/tournaments.functions"
 import { useCan } from "@/hooks/use-permissions"
 import { usePrimaryLevelScale } from "@/hooks/use-activities"
 import { NO_LEVELS } from "@/lib/activities/levels"
-import type { TranslationKey } from "@/lib/i18n"
 import type { Tournament } from "@/db/schema"
 
 export const Route = createFileRoute("/_authenticated/tournaments")({
@@ -23,10 +20,10 @@ export const Route = createFileRoute("/_authenticated/tournaments")({
   component: TournamentsPage,
 })
 
-const FORMAT_LABEL_KEYS: Record<string, TranslationKey | undefined> = {
-  round_robin: "options.roundRobin",
-  elimination: "options.singleElimination",
-  double_elimination: "options.doubleElimination",
+const FORMAT_LABEL_KEYS: Record<string, string | undefined> = {
+  round_robin: "Todos contra todos",
+  elimination: "Eliminación simple",
+  double_elimination: "Eliminación doble",
 }
 
 function toFormat(value: string): TournamentData["format"] {
@@ -36,7 +33,6 @@ function toFormat(value: string): TournamentData["format"] {
 }
 
 function TournamentActions({ tournament }: { tournament: Tournament }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("tournaments:manage")
   const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
@@ -45,13 +41,13 @@ function TournamentActions({ tournament }: { tournament: Tournament }) {
   async function handleDelete() {
     try {
       await deleteTournament({ data: { id: tournament.id } })
-      toast.success(t("pages.tournaments.deleted"), {
+      toast.success("Torneo eliminado", {
         description: tournament.name,
       })
       router.invalidate()
     } catch {
-      toast.error(t("pages.tournaments.deleteError"), {
-        description: t("common.tryAgain"),
+      toast.error("No se pudo eliminar el torneo", {
+        description: "Inténtalo de nuevo.",
       })
     }
   }
@@ -79,18 +75,15 @@ function TournamentActions({ tournament }: { tournament: Tournament }) {
   )
 }
 
-function buildColumns(
-  t: TFunction,
-  canManage: boolean
-): ColumnDef<Tournament>[] {
+function buildColumns(canManage: boolean): ColumnDef<Tournament>[] {
   const columns: ColumnDef<Tournament>[] = [
     {
       accessorKey: "name",
-      header: t("forms.tournament.nameLabel"),
+      header: "Nombre del torneo",
     },
     {
       accessorKey: "date",
-      header: t("fields.date"),
+      header: "Fecha",
       cell: ({ row }) =>
         parseISO(row.getValue<string>("date")).toLocaleDateString("en-GB", {
           day: "2-digit",
@@ -100,19 +93,19 @@ function buildColumns(
     },
     {
       accessorKey: "category",
-      header: t("fields.category"),
+      header: "Categoría",
     },
     {
       accessorKey: "format",
-      header: t("forms.tournament.formatLabel"),
+      header: "Formato",
       cell: ({ row }) => {
         const key = FORMAT_LABEL_KEYS[row.getValue<string>("format")]
-        return key ? t(key) : row.getValue<string>("format")
+        return key ? key : row.getValue<string>("format")
       },
     },
     {
       accessorKey: "maxTeams",
-      header: t("forms.tournament.maxTeamsLabel"),
+      header: "Máx. de equipos",
       meta: { className: "text-right" },
     },
   ]
@@ -130,28 +123,25 @@ function buildColumns(
 }
 
 function TournamentsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("tournaments:manage")
   const levelScale = usePrimaryLevelScale() ?? NO_LEVELS
   const { tournaments } = Route.useLoaderData()
-  const columns = useMemo(() => buildColumns(t, canManage), [t, canManage])
+  const columns = useMemo(() => buildColumns(canManage), [canManage])
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">
-          {t("pages.tournaments.title")}
-        </h1>
+        <h1 className="text-2xl font-semibold">Torneos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("pages.tournaments.description")}
+          Administra los torneos del club.
         </p>
       </div>
 
       <DataTable
         columns={columns}
         data={tournaments}
-        searchPlaceholder={t("pages.tournaments.searchPlaceholder")}
+        searchPlaceholder="Buscar torneos..."
         exportFileName="tournaments"
         action={
           canManage ? (
@@ -161,7 +151,7 @@ function TournamentsPage() {
               trigger={
                 <Button size="sm">
                   <IconPlus className="size-4" />
-                  {t("pages.tournaments.newButton")}
+                  {"Nuevo torneo"}
                 </Button>
               }
             />

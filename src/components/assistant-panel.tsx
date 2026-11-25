@@ -8,7 +8,6 @@ import {
 } from "react"
 import { useChat } from "@ai-sdk/react"
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
-import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   IconLoader2,
@@ -38,7 +37,6 @@ import {
 } from "@/lib/voice"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import type { VoiceError, VoiceStatus } from "@/hooks/use-voice-recorder"
-import type { TranslationKey } from "@/lib/i18n"
 
 interface AssistantContextValue {
   open: boolean
@@ -77,19 +75,18 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function AssistantTrigger() {
-  const { t } = useTranslation()
   const { open, setOpen } = useAssistant()
   return (
     <Button
       variant={open ? "secondary" : "ghost"}
       size="icon"
       className="size-8"
-      title={`${t("assistant.open")} (⌘J)`}
+      title={`${"Abrir asistente IA"} (⌘J)`}
       aria-expanded={open}
       onClick={() => setOpen(!open)}
     >
       <IconSparkles className="size-4" />
-      <span className="sr-only">{t("assistant.open")}</span>
+      <span className="sr-only">Abrir asistente IA</span>
     </Button>
   )
 }
@@ -115,14 +112,13 @@ interface PlayerRow {
 }
 
 function PlayersResult({ output }: { output: unknown }) {
-  const { t } = useTranslation()
   const data = output as
     | { ok?: boolean; error?: string; count?: number; players?: PlayerRow[] }
     | undefined
   if (!data || !data.players) {
     return (
       <p className="mt-2 text-xs text-destructive">
-        {data?.error ?? t("assistant.error")}
+        {data?.error ?? "Algo salió mal."}
       </p>
     )
   }
@@ -130,18 +126,16 @@ function PlayersResult({ output }: { output: unknown }) {
   return (
     <div className="mt-2 overflow-x-auto rounded-md border">
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        {t("assistant.playersFound", {
-          count: data.count ?? players.length,
-        })}
+        {`${data.count ?? players.length} jugadores encontrados`}
       </div>
       {players.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("fields.fullName")}</TableHead>
-              <TableHead>{t("fields.age")}</TableHead>
-              <TableHead>{t("fields.category")}</TableHead>
-              <TableHead>{t("fields.phone")}</TableHead>
+              <TableHead>Nombre completo</TableHead>
+              <TableHead>Edad</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Teléfono</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -167,7 +161,6 @@ function ToolPartView({
   part: ToolPart
   onApprove: (id: string, approved: boolean) => void
 }) {
-  const { t } = useTranslation()
   const toolName = part.type.replace(/^tool-/, "")
 
   if (part.type === "tool-searchPlayers" && part.state === "output-available") {
@@ -178,21 +171,21 @@ function ToolPartView({
     const approval = part.approval
     return (
       <div className="mt-2 rounded-md border border-primary/40 bg-primary/5 p-3">
-        <p className="text-sm font-medium">{t("assistant.approveTitle")}</p>
+        <p className="text-sm font-medium">¿Aprobar esta acción?</p>
         <p className="mt-1 text-xs text-muted-foreground">{toolName}</p>
         <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted p-2 text-xs">
           {JSON.stringify(part.input, null, 2)}
         </pre>
         <div className="mt-2 flex gap-2">
           <Button size="sm" onClick={() => onApprove(approval.id, true)}>
-            {t("assistant.approve")}
+            Aprobar
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => onApprove(approval.id, false)}
           >
-            {t("assistant.deny")}
+            Denegar
           </Button>
         </div>
       </div>
@@ -210,29 +203,29 @@ function ToolPartView({
   if (part.state === "output-error") {
     return (
       <p className="mt-2 text-xs text-destructive">
-        {part.errorText ?? t("assistant.error")}
+        {part.errorText ?? "Algo salió mal."}
       </p>
     )
   }
 
   return (
     <p className="mt-2 text-xs text-muted-foreground">
-      {t("assistant.running", { tool: toolName })}
+      {`Ejecutando ${toolName}…`}
     </p>
   )
 }
 
-const VOICE_ERROR_KEYS: Record<VoiceError, TranslationKey> = {
-  permissionDenied: "assistant.voice.permissionDenied",
-  noSpeech: "assistant.voice.noSpeech",
-  failed: "assistant.voice.failed",
+const VOICE_ERROR_KEYS: Record<VoiceError, string> = {
+  permissionDenied:
+    "El acceso al micrófono está bloqueado. Permítelo en la configuración del navegador para usar la voz.",
+  noSpeech: "No se detectó voz. Inténtalo de nuevo.",
+  failed: "No se pudo transcribir la grabación. Inténtalo de nuevo.",
 }
 
 // Non-modal floating panel: the page behind stays interactive, and the panel
 // stays mounted while hidden so the conversation survives closing it and
 // navigating between pages.
 export function AssistantPanel() {
-  const { t } = useTranslation()
   const { open, setOpen } = useAssistant()
   const [input, setInput] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
@@ -257,7 +250,7 @@ export function AssistantPanel() {
       setInput((current) => appendTranscript(current, text))
       inputRef.current?.focus()
     },
-    onError: (error) => toast.error(t(VOICE_ERROR_KEYS[error])),
+    onError: (error) => toast.error(VOICE_ERROR_KEYS[error]),
   })
   const { cancel: cancelRecording } = voice
 
@@ -287,7 +280,9 @@ export function AssistantPanel() {
 
   async function onCsvSelected(file: File) {
     const text = await file.text()
-    setInput(`${t("assistant.csvPrompt")}\n\n\`\`\`csv\n${text.trim()}\n\`\`\``)
+    setInput(
+      `${"Carga estos artículos de inventario desde CSV:"}\n\n\`\`\`csv\n${text.trim()}\n\`\`\``
+    )
     inputRef.current?.focus()
   }
 
@@ -295,7 +290,7 @@ export function AssistantPanel() {
     <section
       role="dialog"
       aria-modal="false"
-      aria-label={t("assistant.title")}
+      aria-label="Asistente IA"
       hidden={!open}
       onKeyDown={(e) => {
         if (e.key !== "Escape") return
@@ -310,25 +305,25 @@ export function AssistantPanel() {
     >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
         <IconSparkles className="size-4 text-primary" />
-        <h2 className="flex-1 text-sm font-semibold">{t("assistant.title")}</h2>
+        <h2 className="flex-1 text-sm font-semibold">Asistente IA</h2>
         <Button
           variant="ghost"
           size="icon-sm"
-          title={t("assistant.newChat")}
+          title="Nueva conversación"
           disabled={messages.length === 0}
           onClick={newChat}
         >
           <IconMessagePlus className="size-4" />
-          <span className="sr-only">{t("assistant.newChat")}</span>
+          <span className="sr-only">Nueva conversación</span>
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          title={t("assistant.close")}
+          title="Cerrar asistente"
           onClick={() => setOpen(false)}
         >
           <IconX className="size-4" />
-          <span className="sr-only">{t("assistant.close")}</span>
+          <span className="sr-only">Cerrar asistente</span>
         </Button>
       </header>
 
@@ -338,15 +333,15 @@ export function AssistantPanel() {
       >
         {messages.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            {t("assistant.empty")}
+            Prueba: «jugadores menores de 30 con categoría al menos C6 y
+            teléfono», sube un CSV de artículos de stock, o «reserva la pista 3
+            para María García mañana a las 18:00».
           </p>
         ) : (
           messages.map((message) => (
             <div key={message.id} className="text-sm">
               <span className="text-xs font-medium text-muted-foreground">
-                {message.role === "user"
-                  ? t("assistant.you")
-                  : t("assistant.assistant")}
+                {message.role === "user" ? "Tú" : "Asistente"}
               </span>
               <div className="mt-1 space-y-1">
                 {message.parts.map((part, i) => {
@@ -374,11 +369,7 @@ export function AssistantPanel() {
             </div>
           ))
         )}
-        {busy && (
-          <p className="text-xs text-muted-foreground">
-            {t("assistant.thinking")}
-          </p>
-        )}
+        {busy && <p className="text-xs text-muted-foreground">Pensando…</p>}
       </div>
 
       {voice.status !== "idle" && (
@@ -390,10 +381,7 @@ export function AssistantPanel() {
             <>
               <span className="size-2 animate-pulse rounded-full bg-destructive" />
               <span className="flex-1 tabular-nums">
-                {t("assistant.voice.recording", {
-                  time: formatDuration(voice.elapsed),
-                  max: formatDuration(MAX_RECORDING_SECONDS),
-                })}
+                {`Grabando ${formatDuration(voice.elapsed)} / ${formatDuration(MAX_RECORDING_SECONDS)}`}
               </span>
               <Button
                 type="button"
@@ -401,13 +389,13 @@ export function AssistantPanel() {
                 variant="ghost"
                 onClick={voice.cancel}
               >
-                {t("assistant.voice.cancel")}
+                Cancelar
               </Button>
             </>
           ) : (
             <>
               <IconLoader2 className="size-3.5 animate-spin" />
-              <span>{t("assistant.voice.transcribing")}</span>
+              <span>Transcribiendo…</span>
             </>
           )}
         </div>
@@ -435,11 +423,11 @@ export function AssistantPanel() {
           type="button"
           variant="outline"
           size="icon"
-          title={t("assistant.uploadCsv")}
+          title="Subir CSV de artículos de stock"
           onClick={() => fileRef.current?.click()}
         >
           <IconUpload className="size-4" />
-          <span className="sr-only">{t("assistant.uploadCsv")}</span>
+          <span className="sr-only">Subir CSV de artículos de stock</span>
         </Button>
         {voice.supported && (
           <VoiceButton
@@ -452,7 +440,7 @@ export function AssistantPanel() {
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={t("assistant.placeholder")}
+          placeholder="Pregunta al asistente…"
           className="flex-1"
         />
         {busy ? (
@@ -460,11 +448,11 @@ export function AssistantPanel() {
             type="button"
             size="icon"
             variant="outline"
-            title={t("assistant.stop")}
+            title="Detener"
             onClick={() => void stop()}
           >
             <IconPlayerStopFilled className="size-4" />
-            <span className="sr-only">{t("assistant.stop")}</span>
+            <span className="sr-only">Detener</span>
           </Button>
         ) : (
           <Button type="submit" size="icon" disabled={!input.trim()}>
@@ -485,22 +473,21 @@ function VoiceButton({
   onStart: () => void
   onStop: () => void
 }) {
-  const { t } = useTranslation()
   if (status === "recording") {
     return (
       <Button
         type="button"
         size="icon"
         variant="destructive"
-        title={t("assistant.voice.stop")}
+        title="Detener grabación"
         onClick={onStop}
       >
         <IconPlayerStopFilled className="size-4" />
-        <span className="sr-only">{t("assistant.voice.stop")}</span>
+        <span className="sr-only">Detener grabación</span>
       </Button>
     )
   }
-  const label = t("assistant.voice.start")
+  const label = "Grabar un mensaje de voz"
   return (
     <Button
       type="button"

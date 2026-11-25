@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { zodFormResolver } from "@/lib/form"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 import { z } from "zod"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -35,9 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-function makeSchema(t: TFunction) {
+function makeSchema() {
   return z.object({
-    name: z.string().min(1, t("validation.nameRequired")),
+    name: z.string().min(1, "El nombre es obligatorio"),
     status: z.enum(["active", "inactive"]),
   })
 }
@@ -64,14 +62,13 @@ export function NewClubDrawer({
   onOpenChange: controlledOnOpenChange,
   onSave,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
   const isEditing = !!club
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  const schema = useMemo(() => makeSchema(), [])
 
   const blankClub: FormInput = { name: "", status: "active" }
   const form = useForm<FormInput>({
@@ -90,20 +87,16 @@ export function NewClubDrawer({
     run({
       action: () => onSave?.(values) ?? Promise.resolve(),
       onSuccess: () => {
-        toast.success(
-          isEditing ? t("forms.club.updated") : t("forms.club.created"),
-          {
-            description: t("common.savedSuccess", { name: values.name }),
-          }
-        )
+        toast.success(isEditing ? "Club actualizado" : "Club creado", {
+          description: `${values.name} se ha guardado correctamente.`,
+        })
         schedule(() => setOpen(false), 900)
       },
       onError: (error) => {
-        toast.error(t("forms.club.errorTitle"), {
-          description: translateError(
+        toast.error("No se pudo guardar el club", {
+          description: errorMessage(
             error,
-            t,
-            t("forms.club.errorDescription")
+            "No se pudo guardar el club. Inténtalo de nuevo."
           ),
         })
       },
@@ -115,9 +108,7 @@ export function NewClubDrawer({
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>
-            {isEditing ? t("forms.club.titleEdit") : t("forms.club.titleNew")}
-          </DrawerTitle>
+          <DrawerTitle>{isEditing ? "Editar club" : "Nuevo club"}</DrawerTitle>
         </DrawerHeader>
 
         <Form {...form}>
@@ -130,12 +121,9 @@ export function NewClubDrawer({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("forms.club.nameLabel")}</FormLabel>
+                  <FormLabel>Nombre del club</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t("forms.club.namePlaceholder")}
-                      {...field}
-                    />
+                    <Input placeholder="p. ej. Riverside Padel" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -147,22 +135,16 @@ export function NewClubDrawer({
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("common.status")}</FormLabel>
+                  <FormLabel>Estado</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectStatus")}
-                        />
+                        <SelectValue placeholder="Selecciona el estado" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="active">
-                        {t("options.active")}
-                      </SelectItem>
-                      <SelectItem value="inactive">
-                        {t("options.inactive")}
-                      </SelectItem>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="inactive">Inactivo</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -174,15 +156,11 @@ export function NewClubDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.club.submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : "Agregar club"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

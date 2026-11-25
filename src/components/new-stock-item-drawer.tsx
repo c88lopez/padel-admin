@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { zodFormResolver } from "@/lib/form"
 import { z } from "zod"
 import { toast } from "sonner"
@@ -37,20 +35,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-function makeSchema(t: TFunction) {
+function makeSchema() {
   return z.object({
-    name: z.string().min(1, t("validation.nameRequired")),
-    category: z.string().min(1, t("validation.categoryRequired")),
-    price: z.coerce.number().positive(t("validation.pricePositive")),
-    stock: z.coerce.number().int().min(0, t("validation.stockNonNegative")),
+    name: z.string().min(1, "El nombre es obligatorio"),
+    category: z.string().min(1, "La categoría es obligatoria"),
+    price: z.coerce.number().positive("El precio debe ser mayor que 0"),
+    stock: z.coerce.number().int().min(0, "El stock no puede ser negativo"),
     // Required: an empty field becomes `undefined` (not 0) so it fails as
     // "required" instead of silently defaulting to zero.
     lowStockThreshold: z.preprocess(
       (v) => (v === "" || v === null ? undefined : v),
       z.coerce
-        .number({ message: t("validation.thresholdRequired") })
+        .number({ message: "El umbral de stock bajo es obligatorio" })
         .int()
-        .min(0, t("validation.thresholdNonNegative"))
+        .min(0, "El umbral no puede ser negativo")
     ),
   })
 }
@@ -84,7 +82,6 @@ export function NewStockItemDrawer({
   onOpenChange: controlledOnOpenChange,
   onSaved,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
@@ -92,7 +89,7 @@ export function NewStockItemDrawer({
   const currencySymbol = getCurrencySymbol()
 
   const { status, progress, run, reset, schedule } = useSubmitLifecycle()
-  const schema = useMemo(() => makeSchema(t), [t])
+  const schema = useMemo(() => makeSchema(), [])
 
   const toValues = useCallback(
     (it?: StockItemData): FormInput => ({
@@ -125,18 +122,15 @@ export function NewStockItemDrawer({
           ? updateStockItem({ data: { id: item.id, ...values } })
           : createStockItem({ data: values }),
       onSuccess: () => {
-        toast.success(
-          isEditing ? t("forms.stock.updated") : t("forms.stock.created"),
-          {
-            description: t("common.savedSuccess", { name: values.name }),
-          }
-        )
+        toast.success(isEditing ? "Artículo actualizado" : "Artículo creado", {
+          description: `${values.name} se ha guardado correctamente.`,
+        })
         onSaved?.()
         schedule(() => setOpen(false), 900)
       },
       onError: () => {
-        toast.error(t("common.genericError"), {
-          description: t("forms.stock.errorDescription"),
+        toast.error("Algo salió mal", {
+          description: "No se pudo guardar el artículo. Inténtalo de nuevo.",
         })
       },
     })
@@ -148,7 +142,7 @@ export function NewStockItemDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing ? t("forms.stock.titleEdit") : t("forms.stock.titleNew")}
+            {isEditing ? "Editar artículo" : "Nuevo artículo"}
           </DrawerTitle>
         </DrawerHeader>
         <Form {...form}>
@@ -161,10 +155,10 @@ export function NewStockItemDrawer({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.productName")}</FormLabel>
+                  <FormLabel>Nombre del producto</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={t("forms.stock.namePlaceholder")}
+                      placeholder="p. ej. Botella de agua (500ml)"
                       {...field}
                     />
                   </FormControl>
@@ -178,25 +172,17 @@ export function NewStockItemDrawer({
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.category")}</FormLabel>
+                  <FormLabel>Categoría</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectCategoryA")}
-                        />
+                        <SelectValue placeholder="Selecciona una categoría" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Drinks">
-                        {t("options.drinks")}
-                      </SelectItem>
-                      <SelectItem value="Equipment">
-                        {t("options.equipment")}
-                      </SelectItem>
-                      <SelectItem value="Accessories">
-                        {t("options.accessories")}
-                      </SelectItem>
+                      <SelectItem value="Drinks">Bebidas</SelectItem>
+                      <SelectItem value="Equipment">Equipamiento</SelectItem>
+                      <SelectItem value="Accessories">Accesorios</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -209,9 +195,7 @@ export function NewStockItemDrawer({
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {t("forms.stock.priceLabel", { symbol: currencySymbol })}
-                  </FormLabel>
+                  <FormLabel>{`Precio (${currencySymbol})`}</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -231,7 +215,7 @@ export function NewStockItemDrawer({
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.stock")}</FormLabel>
+                  <FormLabel>Stock</FormLabel>
                   <FormControl>
                     <Input type="number" min="0" placeholder="0" {...field} />
                   </FormControl>
@@ -245,7 +229,7 @@ export function NewStockItemDrawer({
               name="lowStockThreshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.lowStockThreshold")}</FormLabel>
+                  <FormLabel>Umbral de stock bajo</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -256,7 +240,8 @@ export function NewStockItemDrawer({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t("forms.stock.thresholdHelp")}
+                    Marca este artículo como bajo cuando el stock llegue a este
+                    número.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -267,15 +252,11 @@ export function NewStockItemDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.stock.submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : "Agregar artículo"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

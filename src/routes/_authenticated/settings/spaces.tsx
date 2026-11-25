@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { IconPlus, IconTrash } from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { ensurePermission } from "@/lib/route-guards"
 import { Button } from "@/components/ui/button"
@@ -40,7 +39,7 @@ import { listActivities } from "@/lib/activities.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
 import { activityDisplayName, getTemplate } from "@/lib/activities/templates"
 import { getSpaceType, spaceDisplayName } from "@/lib/activities/spaces"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
 export const Route = createFileRoute("/_authenticated/settings/spaces")({
   beforeLoad: ({ context }) =>
@@ -53,7 +52,6 @@ export const Route = createFileRoute("/_authenticated/settings/spaces")({
 })
 
 function SpaceSettingsPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const { spaces: loadedSpaces, activities } = Route.useLoaderData()
   // Local mirror of the DB spaces so name edits stay snappy (saved on blur).
@@ -81,7 +79,7 @@ function SpaceSettingsPage() {
     try {
       await updateSpace({ data: { id, ...partial } })
     } catch (err) {
-      toast.error(translateError(err, t, t("common.genericError")))
+      toast.error(errorMessage(err, "Algo salió mal"))
       router.invalidate()
     }
   }
@@ -91,7 +89,7 @@ function SpaceSettingsPage() {
       await createSpace({ data: { activityId: activity.id } })
       router.invalidate()
     } catch (err) {
-      toast.error(translateError(err, t, t("common.genericError")))
+      toast.error(errorMessage(err, "Algo salió mal"))
     }
   }
 
@@ -100,28 +98,26 @@ function SpaceSettingsPage() {
   async function confirmRemove() {
     if (!spaceToDelete) return
     const target = spaceToDelete
-    const label = spaceDisplayName(target, t)
+    const label = spaceDisplayName(target)
     setChecking(true)
     try {
       const usage = await countSpaceUsage({ data: { id: target.id } })
       const total = usage.reservations + usage.classes
       if (total > 0) {
-        toast.error(t("settings.spaces.deleteBlockedTitle", { name: label }), {
-          description: t(
+        toast.error(`No se puede eliminar ${label}`, {
+          description:
             total === 1
-              ? "settings.spaces.deleteBlockedOne"
-              : "settings.spaces.deleteBlockedOther",
-            { name: label, count: total }
-          ),
+              ? `${label} todavía tiene ${total} reserva o clase. Elimínala o reasígnala primero.`
+              : `${label} todavía tiene ${total} reservas o clases. Elimínalas o reasígnalas primero.`,
         })
         return
       }
       await deleteSpace({ data: { id: target.id } })
-      toast.success(t("settings.spaces.removed", { name: label }))
+      toast.success(`Se eliminó ${label}`)
       router.invalidate()
     } catch {
-      toast.error(t("common.genericError"), {
-        description: t("common.tryAgain"),
+      toast.error("Algo salió mal", {
+        description: "Inténtalo de nuevo.",
       })
     } finally {
       // Flip off loading so the bar snaps to 100%, then let it stay visible for
@@ -134,15 +130,16 @@ function SpaceSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-medium">{t("settings.spaces.title")}</h2>
+        <h2 className="text-lg font-medium">Espacios</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("settings.spaces.description")}
+          Dónde se realiza cada actividad: pistas, salas y más. Los espacios
+          inactivos no se pueden reservar.
         </p>
       </div>
 
       {withSpaces.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {t("settings.spaces.empty")}
+          Ninguna de las actividades activas del club usa espacios.
         </p>
       ) : (
         <SettingsSectionList>
@@ -156,13 +153,12 @@ function SpaceSettingsPage() {
             return (
               <SettingsSection
                 key={activity.id}
-                title={activityDisplayName(activity, t)}
-                description={t(
+                title={activityDisplayName(activity)}
+                description={
                   activitySpaces.length === 1
-                    ? "settings.spaces.countOne"
-                    : "settings.spaces.countOther",
-                  { count: activitySpaces.length }
-                )}
+                    ? "1 espacio"
+                    : `${activitySpaces.length} espacios`
+                }
               >
                 <div className="flex flex-col gap-3">
                   {activitySpaces.map((space) => (
@@ -182,11 +178,9 @@ function SpaceSettingsPage() {
                     onClick={() => add(activity)}
                   >
                     <IconPlus className="size-4" />
-                    {t("settings.spaces.add", {
-                      name: defaultType
-                        ? t(defaultType.nameKey).toLocaleLowerCase()
-                        : "",
-                    })}
+                    {`Agregar ${
+                      defaultType ? defaultType.name.toLocaleLowerCase() : ""
+                    }`}
                   </Button>
                 </div>
               </SettingsSection>
@@ -204,18 +198,14 @@ function SpaceSettingsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("settings.spaces.deleteTitle", {
-                name: spaceToDelete ? spaceDisplayName(spaceToDelete, t) : "",
-              })}
+              {`¿Eliminar ${spaceToDelete ? spaceDisplayName(spaceToDelete) : ""}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("settings.spaces.deleteConfirm")}
+              Esto lo quita de tu configuración. No se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={checking}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={checking}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               loading={checking}
@@ -224,7 +214,7 @@ function SpaceSettingsPage() {
                 void confirmRemove()
               }}
             >
-              {t("common.delete")}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -248,12 +238,11 @@ function SpaceRow({
   ) => void
   onRemove: () => void
 }) {
-  const { t } = useTranslation()
   return (
     <div className="flex flex-wrap items-center gap-3 border-b pb-3 last:border-b-0 last:pb-0">
       <Input
         value={space.name}
-        aria-label={t("settings.spaces.name")}
+        aria-label="Nombre"
         onChange={(e) => onLocal({ name: e.target.value })}
         onBlur={(e) => {
           const name = e.target.value.trim()
@@ -270,10 +259,7 @@ function SpaceRow({
             onSave({ type })
           }}
         >
-          <SelectTrigger
-            className="h-8 w-32"
-            aria-label={t("settings.spaces.type")}
-          >
+          <SelectTrigger className="h-8 w-32" aria-label="Tipo">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -281,7 +267,7 @@ function SpaceRow({
               const type = getSpaceType(key)
               return (
                 <SelectItem key={key} value={key}>
-                  {type ? t(type.nameKey) : key}
+                  {type ? type.name : key}
                 </SelectItem>
               )
             })}
@@ -300,10 +286,8 @@ function SpaceRow({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="indoor">{t("settings.spaces.indoor")}</SelectItem>
-          <SelectItem value="outdoor">
-            {t("settings.spaces.outdoor")}
-          </SelectItem>
+          <SelectItem value="indoor">Cubierto</SelectItem>
+          <SelectItem value="outdoor">Descubierto</SelectItem>
         </SelectContent>
       </Select>
       <div className="flex items-center gap-2">
@@ -315,7 +299,7 @@ function SpaceRow({
           }}
         />
         <span className="w-14 text-xs text-muted-foreground">
-          {space.active ? t("common.active") : t("common.inactive")}
+          {space.active ? "Activo" : "Inactivo"}
         </span>
       </div>
       <Button
@@ -323,9 +307,7 @@ function SpaceRow({
         size="icon"
         className="ml-auto size-8 text-muted-foreground hover:text-destructive"
         onClick={onRemove}
-        aria-label={t("settings.spaces.remove", {
-          name: spaceDisplayName(space, t),
-        })}
+        aria-label={`Eliminar ${spaceDisplayName(space)}`}
       >
         <IconTrash className="size-4" />
       </Button>

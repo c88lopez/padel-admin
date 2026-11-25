@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import i18n from "@/lib/i18n"
 import {
   aggregateQuantities,
   findStockShortages,
@@ -73,16 +72,12 @@ describe("aggregateQuantities", () => {
 })
 
 describe("stockCategoryLabel", () => {
-  it("localizes the categories the item form stores", () => {
-    expect(stockCategoryLabel(i18n.getFixedT("en"), "Drinks")).toBe(
-      i18n.getFixedT("en")("options.drinks")
-    )
-    expect(stockCategoryLabel(i18n.getFixedT("es"), "Equipment")).toBe(
-      i18n.getFixedT("es")("options.equipment")
-    )
+  it("labels the categories the item form stores in Spanish", () => {
+    expect(stockCategoryLabel("Drinks")).toBe("Bebidas")
+    expect(stockCategoryLabel("Equipment")).toBe("Equipamiento")
   })
 
   it("shows unknown categories as stored", () => {
-    expect(stockCategoryLabel(i18n.getFixedT("es"), "Snacks")).toBe("Snacks")
+    expect(stockCategoryLabel("Snacks")).toBe("Snacks")
   })
 })

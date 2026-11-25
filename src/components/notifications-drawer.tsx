@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { useTranslation } from "react-i18next"
 import { IconAlertTriangle, IconBell } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,7 +25,6 @@ export function NotificationsDrawer({
 }: {
   stockItems: StockItem[]
 }) {
-  const { t } = useTranslation()
   const { notifications: prefs } = useAppSettings()
 
   // Low-stock notifications are derived live from each item's own threshold, and
@@ -56,24 +54,24 @@ export function NotificationsDrawer({
             <span className="absolute top-1 right-1 flex size-2 rounded-full bg-destructive ring-2 ring-background" />
           )}
           <span className="sr-only">
-            {t("notifications.title")}
-            {count > 0 ? ` (${t("notifications.unread", { count })})` : ""}
+            {"Notificaciones"}
+            {count > 0 ? ` (${count} sin leer)` : ""}
           </span>
         </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="flex flex-row items-center justify-between">
-          <DrawerTitle>{t("notifications.title")}</DrawerTitle>
+          <DrawerTitle>Notificaciones</DrawerTitle>
           {count > 0 && (
             <span className="text-xs text-muted-foreground">
-              {t("notifications.new", { count })}
+              {`${count} nuevas`}
             </span>
           )}
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto px-4">
           {count === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              {t("notifications.empty")}
+              Sin notificaciones
             </p>
           ) : (
             <ul className="space-y-2">
@@ -94,13 +92,10 @@ export function NotificationsDrawer({
                   </span>
                   <div>
                     <p className="text-sm font-medium">
-                      {t("notifications.lowStockTitle", { name: n.name })}
+                      {`Stock bajo: ${n.name}`}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {t("notifications.lowStockDescription", {
-                        stock: n.stock,
-                        threshold: n.threshold,
-                      })}
+                      {`Solo quedan ${n.stock} (umbral ${n.threshold}).`}
                     </p>
                   </div>
                 </li>

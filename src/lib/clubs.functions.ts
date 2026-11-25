@@ -81,9 +81,17 @@ export const renameActiveClub = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requirePermission("settings:manage")
     const clubId = await resolveActiveClubId(session.user)
-    if (!clubId) throw new AppError("errors.club.noActiveToRename")
+    if (!clubId)
+      throw new AppError(
+        "errors.club.noActiveToRename",
+        "No hay un club activo para renombrar."
+      )
     const name = data.name.trim()
-    if (!name) throw new AppError("errors.club.nameRequired")
+    if (!name)
+      throw new AppError(
+        "errors.club.nameRequired",
+        "El nombre del club es obligatorio."
+      )
     await db.update(club).set({ name }).where(eq(club.id, clubId))
     return { id: clubId, name }
   })
@@ -161,11 +169,12 @@ export const setActiveClub = createServerFn({ method: "POST" })
         .from(club)
         .where(eq(club.id, data.clubId))
         .limit(1)
-      if (exists.length === 0) throw new AppError("errors.club.notFound")
+      if (exists.length === 0)
+        throw new AppError("errors.club.notFound", "Club no encontrado.")
     } else if (
       !(await listMemberClubIds(session.user.id)).includes(data.clubId)
     ) {
-      throw new AppError("errors.club.noAccess")
+      throw new AppError("errors.club.noAccess", "No tienes acceso a ese club.")
     }
 
     setCookie(ACTIVE_CLUB_COOKIE, data.clubId, {

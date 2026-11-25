@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { zodFormResolver } from "@/lib/form"
@@ -42,14 +41,14 @@ import {
 import type { SeriesScope } from "@/lib/classes.functions"
 import type { SpaceRecord } from "@/lib/spaces.functions"
 import type { ActivityRecord } from "@/lib/activities.functions"
-import { spaceDisplayName, spaceNounKey } from "@/lib/activities/spaces"
+import { spaceDisplayName, spaceNoun } from "@/lib/activities/spaces"
 import {
   activityDisplayName,
   activityProvides,
 } from "@/lib/activities/templates"
 import { sessionDurations } from "@/lib/activities/config"
 import { durationLabel } from "@/lib/duration-label"
-import { appErrorPayload, translateError } from "@/lib/errors"
+import { appErrorPayload, errorMessage } from "@/lib/errors"
 import type { CoachRecord } from "@/lib/coaches.functions"
 import type { RecurrenceRule } from "@/lib/recurrence"
 import {
@@ -81,7 +80,6 @@ export function NewClassDrawer({
   onOpenChange: controlledOnOpenChange,
   onSaved,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
@@ -101,7 +99,7 @@ export function NewClassDrawer({
   const [scope, setScope] = useState<SeriesScope>("this")
   const [pending, setPending] = useState<ClassFormInput | null>(null)
   const [removals, setRemovals] = useState<SeriesRemovals | null>(null)
-  const schema = useMemo(() => makeClassSchema(t), [t])
+  const schema = useMemo(() => makeClassSchema(), [])
 
   const initialValues = useMemo(
     () =>
@@ -256,18 +254,15 @@ export function NewClassDrawer({
           return
         }
         const coachName =
-          coaches.find((c) => c.id === values.coachId)?.name ??
-          t("forms.class.fallbackCoach")
+          coaches.find((c) => c.id === values.coachId)?.name ?? "entrenador"
         toast.success(
           isEditing
-            ? t("forms.class.updated")
+            ? "Clase actualizada"
             : seriesRule
-              ? t("forms.class.seriesCreated")
-              : t("forms.class.created"),
+              ? "Clase recurrente programada"
+              : "Clase programada",
           {
-            description: t("forms.class.savedDescription", {
-              coach: coachName,
-            }),
+            description: `La clase con ${coachName} se ha guardado.`,
           }
         )
         onSaved?.()
@@ -283,13 +278,12 @@ export function NewClassDrawer({
           setConflicts(refused.params.all.split(","))
           return
         }
-        toast.error(t("common.genericError"), {
+        toast.error("Algo salió mal", {
           // Why it was refused (e.g. the space is taken), when the server
           // says so.
-          description: translateError(
+          description: errorMessage(
             err,
-            t,
-            t("forms.class.errorDescription")
+            "No se pudo guardar la clase. Inténtalo de nuevo."
           ),
         })
       },
@@ -309,7 +303,7 @@ export function NewClassDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing ? t("forms.class.titleEdit") : t("forms.class.titleNew")}
+            {isEditing ? "Editar clase" : "Nueva clase"}
           </DrawerTitle>
         </DrawerHeader>
         <Form {...form}>
@@ -322,12 +316,12 @@ export function NewClassDrawer({
               <FormSelectField
                 control={form.control}
                 name="activityId"
-                label={t("fields.activity")}
-                placeholder={t("placeholders.selectActivity")}
+                label="Actividad"
+                placeholder="Selecciona una actividad"
                 onValueChange={changeActivity}
                 options={sessionActivities.map((a) => ({
                   value: a.id,
-                  label: activityDisplayName(a, t),
+                  label: activityDisplayName(a),
                 }))}
               />
             )}
@@ -335,8 +329,8 @@ export function NewClassDrawer({
             <FormSelectField
               control={form.control}
               name="coachId"
-              label={t("fields.coach")}
-              placeholder={t("placeholders.selectCoach")}
+              label="Entrenador"
+              placeholder="Selecciona un entrenador"
               disabled={!activityId}
               options={activityCoaches.map((c) => ({
                 value: c.id,
@@ -347,21 +341,19 @@ export function NewClassDrawer({
             <FormSelectField
               control={form.control}
               name="spaceId"
-              label={t(spaceNounKey(courts))}
-              placeholder={t("placeholders.selectSpace")}
+              label={spaceNoun(courts)}
+              placeholder="Selecciona un espacio"
               disabled={!activityId}
               options={courts.map((c) => ({
                 value: c.id,
-                label: spaceDisplayName(c, t),
+                label: spaceDisplayName(c),
               }))}
             />
 
             <FormDateField
               control={form.control}
               name="date"
-              label={
-                rule && !isEditing ? t("recurrence.starts") : t("fields.date")
-              }
+              label={rule && !isEditing ? "Empieza" : "Fecha"}
             />
 
             {/* Repeating applies to new classes; a series' own classes are
@@ -376,7 +368,7 @@ export function NewClassDrawer({
                 name="time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("fields.startTime")}</FormLabel>
+                    <FormLabel>Hora de inicio</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
@@ -388,11 +380,11 @@ export function NewClassDrawer({
               <FormSelectField
                 control={form.control}
                 name="duration"
-                label={t("fields.duration")}
-                placeholder={t("placeholders.duration")}
+                label="Duración"
+                placeholder="Duración"
                 options={durations.map((minutes) => ({
                   value: String(minutes),
-                  label: durationLabel(minutes, t),
+                  label: durationLabel(minutes),
                 }))}
               />
             </div>
@@ -402,12 +394,12 @@ export function NewClassDrawer({
               name="capacity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.capacity")}</FormLabel>
+                  <FormLabel>Capacidad</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       inputMode="numeric"
-                      placeholder={t("placeholders.noLimit")}
+                      placeholder="Sin límite"
                       {...field}
                     />
                   </FormControl>
@@ -428,15 +420,11 @@ export function NewClassDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.class.submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : "Programar clase"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>
@@ -446,8 +434,8 @@ export function NewClassDrawer({
           <SeriesScopeDialog
             open={scopeOpen}
             onOpenChange={setScopeOpen}
-            title={t("recurrence.scope.editTitle")}
-            actionLabel={t("recurrence.scope.ok")}
+            title="Editar clase recurrente"
+            actionLabel="Aceptar"
             allowThis={!recurrence.repeatChanged}
             onConfirm={(chosen) => {
               setScope(chosen)

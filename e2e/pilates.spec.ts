@@ -32,9 +32,9 @@ test("a club with pilates gets a studio", async ({ page }) => {
   await waitForHydration(page)
 
   await expect(page.getByRole("heading", { name: "Pilates" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Add studio" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Agregar sala" })).toBeVisible()
   const names = await page
-    .getByLabel("Name", { exact: true })
+    .getByLabel("Nombre", { exact: true })
     .evaluateAll((inputs) => inputs.map((i) => (i as HTMLInputElement).value))
   expect(names).toContain("Studio 1")
 })
@@ -44,15 +44,13 @@ test("classes and coaches pick between padel and pilates", async ({ page }) => {
   await waitForHydration(page)
   // Two activities run classes: the list filters by activity, and a new
   // class asks for one.
-  await expect(page.getByLabel("Activity")).toBeVisible()
-  const dialog = await openDrawer(page, "New Class")
-  await expect(dialog.getByText("Activity", { exact: true })).toBeVisible()
+  await expect(page.getByLabel("Actividad")).toBeVisible()
+  const dialog = await openDrawer(page, "Nueva clase")
+  await expect(dialog.getByText("Actividad", { exact: true })).toBeVisible()
 
   await page.goto("/coaches")
   await waitForHydration(page)
-  await expect(
-    page.getByRole("columnheader", { name: "Teaches" })
-  ).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Enseña" })).toBeVisible()
 })
 
 test("pilates customers are students, listed apart from players", async ({
@@ -64,29 +62,29 @@ test("pilates customers are students, listed apart from players", async ({
   await expect(
     sidebar.locator('[data-sidebar="group-label"]', { hasText: "Pilates" })
   ).toBeVisible()
-  await sidebar.getByRole("link", { name: "Students", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Students" })).toBeVisible()
+  await sidebar.getByRole("link", { name: "Alumnos", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Alumnos" })).toBeVisible()
 
   const name = `E2E Student ${Date.now()}`
-  const dialog = await openDrawer(page, "New Student")
-  await dialog.getByLabel("Full Name").fill(name)
-  await dialog.getByLabel("Email").fill(`s${Date.now()}@e2e.test`)
-  await dialog.getByLabel("Phone").fill("+54 9 11 5055 5666")
-  await dialog.getByLabel("Age").fill("41")
+  const dialog = await openDrawer(page, "Nuevo alumno")
+  await dialog.getByLabel("Nombre completo").fill(name)
+  await dialog.getByLabel("Correo electrónico").fill(`s${Date.now()}@e2e.test`)
+  await dialog.getByLabel("Teléfono").fill("+54 9 11 5055 5666")
+  await dialog.getByLabel("Edad").fill("41")
   // Pilates has no levels, so there's no category to pick.
-  await expect(dialog.getByText("Category")).toHaveCount(0)
-  await selectOption(page, dialog, "Gender", "Female")
-  await dialog.getByRole("button", { name: "Add Student" }).click()
-  await expect(page.getByText("Student created")).toBeVisible()
+  await expect(dialog.getByText("Categoría")).toHaveCount(0)
+  await selectOption(page, dialog, "Género", "Femenino")
+  await dialog.getByRole("button", { name: "Agregar alumno" }).click()
+  await expect(page.getByText("Alumno creado")).toBeVisible()
 
   await page.reload()
   await waitForHydration(page)
-  await page.getByPlaceholder("Search students...").fill(name)
+  await page.getByPlaceholder("Buscar alumnos...").fill(name)
   await expect(page.getByRole("cell", { name, exact: true })).toBeVisible()
 
   // Not a padel player.
-  await sidebar.getByRole("link", { name: "Players", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Players" })).toBeVisible()
-  await page.getByPlaceholder("Search players...").fill(name)
+  await sidebar.getByRole("link", { name: "Jugadores", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Jugadores" })).toBeVisible()
+  await page.getByPlaceholder("Buscar jugadores...").fill(name)
   await expect(page.getByRole("cell", { name, exact: true })).toHaveCount(0)
 })

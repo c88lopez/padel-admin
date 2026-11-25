@@ -50,10 +50,10 @@ describe("NewStockItemDrawer", () => {
     const user = userEvent.setup()
     render(<NewStockItemDrawer open onOpenChange={vi.fn()} />)
 
-    await user.click(screen.getByRole("button", { name: "Add Item" }))
+    await user.click(screen.getByRole("button", { name: "Agregar artículo" }))
 
     expect(
-      await screen.findByText("Low-stock threshold is required")
+      await screen.findByText("El umbral de stock bajo es obligatorio")
     ).toBeInTheDocument()
     expect(createStockItem).not.toHaveBeenCalled()
   })
@@ -62,14 +62,14 @@ describe("NewStockItemDrawer", () => {
     const user = userEvent.setup()
     render(<NewStockItemDrawer open onOpenChange={vi.fn()} />)
 
-    await user.type(screen.getByLabelText("Product Name"), "Gym Towel")
+    await user.type(screen.getByLabelText("Nombre del producto"), "Gym Towel")
     await user.click(screen.getByRole("combobox"))
-    await user.click(await screen.findByRole("option", { name: "Accessories" }))
-    await user.type(screen.getByLabelText(/Price/), "3.5")
+    await user.click(await screen.findByRole("option", { name: "Accesorios" }))
+    await user.type(screen.getByLabelText(/Precio/), "3.5")
     await user.type(screen.getByLabelText("Stock"), "12")
-    await user.type(screen.getByLabelText("Low-stock threshold"), "4")
+    await user.type(screen.getByLabelText("Umbral de stock bajo"), "4")
 
-    await user.click(screen.getByRole("button", { name: "Add Item" }))
+    await user.click(screen.getByRole("button", { name: "Agregar artículo" }))
 
     await waitFor(() =>
       expect(createStockItem).toHaveBeenCalledWith({
@@ -90,10 +90,12 @@ describe("NewStockItemDrawer", () => {
       <NewStockItemDrawer open item={existingItem} onOpenChange={vi.fn()} />
     )
 
-    expect(screen.getByLabelText("Product Name")).toHaveValue("Water Bottle")
-    expect(screen.getByLabelText("Low-stock threshold")).toHaveValue(5)
+    expect(screen.getByLabelText("Nombre del producto")).toHaveValue(
+      "Water Bottle"
+    )
+    expect(screen.getByLabelText("Umbral de stock bajo")).toHaveValue(5)
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
 
     await waitFor(() =>
       expect(updateStockItem).toHaveBeenCalledWith({

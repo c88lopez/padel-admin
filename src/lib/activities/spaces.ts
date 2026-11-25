@@ -3,44 +3,29 @@
 // each `space` row stores its type key. Labels come from the type, so padel
 // says "Court 3" and pilates "Studio 1".
 
-import type { TFunction } from "i18next"
-import type { TranslationKey } from "@/lib/i18n"
-
 export interface SpaceType {
   key: string
-  // Singular noun, e.g. "Court" (form labels, the type picker).
-  nameKey: TranslationKey
-  // Numbered label with an `n` param, e.g. "Court {{n}}".
-  labelKey: TranslationKey
+  // Singular noun, e.g. "Pista" (form labels, the type picker).
+  name: string
   // English word new spaces are named with ("Court 3"). Stored names that
-  // still follow this pattern are shown with the localized label instead.
+  // still follow this pattern are shown as "<name> <n>" instead.
   defaultName: string
 }
 
 export const SPACE_TYPES = [
   {
     key: "court",
-    nameKey: "spaces.types.court.name",
-    labelKey: "spaces.types.court.label",
+    name: "Pista",
     defaultName: "Court",
   },
   {
     key: "studio",
-    nameKey: "spaces.types.studio.name",
-    labelKey: "spaces.types.studio.label",
+    name: "Sala",
     defaultName: "Studio",
   },
 ] as const satisfies readonly SpaceType[]
 
 export type SpaceTypeKey = (typeof SPACE_TYPES)[number]["key"]
-
-// Label keys are picked at runtime, so bypass the per-key typed-params
-// overload of `t` (as translateError does).
-function translateLabel(t: TFunction, key: TranslationKey, n: string | number) {
-  return (
-    t as unknown as (key: string, params: { n: string | number }) => string
-  )(key, { n })
-}
 
 export function getSpaceType(key: string): SpaceType | undefined {
   return SPACE_TYPES.find((type) => type.key === key)
@@ -67,15 +52,15 @@ function defaultNameNumber(space: {
 
 /**
  * The name to show for a space. Default names ("Court 3") are shown with the
- * type's localized label ("Pista 3"); names a club chose are left as-is.
+ * type's Spanish label ("Pista 3"); names a club chose are left as-is.
  */
-export function spaceDisplayName(
-  space: { name: string; type: string },
-  t: TFunction
-): string {
+export function spaceDisplayName(space: {
+  name: string
+  type: string
+}): string {
   const n = defaultNameNumber(space)
   const type = getSpaceType(space.type)
-  return n !== null && type ? translateLabel(t, type.labelKey, n) : space.name
+  return n !== null && type ? `${type.name} ${n}` : space.name
 }
 
 /** A compact name for narrow columns: "# 3" for default names. */
@@ -84,24 +69,18 @@ export function spaceShortName(space: { name: string; type: string }): string {
   return n !== null ? `# ${n}` : space.name
 }
 
-/** The numbered label for a space by its number: "Court 3", "Studio 1". */
-export function spaceNumberLabel(
-  typeKey: string,
-  n: number,
-  t: TFunction
-): string {
+/** The numbered label for a space by its number: "Pista 3", "Sala 1". */
+export function spaceNumberLabel(typeKey: string, n: number): string {
   const type = getSpaceType(typeKey)
-  return type ? translateLabel(t, type.labelKey, n) : String(n)
+  return type ? `${type.name} ${n}` : String(n)
 }
 
 /**
  * The noun for a list of spaces: the type's name when they all share one
- * ("Court"), else the generic "Space".
+ * ("Pista"), else the generic "Espacio".
  */
-export function spaceNounKey(
-  spaces: readonly { type: string }[]
-): TranslationKey {
+export function spaceNoun(spaces: readonly { type: string }[]): string {
   const types = new Set(spaces.map((s) => s.type))
   const only = types.size === 1 ? getSpaceType([...types][0]) : undefined
-  return only?.nameKey ?? "spaces.name"
+  return only?.name ?? "Espacio"
 }

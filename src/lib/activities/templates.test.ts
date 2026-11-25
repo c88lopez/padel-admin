@@ -1,36 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { en } from "@/locales/en"
-import { es } from "@/locales/es"
-import i18n from "@/lib/i18n"
 import {
   ACTIVITY_TEMPLATES,
   activityDisplayName,
   BLOCK_KEYS,
-  customerTextKey,
   DEFAULT_TEMPLATE_KEY,
   enableRefusal,
   enabledBlocks,
   getTemplate,
   spacesForBlock,
 } from "./templates"
-import type {
-  ActivitySummary,
-  ActivityTemplate,
-  CustomerTextKey,
-} from "./templates"
+import type { ActivitySummary, ActivityTemplate } from "./templates"
 import { getSpaceType } from "./spaces"
-
-function lookup(resources: object, key: string): unknown {
-  return key
-    .split(".")
-    .reduce<unknown>(
-      (node, part) =>
-        node && typeof node === "object"
-          ? (node as Record<string, unknown>)[part]
-          : undefined,
-      resources
-    )
-}
 
 function summary(templateKey: string, active = true): ActivitySummary {
   return { id: templateKey, templateKey, name: null, active }
@@ -90,24 +70,10 @@ describe("activity templates", () => {
     }
   })
 
-  it("are translated in every locale", () => {
+  it("name their customers with every phrase", () => {
     for (const template of ACTIVITY_TEMPLATES) {
-      for (const key of [template.nameKey, template.descriptionKey]) {
-        expect(lookup(en, key), `en ${key}`).toEqual(expect.any(String))
-        expect(lookup(es, key), `es ${key}`).toEqual(expect.any(String))
-      }
-    }
-  })
-
-  it("name their customers with every phrase, in every locale", () => {
-    const phrases = Object.keys(
-      en.activities.padel.customers
-    ) as CustomerTextKey[]
-    for (const template of ACTIVITY_TEMPLATES) {
-      for (const phrase of phrases) {
-        const key = customerTextKey(template, phrase)
-        expect(lookup(en, key), `en ${key}`).toEqual(expect.any(String))
-        expect(lookup(es, key), `es ${key}`).toEqual(expect.any(String))
+      for (const [phrase, text] of Object.entries(template.customers)) {
+        expect(text, `${template.key} ${phrase}`).not.toBe("")
       }
     }
   })
@@ -159,13 +125,11 @@ describe("spacesForBlock", () => {
 })
 
 describe("activityDisplayName", () => {
-  const t = i18n.getFixedT("es")
-
   it("prefers the club's name, else the template's", () => {
     expect(
-      activityDisplayName({ ...summary("padel"), name: "Pádel Pro" }, t)
+      activityDisplayName({ ...summary("padel"), name: "Pádel Pro" })
     ).toBe("Pádel Pro")
-    expect(activityDisplayName(summary("padel"), t)).toBe("Pádel")
+    expect(activityDisplayName(summary("padel"))).toBe("Pádel")
   })
 })
 

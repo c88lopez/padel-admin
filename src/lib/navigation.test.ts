@@ -22,15 +22,15 @@ describe("navigation registry", () => {
   it("gives every sidebar entry a group and label", () => {
     for (const entry of NAV_ENTRIES) {
       if (entry.sidebarGroup) {
-        expect(entry.sidebarLabelKey).toBeTruthy()
+        expect(entry.sidebarLabel).toBeTruthy()
       }
     }
   })
 
   it("gives every command entry a group and label", () => {
     for (const item of commandItems(ALL_BLOCKS)) {
-      expect(item.labelKey).toBeTruthy()
-      expect(item.groupKey).toBeTruthy()
+      expect(item.label).toBeTruthy()
+      expect(item.group).toBeTruthy()
     }
   })
 })
@@ -102,12 +102,12 @@ describe("sidebarCustomerItems", () => {
     expect(items).toEqual([
       expect.objectContaining({
         to: "/players",
-        labelKey: "activities.padel.customers.title",
+        label: "Jugadores",
         search: { activity: "padel-id" },
       }),
       expect.objectContaining({
         to: "/players",
-        labelKey: "activities.pilates.customers.title",
+        label: "Alumnos",
         search: { activity: "pilates-id" },
       }),
     ])
@@ -129,7 +129,7 @@ describe("sidebarGroups", () => {
     ])
     expect(groups[1].label).toBe("padel")
     expect(groups[2].label).toBe("Reformer")
-    expect(groups[0].label ?? groups[0].labelKey).toBeUndefined()
+    expect(groups[0].label).toBeUndefined()
   })
 
   it("drops groups with nothing to show", () => {
@@ -151,7 +151,7 @@ describe("commandItems", () => {
     // Every command item must map back to a registry entry with a command label.
     for (const item of commandItems(ALL_BLOCKS)) {
       const entry = NAV_ENTRIES.find((e) => e.to === item.to)
-      expect(entry?.commandLabelKey).toBe(item.labelKey)
+      expect(entry?.commandLabel).toBe(item.label)
     }
   })
 

@@ -40,7 +40,7 @@ async function classRow(
   court: string,
   date: string
 ): Promise<Locator> {
-  await page.getByPlaceholder("Search classes...").fill(date)
+  await page.getByPlaceholder("Buscar clases...").fill(date)
   return page
     .getByRole("row", { name: new RegExp(court) })
     .filter({ hasText: date })
@@ -74,50 +74,52 @@ test("repeats a class, signs up to all, edits and deletes with scopes", async ({
 
   await page.goto("/coaches/classes")
   await waitForHydration(page)
-  const drawer = await openDrawer(page, "New Class")
-  await selectFirstOption(page, drawer, "Coach")
-  await selectOption(page, drawer, "Court", court)
+  const drawer = await openDrawer(page, "Nueva clase")
+  await selectFirstOption(page, drawer, "Entrenador")
+  await selectOption(page, drawer, "Pista", court)
   await pickCalendarDay(page, drawer, dateKey)
-  await drawer.getByLabel("Start Time").fill("15:00")
-  await selectOption(page, drawer, "Duration", "1 hour")
+  await drawer.getByLabel("Hora de inicio").fill("15:00")
+  await selectOption(page, drawer, "Duración", "1 hora")
 
-  await drawer.getByLabel("Repeat", { exact: true }).click()
-  await page.getByRole("option", { name: "Custom…" }).click()
-  const custom = page.getByRole("dialog", { name: "Custom recurrence" })
-  await custom.getByLabel("Repeat every").fill("2")
-  await custom.getByRole("button", { name: "Wednesday" }).click()
-  await custom.getByRole("radio", { name: "After" }).click()
-  await custom.getByRole("spinbutton", { name: "After" }).fill("4")
-  await custom.getByRole("button", { name: "Done" }).click()
+  await drawer.getByLabel("Repetir", { exact: true }).click()
+  await page.getByRole("option", { name: "Personalizar…" }).click()
+  const custom = page.getByRole("dialog", { name: "Repetición personalizada" })
+  await custom.getByLabel("Repetir cada").fill("2")
+  await custom.getByRole("button", { name: "miércoles" }).click()
+  await custom.getByRole("radio", { name: "Después de" }).click()
+  await custom.getByRole("spinbutton", { name: "Después de" }).fill("4")
+  await custom.getByRole("button", { name: "Listo" }).click()
   await expect(custom).toBeHidden()
-  await expect(drawer.getByText("4 classes will be created")).toBeVisible()
-  await drawer.getByRole("button", { name: "Schedule Class" }).click()
-  await expect(page.getByText("Repeating class scheduled")).toBeVisible()
+  await expect(drawer.getByText("Se crearán 4 clases")).toBeVisible()
+  await drawer.getByRole("button", { name: "Programar clase" }).click()
+  await expect(page.getByText("Clase recurrente programada")).toBeVisible()
   await expect(drawer).toBeHidden()
 
   for (const date of dates) {
     const row = await classRow(page, court, date)
     await expect(row).toContainText("15:00")
     await expect(
-      row.getByRole("img", { name: "Repeating class" })
+      row.getByRole("img", { name: "Clase recurrente" })
     ).toBeVisible()
   }
 
   // Sign a customer up to all four.
-  const attendees = page.getByRole("dialog", { name: "Attendees" })
+  const attendees = page.getByRole("dialog", { name: "Inscriptos" })
   await openFromRow(
     page,
     await classRow(page, court, dates[0]),
-    "Attendees",
+    "Inscriptos",
     attendees
   )
-  await selectFirstOption(page, attendees, "Choose a customer")
+  await selectFirstOption(page, attendees, "Elige un cliente")
   await attendees
-    .getByRole("checkbox", { name: "Also every following class of the series" })
+    .getByRole("checkbox", {
+      name: "También todas las clases siguientes de la serie",
+    })
     .check()
-  await attendees.getByRole("button", { name: "Add", exact: true }).click()
-  await expect(page.getByText(/signed up to 4 classes$/)).toBeVisible()
-  await attendees.getByRole("button", { name: "Close" }).click()
+  await attendees.getByRole("button", { name: "Agregar", exact: true }).click()
+  await expect(page.getByText(/inscripto en 4 clases$/)).toBeVisible()
+  await attendees.getByRole("button", { name: "Cerrar" }).click()
   await expect(attendees).toBeHidden()
   await expect(
     (await classRow(page, court, dates[3])).getByRole("cell", {
@@ -127,18 +129,18 @@ test("repeats a class, signs up to all, edits and deletes with scopes", async ({
   ).toBeVisible()
 
   // Move the rest of the series (from the second class) to 16:00.
-  const edit = page.getByRole("dialog", { name: "Edit Class" })
-  await openFromRow(page, await classRow(page, court, dates[1]), "Edit", edit)
-  await edit.getByLabel("Start Time").fill("16:00")
-  await edit.getByRole("button", { name: "Save Changes" }).click()
+  const edit = page.getByRole("dialog", { name: "Editar clase" })
+  await openFromRow(page, await classRow(page, court, dates[1]), "Editar", edit)
+  await edit.getByLabel("Hora de inicio").fill("16:00")
+  await edit.getByRole("button", { name: "Guardar cambios" }).click()
   const editScope = page.getByRole("alertdialog", {
-    name: "Edit repeating class",
+    name: "Editar clase recurrente",
   })
   await editScope
-    .getByRole("radio", { name: "This and following classes" })
+    .getByRole("radio", { name: "Esta clase y las siguientes" })
     .click()
-  await editScope.getByRole("button", { name: "OK" }).click()
-  await expect(page.getByText("Class updated")).toBeVisible()
+  await editScope.getByRole("button", { name: "Aceptar" }).click()
+  await expect(page.getByText("Clase actualizada")).toBeVisible()
   await expect(page.getByRole("dialog")).toBeHidden()
 
   await expect(await classRow(page, court, dates[0])).toContainText("15:00")
@@ -153,23 +155,23 @@ test("repeats a class, signs up to all, edits and deletes with scopes", async ({
 
   // Delete the third class on its own.
   const deleteScope = page.getByRole("alertdialog", {
-    name: "Delete repeating class",
+    name: "Eliminar clase recurrente",
   })
   await openFromRow(
     page,
     await classRow(page, court, dates[2]),
-    "Delete",
+    "Eliminar",
     deleteScope
   )
   await expect(
-    deleteScope.getByRole("radio", { name: "This class" })
+    deleteScope.getByRole("radio", { name: "Esta clase", exact: true })
   ).toBeChecked()
-  await deleteScope.getByRole("button", { name: "Delete" }).click()
+  await deleteScope.getByRole("button", { name: "Eliminar" }).click()
   // While the dialog is open the list is hidden from role queries, and the
   // toast comes once the list has reloaded: acting on a row mid-reload loses
   // what it opened.
   await expect(deleteScope).toBeHidden()
-  await expect(page.getByText("Class deleted")).toBeVisible()
+  await expect(page.getByText("Clase eliminada")).toBeVisible()
   await expect(await classRow(page, court, dates[2])).toHaveCount(0)
   await expect(await classRow(page, court, dates[3])).toHaveCount(1)
 
@@ -177,13 +179,13 @@ test("repeats a class, signs up to all, edits and deletes with scopes", async ({
   await openFromRow(
     page,
     await classRow(page, court, dates[1]),
-    "Delete",
+    "Eliminar",
     deleteScope
   )
   await deleteScope
-    .getByRole("radio", { name: "This and following classes" })
+    .getByRole("radio", { name: "Esta clase y las siguientes" })
     .click()
-  await deleteScope.getByRole("button", { name: "Delete" }).click()
+  await deleteScope.getByRole("button", { name: "Eliminar" }).click()
   await expect(deleteScope).toBeHidden()
   await expect(await classRow(page, court, dates[1])).toHaveCount(0)
   await expect(await classRow(page, court, dates[3])).toHaveCount(0)

@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next"
 import { format } from "date-fns"
 import { IconCalendar } from "@tabler/icons-react"
 import type { Control, FieldPath, FieldValues } from "react-hook-form"
@@ -33,7 +32,6 @@ export function FormDateField<T extends FieldValues>({
   label,
   disabledDates,
 }: Props<T>) {
-  const { t } = useTranslation()
   return (
     <FormField
       control={control}
@@ -52,9 +50,7 @@ export function FormDateField<T extends FieldValues>({
                   )}
                 >
                   <IconCalendar className="mr-2 size-4" />
-                  {field.value
-                    ? format(field.value, "PPP")
-                    : t("common.pickDate")}
+                  {field.value ? format(field.value, "PPP") : "Elige una fecha"}
                 </Button>
               </FormControl>
             </PopoverTrigger>

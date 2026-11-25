@@ -26,7 +26,7 @@ export async function requireSession() {
   const { headers } = getRequest()
   const session = await auth.api.getSession({ headers })
   if (!session || session.user.status === "archived") {
-    throw new AppError("errors.unauthorized")
+    throw new AppError("errors.unauthorized", "No autorizado")
   }
   return session
 }
@@ -38,7 +38,7 @@ export async function requireSession() {
 export async function requirePermission(permission: Permission) {
   const session = await requireSession()
   if (!can(session.user.role, permission)) {
-    throw new AppError("errors.forbidden")
+    throw new AppError("errors.forbidden", "Acceso denegado")
   }
   return session
 }
@@ -94,7 +94,11 @@ async function chooseClubId(user: {
 export async function currentClubId(): Promise<string> {
   const session = await requireSession()
   const clubId = await resolveActiveClubId(session.user)
-  if (!clubId) throw new AppError("errors.noClub")
+  if (!clubId)
+    throw new AppError(
+      "errors.noClub",
+      "No hay ningún club disponible para esta cuenta."
+    )
   return clubId
 }
 
@@ -106,7 +110,10 @@ export async function requireClubId(permission: Permission): Promise<string> {
   const session = await requirePermission(permission)
   const clubId = await resolveActiveClubId(session.user)
   if (!clubId) {
-    throw new AppError("errors.clubContextRequired")
+    throw new AppError(
+      "errors.clubContextRequired",
+      "Esta acción requiere un club activo."
+    )
   }
   return clubId
 }

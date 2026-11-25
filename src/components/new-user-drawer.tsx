@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import { IconCheck } from "@tabler/icons-react"
 import { zodFormResolver } from "@/lib/form"
 import { z } from "zod"
@@ -39,19 +37,17 @@ import { ROLE_DESCRIPTIONS, USER_ROLES, roleLabel } from "@/lib/users"
 import type { UserRole } from "@/lib/users"
 import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import { useAppSettings } from "@/lib/app-settings"
-import { translateError } from "@/lib/errors"
+import { errorMessage } from "@/lib/errors"
 
 export { ROLE_DESCRIPTIONS, USER_ROLES }
 export type { UserRole }
 
 type DrawerRole = UserRole | typeof SUPER_ADMIN_ROLE
 
-function describeRole(
-  t: TFunction,
-  role: string | undefined
-): string | undefined {
+function describeRole(role: string | undefined): string | undefined {
   if (!role) return undefined
-  if (role === SUPER_ADMIN_ROLE) return t("forms.user.superAdminDescription")
+  if (role === SUPER_ADMIN_ROLE)
+    return "Acceso a toda la plataforma y todos los clubes. No está ligado a un solo club."
   return ROLE_DESCRIPTIONS[role as UserRole]
 }
 
@@ -95,7 +91,6 @@ export function NewUserDrawer({
   onOpenChange: controlledOnOpenChange,
   onSave,
 }: Props) {
-  const { t } = useTranslation()
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = controlledOnOpenChange ?? setInternalOpen
@@ -111,10 +106,10 @@ export function NewUserDrawer({
 
   const schema = useMemo(() => {
     const base = {
-      name: z.string().min(1, t("validation.nameRequired")),
-      email: z.string().email(t("validation.emailInvalid")),
+      name: z.string().min(1, "El nombre es obligatorio"),
+      email: z.string().email("Correo electrónico no válido"),
       role: z.enum(roleOptions as [string, ...string[]], {
-        error: t("validation.roleRequired"),
+        error: "El rol es obligatorio",
       }),
       clubIds: z.array(z.string()).optional(),
     }
@@ -124,18 +119,18 @@ export function NewUserDrawer({
           ...base,
           password: z
             .string()
-            .min(minLength, t("validation.passwordMin", { count: minLength })),
+            .min(minLength, `Al menos ${minLength} caracteres`),
         })
     // A non-super-admin user must belong to at least one club.
     if (!canAssignClubs) return obj
     return obj.refine(
       (v) => v.role === SUPER_ADMIN_ROLE || (v.clubIds?.length ?? 0) > 0,
       {
-        message: t("validation.selectClubRequired"),
+        message: "Selecciona un club",
         path: ["clubIds"],
       }
     )
-  }, [isEditing, minLength, canAssignClubs, roleOptions, t])
+  }, [isEditing, minLength, canAssignClubs, roleOptions])
 
   // New users start at the configured default role (Settings → Users → Security).
   const blankUser = {
@@ -164,20 +159,16 @@ export function NewUserDrawer({
     run({
       action: () => onSave?.(values as UserFormData) ?? Promise.resolve(),
       onSuccess: () => {
-        toast.success(
-          isEditing ? t("forms.user.updated") : t("forms.user.created"),
-          {
-            description: t("common.savedSuccess", { name: values.name }),
-          }
-        )
+        toast.success(isEditing ? "Usuario actualizado" : "Usuario creado", {
+          description: `${values.name} se ha guardado correctamente.`,
+        })
         schedule(() => setOpen(false), 900)
       },
       onError: (error) => {
-        toast.error(t("forms.user.errorTitle"), {
-          description: translateError(
+        toast.error("No se pudo guardar el usuario", {
+          description: errorMessage(
             error,
-            t,
-            t("forms.user.errorDescription")
+            "No se pudo guardar el usuario. Inténtalo de nuevo."
           ),
         })
       },
@@ -190,7 +181,7 @@ export function NewUserDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {isEditing ? t("forms.user.titleEdit") : t("forms.user.titleNew")}
+            {isEditing ? "Editar usuario" : "Nuevo usuario"}
           </DrawerTitle>
         </DrawerHeader>
 
@@ -204,12 +195,9 @@ export function NewUserDrawer({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.fullName")}</FormLabel>
+                  <FormLabel>Nombre completo</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t("forms.user.namePlaceholder")}
-                      {...field}
-                    />
+                    <Input placeholder="p. ej. Ana Martínez" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -221,11 +209,11 @@ export function NewUserDrawer({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.email")}</FormLabel>
+                  <FormLabel>Correo electrónico</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder={t("forms.user.emailPlaceholder")}
+                      placeholder="usuario@email.com"
                       {...field}
                     />
                   </FormControl>
@@ -239,26 +227,24 @@ export function NewUserDrawer({
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("fields.role")}</FormLabel>
+                  <FormLabel>Rol</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t("placeholders.selectRole")}
-                        />
+                        <SelectValue placeholder="Selecciona el rol" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {roleOptions.map((role) => (
                         <SelectItem key={role} value={role}>
-                          {roleLabel(t, role)}
+                          {roleLabel(role)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {field.value && (
                     <FormDescription>
-                      {describeRole(t, field.value)}
+                      {describeRole(field.value)}
                     </FormDescription>
                   )}
                   <FormMessage />
@@ -280,9 +266,10 @@ export function NewUserDrawer({
                     )
                   return (
                     <FormItem>
-                      <FormLabel>{t("fields.clubs")}</FormLabel>
+                      <FormLabel>Clubes</FormLabel>
                       <FormDescription>
-                        {t("forms.user.clubsHelp")}
+                        Seleccioná todos los clubes a los que este usuario puede
+                        acceder y cambiar.
                       </FormDescription>
                       <div className="flex flex-col divide-y rounded-md border">
                         {clubs.map((c) => {
@@ -316,17 +303,18 @@ export function NewUserDrawer({
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("forms.user.temporaryPassword")}</FormLabel>
+                    <FormLabel>Contraseña temporal</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
                         autoComplete="new-password"
-                        placeholder={t("forms.user.passwordPlaceholder")}
+                        placeholder="Define una contraseña inicial"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t("forms.user.passwordHelp")}
+                      El usuario puede cambiarla tras su primer inicio de
+                      sesión.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -338,15 +326,11 @@ export function NewUserDrawer({
               <DrawerSubmitButton
                 status={status}
                 progress={progress}
-                label={
-                  isEditing
-                    ? t("common.saveChanges")
-                    : t("forms.user.submitNew")
-                }
+                label={isEditing ? "Guardar cambios" : "Agregar usuario"}
               />
               <DrawerClose asChild>
                 <Button variant="outline" disabled={status === "submitting"}>
-                  {t("common.cancel")}
+                  Cancelar
                 </Button>
               </DrawerClose>
             </DrawerFooter>

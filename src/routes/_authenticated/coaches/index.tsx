@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { z } from "zod"
-import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconPlus } from "@tabler/icons-react"
 import { differenceInYears, parseISO } from "date-fns"
@@ -48,7 +46,6 @@ function CoachActions({
   coach: CoachRecord
   activities: ActivityRecord[]
 }) {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
   const [editOpen, setEditOpen] = useState(false)
@@ -56,11 +53,11 @@ function CoachActions({
   async function handleDelete() {
     try {
       await deleteCoach({ data: { id: coach.id } })
-      toast.success(t("pages.coaches.deleted"), { description: coach.name })
+      toast.success("Entrenador eliminado", { description: coach.name })
       router.invalidate()
     } catch {
-      toast.error(t("pages.coaches.deleteError"), {
-        description: t("common.tryAgain"),
+      toast.error("No se pudo eliminar el entrenador", {
+        description: "Inténtalo de nuevo.",
       })
     }
   }
@@ -88,7 +85,6 @@ function CoachActions({
 }
 
 function buildColumns(
-  t: TFunction,
   canManage: boolean,
   activities: ActivityRecord[],
   showActivities: boolean
@@ -97,18 +93,18 @@ function buildColumns(
   const activeName = new Map(
     activities
       .filter((a) => activityProvides(a, "sessions"))
-      .map((a) => [a.id, activityDisplayName(a, t)])
+      .map((a) => [a.id, activityDisplayName(a)])
   )
   const columns: ColumnDef<CoachRecord>[] = [
     {
       accessorKey: "name",
-      header: t("fields.fullName"),
+      header: "Nombre completo",
     },
     ...(showActivities
       ? [
           {
             id: "activities",
-            header: t("forms.coach.activitiesLabel"),
+            header: "Enseña",
             enableSorting: false,
             accessorFn: (c: CoachRecord) =>
               c.activityIds
@@ -119,12 +115,12 @@ function buildColumns(
       : []),
     {
       accessorKey: "phone",
-      header: t("fields.phone"),
+      header: "Teléfono",
       enableSorting: false,
     },
     {
       accessorKey: "birthday",
-      header: t("pages.coaches.birthday"),
+      header: "Cumpleaños",
       cell: ({ row }) => {
         const birthday = row.getValue<string | null>("birthday")
         return birthday
@@ -138,15 +134,13 @@ function buildColumns(
     },
     {
       id: "age",
-      header: t("fields.age"),
+      header: "Edad",
       cell: ({ row }) =>
         row.original.birthday
-          ? t("pages.coaches.ageYears", {
-              count: differenceInYears(
-                new Date(),
-                parseISO(row.original.birthday)
-              ),
-            })
+          ? `${differenceInYears(
+              new Date(),
+              parseISO(row.original.birthday)
+            )} años`
           : "—",
     },
   ]
@@ -166,7 +160,6 @@ function buildColumns(
 }
 
 function CoachesPage() {
-  const { t } = useTranslation()
   const router = useRouter()
   const canManage = useCan("coaches:manage")
   const { coaches, activities } = Route.useLoaderData()
@@ -186,8 +179,8 @@ function CoachesPage() {
     })
   }
   const columns = useMemo(
-    () => buildColumns(t, canManage, activities, showActivities),
-    [t, canManage, activities, showActivities]
+    () => buildColumns(canManage, activities, showActivities),
+    [canManage, activities, showActivities]
   )
   const visible =
     activityFilter === "all"
@@ -197,16 +190,16 @@ function CoachesPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">{t("pages.coaches.title")}</h1>
+        <h1 className="text-2xl font-semibold">Entrenadores</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("pages.coaches.description")}
+          Administra los entrenadores del club.
         </p>
       </div>
 
       <DataTable
         columns={columns}
         data={visible}
-        searchPlaceholder={t("pages.coaches.searchPlaceholder")}
+        searchPlaceholder="Buscar entrenadores..."
         exportFileName="coaches"
         action={
           <div className="flex items-center gap-2">
@@ -215,17 +208,15 @@ function CoachesPage() {
                 <SelectTrigger
                   size="sm"
                   className="w-44"
-                  aria-label={t("fields.activity")}
+                  aria-label="Actividad"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">
-                    {t("pages.classes.allActivities")}
-                  </SelectItem>
+                  <SelectItem value="all">Todas las actividades</SelectItem>
                   {teachable.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {activityDisplayName(a, t)}
+                      {activityDisplayName(a)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -238,7 +229,7 @@ function CoachesPage() {
                 trigger={
                   <Button size="sm">
                     <IconPlus className="size-4" />
-                    {t("pages.coaches.newButton")}
+                    {"Nuevo entrenador"}
                   </Button>
                 }
               />

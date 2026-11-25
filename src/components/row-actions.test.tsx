@@ -10,7 +10,7 @@ describe("RowActions", () => {
     render(<RowActions onEdit={onEdit} />)
 
     await user.click(screen.getByRole("button"))
-    await user.click(await screen.findByText("Edit"))
+    await user.click(await screen.findByText("Editar"))
 
     expect(onEdit).toHaveBeenCalledOnce()
   })
@@ -21,15 +21,15 @@ describe("RowActions", () => {
     render(<RowActions onDelete={onDelete} />)
 
     await user.click(screen.getByRole("button"))
-    await user.click(await screen.findByText("Delete"))
+    await user.click(await screen.findByText("Eliminar"))
 
     // Confirmation dialog is shown; nothing deleted yet.
     expect(
-      await screen.findByText("This action cannot be undone.")
+      await screen.findByText("Esta acción no se puede deshacer.")
     ).toBeInTheDocument()
     expect(onDelete).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: "Delete" }))
+    await user.click(screen.getByRole("button", { name: "Eliminar" }))
     expect(onDelete).toHaveBeenCalledOnce()
   })
 
@@ -44,10 +44,10 @@ describe("RowActions", () => {
   it("shows row-specific items", async () => {
     const user = userEvent.setup()
     const onClick = vi.fn()
-    render(<RowActions extraItems={[{ label: "Attendees", onClick }]} />)
+    render(<RowActions extraItems={[{ label: "Inscriptos", onClick }]} />)
 
     await user.click(screen.getByRole("button"))
-    await user.click(await screen.findByText("Attendees"))
+    await user.click(await screen.findByText("Inscriptos"))
 
     expect(onClick).toHaveBeenCalledOnce()
   })

@@ -231,9 +231,10 @@ describe("validateCancellation", () => {
 })
 
 describe("bookingRuleError", () => {
-  it("maps each rule violation to a coded AppError with params", () => {
+  it("maps each rule violation to a coded AppError with its message", () => {
     expect(bookingRuleError({ code: "CLOSED" })).toMatchObject({
       code: "errors.booking.closed",
+      userMessage: "El club está cerrado ese día. Elige otra fecha.",
     })
     expect(
       bookingRuleError({
@@ -243,19 +244,27 @@ describe("bookingRuleError", () => {
       })
     ).toMatchObject({
       code: "errors.booking.outsideHours",
-      params: { open: "08:00", close: "23:00" },
+      userMessage: "Esa hora está fuera del horario de apertura (08:00–23:00).",
     })
     expect(
       bookingRuleError({ code: "TOO_SOON", minAdvanceHours: 1 })
-    ).toMatchObject({ code: "errors.booking.tooSoon", params: { hours: 1 } })
+    ).toMatchObject({
+      code: "errors.booking.tooSoon",
+      userMessage: "Las reservas deben hacerse con al menos 1h de antelación.",
+    })
     expect(
       bookingRuleError({ code: "TOO_FAR", maxAdvanceDays: 30 })
-    ).toMatchObject({ code: "errors.booking.tooFar", params: { days: 30 } })
+    ).toMatchObject({
+      code: "errors.booking.tooFar",
+      userMessage:
+        "Las reservas no pueden hacerse con más de 30 días de antelación.",
+    })
     expect(
       bookingRuleError({ code: "CUTOFF_PASSED", cancellationCutoffHours: 24 })
     ).toMatchObject({
       code: "errors.booking.cutoffPassed",
-      params: { hours: 24 },
+      userMessage:
+        "Esta reserva ya no se puede cancelar (dentro de 24h del inicio).",
     })
   })
 })

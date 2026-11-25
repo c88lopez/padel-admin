@@ -1,10 +1,9 @@
 import { useMemo } from "react"
-import { useTranslation } from "react-i18next"
 import { NO_LEVELS } from "@/lib/activities/levels"
 import type { LevelScale } from "@/lib/activities/levels"
 import {
+  ACTIVITY_TEMPLATES,
   activityProvides,
-  customerTextKey,
   getTemplate,
 } from "@/lib/activities/templates"
 import type {
@@ -22,15 +21,14 @@ export interface CustomerView {
 }
 
 export function useCustomerView(activity: ActivitySummary): CustomerView {
-  const { t } = useTranslation()
   return useMemo(() => {
     const template = getTemplate(activity.templateKey)
-    const customersKey = template?.customersKey ?? "activities.padel.customers"
+    const customers = (template ?? ACTIVITY_TEMPLATES[0]).customers
     return {
       activity,
       levelScale:
         (activityProvides(activity, "levels") && template?.levels) || NO_LEVELS,
-      text: (key) => t(customerTextKey({ customersKey }, key)),
+      text: (key) => customers[key],
     }
-  }, [activity, t])
+  }, [activity])
 }

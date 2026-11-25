@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
-import { ENGLISH_STATE, PLATFORM_API_KEY } from "./e2e/helpers"
+import { PLATFORM_API_KEY } from "./e2e/helpers"
 
 // E2E runs on its own port + database so it never touches your dev server (3003)
 // or dev DB. The app reads `DATABASE_URL` from the environment (injected below),
@@ -31,7 +31,6 @@ const BETTER_AUTH_SECRET =
 // concurrent dev servers cause (see CLAUDE.md), and is closer to real prod.
 export default defineConfig({
   testDir: "./e2e",
-  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -53,7 +52,6 @@ export default defineConfig({
     {
       name: "setup",
       testMatch: /.*\.setup\.ts/,
-      use: { storageState: ENGLISH_STATE },
     },
     {
       name: "chromium",

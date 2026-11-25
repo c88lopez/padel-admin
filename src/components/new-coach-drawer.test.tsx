@@ -59,9 +59,11 @@ describe("NewCoachDrawer", () => {
     const user = userEvent.setup()
     render(<NewCoachDrawer open onOpenChange={vi.fn()} activities={[padel]} />)
 
-    await user.click(screen.getByRole("button", { name: "Add Coach" }))
+    await user.click(screen.getByRole("button", { name: "Agregar entrenador" }))
 
-    expect(await screen.findByText("Name is required")).toBeInTheDocument()
+    expect(
+      await screen.findByText("El nombre es obligatorio")
+    ).toBeInTheDocument()
     expect(createCoach).not.toHaveBeenCalled()
   })
 
@@ -69,10 +71,10 @@ describe("NewCoachDrawer", () => {
     const user = userEvent.setup()
     render(<NewCoachDrawer open onOpenChange={vi.fn()} activities={[padel]} />)
 
-    await user.type(screen.getByLabelText("Full Name"), "Coach Carter")
-    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5000 0000")
+    await user.type(screen.getByLabelText("Nombre completo"), "Coach Carter")
+    await user.type(screen.getByLabelText("Teléfono"), "+54 9 11 5000 0000")
 
-    await user.click(screen.getByRole("button", { name: "Add Coach" }))
+    await user.click(screen.getByRole("button", { name: "Agregar entrenador" }))
 
     await waitFor(() =>
       expect(createCoach).toHaveBeenCalledWith({
@@ -102,9 +104,9 @@ describe("NewCoachDrawer", () => {
       />
     )
 
-    expect(screen.getByLabelText("Full Name")).toHaveValue("Coach K")
+    expect(screen.getByLabelText("Nombre completo")).toHaveValue("Coach K")
 
-    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
 
     await waitFor(() =>
       expect(updateCoach).toHaveBeenCalledWith({
@@ -121,7 +123,7 @@ describe("NewCoachDrawer", () => {
 
   it("hides the activities when only one activity runs classes", () => {
     render(<NewCoachDrawer open onOpenChange={vi.fn()} activities={[padel]} />)
-    expect(screen.queryByText("Teaches")).not.toBeInTheDocument()
+    expect(screen.queryByText("Enseña")).not.toBeInTheDocument()
   })
 
   it("requires and sends the activities when several run classes", async () => {
@@ -133,17 +135,19 @@ describe("NewCoachDrawer", () => {
         activities={[padel, pilates]}
       />
     )
-    await user.type(screen.getByLabelText("Full Name"), "Coach Carter")
-    await user.type(screen.getByLabelText("Phone"), "+54 9 11 5000 0000")
+    await user.type(screen.getByLabelText("Nombre completo"), "Coach Carter")
+    await user.type(screen.getByLabelText("Teléfono"), "+54 9 11 5000 0000")
 
-    await user.click(screen.getByRole("button", { name: "Add Coach" }))
+    await user.click(screen.getByRole("button", { name: "Agregar entrenador" }))
     expect(
-      await screen.findByText("Pick at least one activity this coach teaches.")
+      await screen.findByText(
+        "Elige al menos una actividad que enseñe este entrenador."
+      )
     ).toBeInTheDocument()
     expect(createCoach).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole("switch", { name: "Pilates" }))
-    await user.click(screen.getByRole("button", { name: "Add Coach" }))
+    await user.click(screen.getByRole("button", { name: "Agregar entrenador" }))
     await waitFor(() =>
       expect(createCoach).toHaveBeenCalledWith({
         data: expect.objectContaining({ activityIds: ["pilates"] }),

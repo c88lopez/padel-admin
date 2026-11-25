@@ -43,12 +43,19 @@ async function resolveActivityIds(
   const teachable = await teachableActivityIds(clubId)
   if (requested === undefined) {
     if (teachable.length === 1) return teachable
-    throw new AppError("errors.coach.activityRequired")
+    throw new AppError(
+      "errors.coach.activityRequired",
+      "Elige al menos una actividad que enseñe este entrenador."
+    )
   }
   const unique = [...new Set(requested)]
-  if (unique.length === 0) throw new AppError("errors.coach.activityRequired")
+  if (unique.length === 0)
+    throw new AppError(
+      "errors.coach.activityRequired",
+      "Elige al menos una actividad que enseñe este entrenador."
+    )
   if (unique.some((id) => !teachable.includes(id))) {
-    throw new AppError("errors.activity.notFound")
+    throw new AppError("errors.activity.notFound", "Actividad no encontrada.")
   }
   return unique
 }
@@ -173,5 +180,9 @@ export async function assertCoachTeaches(
       )
     )
     .limit(1)
-  if (rows.length === 0) throw new AppError("errors.coach.wrongActivity")
+  if (rows.length === 0)
+    throw new AppError(
+      "errors.coach.wrongActivity",
+      "Ese entrenador no enseña esta actividad. Elige otro."
+    )
 }

@@ -47,7 +47,7 @@ test("switching clubs rescopes tenant data", async ({ page }) => {
   await waitForHydration(page)
 
   // Default Club has the seeded roster.
-  await page.getByPlaceholder("Search players...").fill(DEFAULT_PLAYER)
+  await page.getByPlaceholder("Buscar jugadores...").fill(DEFAULT_PLAYER)
   await expect(
     page.getByRole("cell", { name: DEFAULT_PLAYER, exact: true })
   ).toBeVisible()
@@ -56,7 +56,7 @@ test("switching clubs rescopes tenant data", async ({ page }) => {
   await switchClub(page, "Default Club", "North Branch")
   await page.goto("/players")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search players...").fill(DEFAULT_PLAYER)
+  await page.getByPlaceholder("Buscar jugadores...").fill(DEFAULT_PLAYER)
   await expect(
     page.getByRole("cell", { name: DEFAULT_PLAYER, exact: true })
   ).toHaveCount(0)
@@ -65,7 +65,7 @@ test("switching clubs rescopes tenant data", async ({ page }) => {
   await switchClub(page, "North Branch", "Default Club")
   await page.goto("/players")
   await waitForHydration(page)
-  await page.getByPlaceholder("Search players...").fill(DEFAULT_PLAYER)
+  await page.getByPlaceholder("Buscar jugadores...").fill(DEFAULT_PLAYER)
   await expect(
     page.getByRole("cell", { name: DEFAULT_PLAYER, exact: true })
   ).toBeVisible()

@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @.claude/rules/auth-and-errors.md
 @.claude/rules/pull-requests.md
 @.claude/rules/lib-module-conventions.md
-@.claude/rules/i18n.md
+@.claude/rules/language.md
 @.claude/rules/shadcn-ui.md
 @.claude/rules/testing.md
 @.claude/rules/ai-assistant.md
