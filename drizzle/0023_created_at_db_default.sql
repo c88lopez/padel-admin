@@ -1,0 +1,19 @@
+ALTER TABLE "account" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "activity" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "class_series" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "club" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "club_member" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "club_reservation_settings" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "coach" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "coach_class" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "coach_class_attendee" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "customer_activity_profile" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "player" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "reservation" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "sale" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "session" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "space" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "stock_item" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "tournament" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "created_at" SET DEFAULT timezone('utc', now());

@@ -1,3 +1,4 @@
+import { utcNow } from "./timestamps"
 import {
   pgTable,
   text,
@@ -30,9 +31,7 @@ export const activity = pgTable(
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     config: jsonb("config").notNull().default({}),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   (t) => [unique().on(t.clubId, t.templateKey), clubIsolation()]
 )

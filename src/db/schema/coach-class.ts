@@ -1,3 +1,4 @@
+import { utcNow } from "./timestamps"
 import {
   pgTable,
   primaryKey,
@@ -49,9 +50,7 @@ export const coachClass = pgTable(
       onDelete: "set null",
     }),
     seriesDate: date("series_date"),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   // One class per series date, so concurrent fills can't double up.
   (t) => [
@@ -78,9 +77,7 @@ export const coachClassAttendee = pgTable(
     clubId: text("club_id")
       .notNull()
       .references(() => club.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   (t) => [primaryKey({ columns: [t.classId, t.playerId] }), clubIsolation()]
 )

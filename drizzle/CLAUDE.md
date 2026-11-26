@@ -46,6 +46,7 @@ What RLS protects against: a query that forgets its `club_id` filter, or a join 
 ## Writing migrations
 
 - **A new club-scoped table:** add `clubId` (not null, cascade to `club`) and `clubIsolation()` in the schema, run `bun run db:generate`, then add `ALTER TABLE ... FORCE ROW LEVEL SECURITY;` to the generated SQL.
+- **`created_at` always has a database default:** declare it as `timestamp("created_at").default(utcNow).notNull()` (`src/db/schema/timestamps.ts`), never with only a JS `$defaultFn`, so rows inserted outside Drizzle (raw SQL, data migrations) get a creation time too. `utcNow` is `timezone('utc', now())`: the columns are `timestamp` without time zone and Drizzle writes JS dates as UTC, so a plain `now()` would follow the session's TimeZone instead.
 - **Adding `club_id` to an existing table:** drizzle-kit generates `ADD COLUMN ... NOT NULL`, which fails on existing rows. Rewrite it as add nullable, backfill from the parent row, then `SET NOT NULL` (see `0022_club_rls.sql`).
 - **Data migrations (UPDATE/INSERT/DELETE on club tables):** `migrate.ts` connects with `app.bypass_rls=on`, so they see every club's rows. Tests and `make dev-reset` run migrations the same way.
 - Inserts into club-scoped tables must set `club_id` to the scoped club, or the policy's `WITH CHECK` rejects them.

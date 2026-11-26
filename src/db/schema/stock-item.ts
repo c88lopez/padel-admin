@@ -1,3 +1,4 @@
+import { utcNow } from "./timestamps"
 import {
   pgTable,
   text,
@@ -24,9 +25,7 @@ export const stockItem = pgTable(
     clubId: text("club_id")
       .notNull()
       .references(() => club.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   () => [clubIsolation()]
 )

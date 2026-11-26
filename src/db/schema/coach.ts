@@ -2,6 +2,7 @@ import { pgTable, primaryKey, text, timestamp, date } from "drizzle-orm/pg-core"
 import { activity } from "./activity"
 import { club } from "./club"
 import { clubIsolation } from "./club-isolation"
+import { utcNow } from "./timestamps"
 
 export const coach = pgTable(
   "coach",
@@ -15,9 +16,7 @@ export const coach = pgTable(
     clubId: text("club_id")
       .notNull()
       .references(() => club.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   () => [clubIsolation()]
 )

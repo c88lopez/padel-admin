@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, integer, unique } from "drizzle-orm/pg-core"
 import { activity } from "./activity"
 import { club } from "./club"
 import { clubIsolation } from "./club-isolation"
+import { utcNow } from "./timestamps"
 
 export const player = pgTable(
   "player",
@@ -18,9 +19,7 @@ export const player = pgTable(
     clubId: text("club_id")
       .notNull()
       .references(() => club.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   () => [clubIsolation()]
 )
@@ -46,9 +45,7 @@ export const customerActivityProfile = pgTable(
       .notNull()
       .references(() => activity.id, { onDelete: "cascade" }),
     level: text("level"),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   (t) => [unique().on(t.customerId, t.activityId), clubIsolation()]
 )

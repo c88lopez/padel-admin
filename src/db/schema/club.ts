@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core"
+import { utcNow } from "./timestamps"
 
 // Tenant root. Every domain row belongs to exactly one club. Users belong to
 // clubs through club_member.
@@ -9,9 +10,7 @@ export const club = pgTable("club", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
+  createdAt: timestamp("created_at").default(utcNow).notNull(),
 })
 
 export type Club = typeof club.$inferSelect
