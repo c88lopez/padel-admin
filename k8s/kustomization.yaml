@@ -18,7 +18,7 @@ resources:
 
 images:
   - name: ghcr.io/c88lopez/padel-admin
-    newTag: 0.1.28
+    newTag: 0.1.29
     newName: ghcr.io/c88lopez/padel-admin
 
 # The Grafana dashboard. Grafana's sidecar loads any ConfigMap labeled
