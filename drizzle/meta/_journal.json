@@ -162,6 +162,13 @@
       "when": 1795536943980,
       "tag": "0022_club_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795723656823,
+      "tag": "0023_created_at_db_default",
+      "breakpoints": true
     }
   ]
 }

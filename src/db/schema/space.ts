@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core"
 import { activity } from "./activity"
 import { club } from "./club"
 import { clubIsolation } from "./club-isolation"
+import { utcNow } from "./timestamps"
 
 // A bookable space: a padel court today, later a pilates studio, pool lane or
 // football field (`type`). Belongs to exactly one club and one activity.
@@ -26,9 +27,7 @@ export const space = pgTable(
     // NO ACTION (checked at the end of the statement) rather than RESTRICT, so a
     // club delete can cascade to its spaces and activities in any order.
     activityId: text("activity_id").references(() => activity.id),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   () => [clubIsolation()]
 )

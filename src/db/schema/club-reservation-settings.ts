@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core"
 import type { DayHours, Weekday } from "@/lib/reservation-settings"
 import { club } from "./club"
 import { clubIsolation } from "./club-isolation"
+import { utcNow } from "./timestamps"
 
 // Per-club reservation configuration: opening hours + booking rules. One row per
 // club (club_id is the PK). Enforced server-side on reservation writes.
@@ -25,9 +26,7 @@ export const clubReservationSettings = pgTable(
     maxConcurrentPerPlayer: integer("max_concurrent_per_player")
       .notNull()
       .default(2),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
     updatedAt: timestamp("updated_at")
       .$defaultFn(() => new Date())
       .notNull(),

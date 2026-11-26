@@ -1,3 +1,4 @@
+import { utcNow } from "./timestamps"
 import {
   pgTable,
   text,
@@ -65,9 +66,7 @@ export const classSeries = pgTable(
       .default(sql`'{}'`),
     // Classes exist up to this date.
     generatedUntil: date("generated_until").notNull(),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => new Date())
-      .notNull(),
+    createdAt: timestamp("created_at").default(utcNow).notNull(),
   },
   (t) => [
     index("class_series_club_idx").on(t.clubId),
