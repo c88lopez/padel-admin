@@ -1,9 +1,15 @@
+import { DrizzleQueryError } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { z } from "zod"
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   can: vi.fn(),
+  logError: vi.fn(),
+}))
+
+vi.mock("@/lib/logger.server", () => ({
+  logger: { error: mocks.logError },
 }))
 
 vi.mock("@/lib/auth", () => ({
@@ -151,12 +157,56 @@ describe("apiErrorResponse", () => {
     })
   })
 
-  it("falls back to 500 for unknown errors", async () => {
-    const response = apiErrorResponse({ unexpected: true })
+  it("falls back to a generic 500 for unknown errors and logs them", async () => {
+    const error = new Error("connection refused")
+    const response = apiErrorResponse(error)
     expect(response.status).toBe(500)
     await expect(response.json()).resolves.toEqual({
-      error: "Unexpected error.",
+      error: "Internal server error.",
     })
+    expect(mocks.logError).toHaveBeenCalledWith(
+      { err: error, db: undefined },
+      "unhandled API error"
+    )
+  })
+
+  it("hides failed queries from the caller and logs the Postgres details", async () => {
+    const cause = Object.assign(new Error("duplicate key value"), {
+      code: "23505",
+      detail: "Key (slug)=(x4) already exists.",
+      constraint: "club_slug_unique",
+      table: "club",
+    })
+    const error = new DrizzleQueryError(
+      'insert into "club" ("name") values ($1) -- not found',
+      ["X4"],
+      cause
+    )
+    const response = apiErrorResponse(error)
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      error: "Internal server error.",
+    })
+    expect(mocks.logError).toHaveBeenCalledWith(
+      {
+        err: error,
+        db: {
+          code: "23505",
+          detail: "Key (slug)=(x4) already exists.",
+          constraint: "club_slug_unique",
+          table: "club",
+          column: undefined,
+        },
+      },
+      "unhandled API error"
+    )
+  })
+
+  it("does not log expected errors", () => {
+    apiErrorResponse(new ApiError(401, "Unauthorized."))
+    apiErrorResponse(new Error("Club not found."))
+    expect(mocks.logError).not.toHaveBeenCalled()
   })
 })
 

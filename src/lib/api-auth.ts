@@ -1,5 +1,8 @@
+import { DrizzleQueryError } from "drizzle-orm"
+import type { DatabaseError } from "pg"
 import { ZodError } from "zod"
 import { auth } from "@/lib/auth"
+import { logger } from "@/lib/logger.server"
 import { can } from "@/lib/permissions"
 import type { Permission } from "@/lib/permissions"
 
@@ -83,7 +86,11 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   }
 }
 
-/** Maps thrown errors to a JSON `Response` with an appropriate status code. */
+/**
+ * Maps thrown errors to a JSON `Response` with an appropriate status code.
+ * Anything unexpected is logged and answered with a generic 500, so internal
+ * details (SQL, parameters, stack) never reach the caller.
+ */
 export function apiErrorResponse(error: unknown): Response {
   if (error instanceof ApiError) {
     return Response.json({ error: error.message }, { status: error.status })
@@ -94,12 +101,28 @@ export function apiErrorResponse(error: unknown): Response {
       { status: 400 }
     )
   }
-  const message = error instanceof Error ? error.message : "Unexpected error."
-  if (/not found/i.test(message)) {
-    return Response.json({ error: message }, { status: 404 })
+  // Domain errors from the *.server.ts helpers are plain Errors. A failed
+  // query's message holds the SQL and its values, so it must not be matched.
+  if (error instanceof Error && !(error instanceof DrizzleQueryError)) {
+    if (/not found/i.test(error.message)) {
+      return Response.json({ error: error.message }, { status: 404 })
+    }
+    if (/cannot be deleted/i.test(error.message)) {
+      return Response.json({ error: error.message }, { status: 409 })
+    }
   }
-  if (/cannot be deleted/i.test(message)) {
-    return Response.json({ error: message }, { status: 409 })
-  }
-  return Response.json({ error: message }, { status: 500 })
+  logger.error(
+    { err: error, db: postgresErrorDetails(error) },
+    "unhandled API error"
+  )
+  return Response.json({ error: "Internal server error." }, { status: 500 })
+}
+
+// pino's err serializer folds a cause into the message and stack and drops its
+// fields, so the Postgres code, constraint and detail are copied out here.
+function postgresErrorDetails(error: unknown) {
+  if (!(error instanceof DrizzleQueryError) || !error.cause) return undefined
+  const { code, detail, constraint, table, column } =
+    error.cause as Partial<DatabaseError>
+  return { code, detail, constraint, table, column }
 }
