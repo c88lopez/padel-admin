@@ -15,7 +15,7 @@ client.collectDefaultMetrics({ register })
 
 // Bound label cardinality on purpose: we label by method, coarse handler kind
 // (page render vs server function) and status — never the raw pathname, which
-// would explode with ids like /api/clubs/<uuid>.
+// would explode with ids like /api/users/<id>.
 const httpRequestsTotal = new client.Counter({
   name: "http_requests_total",
   help: "Total HTTP requests handled by the app server.",

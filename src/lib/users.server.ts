@@ -8,13 +8,12 @@ import {
   setMemberships,
 } from "@/lib/club-members.server"
 import type { MemberClub } from "@/lib/club-members.server"
-import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 
 // Pure data-access helpers for users (no auth). Kept in a server-only module so
 // the Postgres driver (`pg`) never leaks into the client bundle. Used by the
 // REST routes under src/routes/api/users (API-key/session via
-// requireApiAccess). These helpers run with full, super-admin-equivalent
-// access — the route layer is responsible for authz.
+// requireApiAccess). These helpers aren't scoped to a club — the route layer is
+// responsible for authz.
 
 export interface UserRecord {
   id: string
@@ -22,8 +21,7 @@ export interface UserRecord {
   email: string
   role: string
   status: string
-  // The clubs the user belongs to, default club first. Empty only for
-  // platform super-admins.
+  // The clubs the user belongs to, default club first. Never empty.
   clubs: MemberClub[]
   createdAt: Date
 }
@@ -43,19 +41,15 @@ export interface UserPatch {
   clubIds?: string[]
 }
 
-// The clubs a user with `role` ends up in. Super-admins belong to none; everyone
-// else needs at least one existing club. Without `clubIds`, a club user keeps
-// `current`.
+// The clubs a user ends up in: at least one existing club. Without `clubIds`,
+// the user keeps `current`.
 async function resolveClubIds(
-  role: string,
   clubIds: string[] | undefined,
   current: string[]
 ): Promise<string[]> {
-  if (role === SUPER_ADMIN_ROLE) return []
-
   const ids = clubIds !== undefined ? [...new Set(clubIds)] : current
   if (ids.length === 0) {
-    throw new Error("A club is required for non-super-admin users.")
+    throw new Error("A user needs at least one club.")
   }
 
   const found = await db
@@ -107,7 +101,7 @@ export async function getUserRecord(id: string): Promise<UserRecord | null> {
 }
 
 export async function createUserRecord(data: UserInput): Promise<UserRecord> {
-  const clubIds = await resolveClubIds(data.role, data.clubIds, [])
+  const clubIds = await resolveClubIds(data.clubIds, [])
 
   const existing = await db
     .select({ id: user.id })
@@ -150,7 +144,7 @@ export async function updateUserRecord(
   data: { id: string } & UserPatch
 ): Promise<UserRecord> {
   const current = await db
-    .select({ role: user.role })
+    .select({ id: user.id })
     .from(user)
     .where(eq(user.id, data.id))
     .limit(1)
@@ -172,10 +166,9 @@ export async function updateUserRecord(
   if (data.email !== undefined) set.email = data.email
   if (data.role !== undefined) set.role = data.role
 
-  // Recompute the user's clubs only when the role or the clubs change.
-  if (data.role !== undefined || data.clubIds !== undefined) {
+  // Recompute the user's clubs only when they change.
+  if (data.clubIds !== undefined) {
     const clubIds = await resolveClubIds(
-      data.role ?? current[0].role,
       data.clubIds,
       await listMemberClubIds(data.id)
     )

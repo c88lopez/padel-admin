@@ -1,21 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { clubInput } from "@/lib/clubs.functions"
-import { createClubRecord, listClubRecords } from "@/lib/clubs.server"
+import {
+  clubInput,
+  createClubRecord,
+  listClubRecords,
+} from "@/lib/clubs.server"
 import {
   apiErrorResponse,
   readJsonBody,
-  requireApiAccess,
+  requirePlatformKey,
 } from "@/lib/api-auth"
 
-// REST endpoints for clubs:
-//   GET  /api/clubs        — list all clubs
-//   POST /api/clubs        — create a club
-export const Route = createFileRoute("/api/clubs/")({
+// Hidden platform API (app owners only, PLATFORM_API_KEY):
+//   GET  /api/platform/clubs — list every club
+//   POST /api/platform/clubs — create a club with its default activity, spaces
+//                              and reservation settings
+export const Route = createFileRoute("/api/platform/clubs/")({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         try {
-          await requireApiAccess(request, "clubs:manage")
+          requirePlatformKey(request)
           return Response.json(await listClubRecords())
         } catch (error) {
           return apiErrorResponse(error)
@@ -23,7 +27,7 @@ export const Route = createFileRoute("/api/clubs/")({
       },
       POST: async ({ request }: { request: Request }) => {
         try {
-          await requireApiAccess(request, "clubs:manage")
+          requirePlatformKey(request)
           const data = clubInput.parse(await readJsonBody(request))
           const created = await createClubRecord(data)
           return Response.json(created, { status: 201 })

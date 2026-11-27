@@ -1,26 +1,27 @@
-# Requests for the clubs REST API (GET/POST /api/clubs, GET/PATCH/DELETE
-# /api/clubs/:id). Pick an environment from the selector at the top of the
+# Requests for the clubs endpoints of the hidden platform API (GET/POST
+# /api/platform/clubs, GET/PATCH/DELETE /api/platform/clubs/:clubId), for the
+# app's owners only. Pick an environment from the selector at the top of the
 # editor: "local" (make tunnel, then make run, against padel_admin_dev) or "k8s"
 # (the cluster's NodePort, against the real database).
 #
 # Hosts are in http-client.env.json. The key is a secret and differs per
 # environment, so set it in http-client.private.env.json (gitignored):
-#   {"local": {"adminApiKey": "…"}, "k8s": {"adminApiKey": "…"}}
+#   {"local": {"platformApiKey": "…"}, "k8s": {"platformApiKey": "…"}}
 # For k8s, the key is in the padel-admin-deps Secret:
-#   kubectl -n padel-admin get secret padel-admin-deps -o jsonpath='{.data.ADMIN_API_KEY}' | base64 -d
-# For local, use the ADMIN_API_KEY from .env (unset means every request is a 401).
+#   kubectl -n padel-admin get secret padel-admin-deps -o jsonpath='{.data.PLATFORM_API_KEY}' | base64 -d
+# For local, use the PLATFORM_API_KEY from .env. A missing or wrong key, or an
+# unset one, makes every request a 404, so the API stays hidden.
 #
-# "Create a club" stores the new club's id in {{clubId}}, which the requests
-# after it use, so run it first. "Add an Owner" stores the user's id in
-# {{userId}} and logs in with {{userPassword}} (min 6 chars, from the env file).
-# To add a user that already exists to the new club, put their id in the
-# private env file as "existingUserId" (GET /api/users lists the ids) and run the
-# two "existing user" requests. Deleting a club removes all of the club's data,
-# and the users who belonged to no other club.
+# No request depends on another one's response: the club comes from {{clubId}}
+# in the environment, so set it in http-client.private.env.json before running
+# a request that needs it ("Create a club" logs the id it returns, or use an
+# existing club). Deleting a club removes all of the club's data, and answers
+# 409 while one of its members belongs to no other club: move them to another
+# club or delete them first. Requests for the club's users are in users.http.
 
 ### List all clubs
-GET {{host}}/api/clubs
-Authorization: Bearer {{adminApiKey}}
+GET {{host}}/api/platform/clubs
+Authorization: Bearer {{platformApiKey}}
 
 > {%
     client.test("returns 200 with a list of clubs", () => {
@@ -29,9 +30,9 @@ Authorization: Bearer {{adminApiKey}}
     });
 %}
 
-### Create a club (also seeds its default activity, courts and reservation rules)
-POST {{host}}/api/clubs
-Authorization: Bearer {{adminApiKey}}
+### Create a club (also seeds its default activity, spaces and reservation rules)
+POST {{host}}/api/platform/clubs
+Authorization: Bearer {{platformApiKey}}
 Content-Type: application/json
 
 {
@@ -45,92 +46,23 @@ Content-Type: application/json
         client.assert(typeof response.body.id === "string", "missing id");
         client.assert(response.body.status === "active", "club is not active");
     });
-    client.global.set("clubId", response.body.id);
-%}
-
-### Add an Owner to the new club (the email must be unique, so it's timestamped)
-POST {{host}}/api/users
-Authorization: Bearer {{adminApiKey}}
-Content-Type: application/json
-
-{
-  "name": "{{clubName}} Owner",
-  "email": "owner+{{$timestamp}}@example.com",
-  "role": "Owner",
-  "password": "{{userPassword}}",
-  "clubIds": ["{{clubId}}"]
-}
-
-> {%
-    client.test("returns 201 with a user in the new club", () => {
-        client.assert(response.status === 201, "status " + response.status);
-        client.assert(response.body.clubs.length === 1, "expected one club");
-        client.assert(response.body.clubs[0].id === client.global.get("clubId"), "wrong club");
-        client.assert(response.body.role === "Owner", "wrong role");
-    });
-    client.global.set("userId", response.body.id);
-%}
-
-### Get the club's user
-GET {{host}}/api/users/{{userId}}
-Authorization: Bearer {{adminApiKey}}
-
-> {%
-    client.test("returns 200 with the user", () => {
-        client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.id === client.global.get("userId"), "wrong id");
-    });
+    client.log("clubId: " + response.body.id);
 %}
 
 ### Get one club
-GET {{host}}/api/clubs/{{clubId}}
-Authorization: Bearer {{adminApiKey}}
+GET {{host}}/api/platform/clubs/{{clubId}}
+Authorization: Bearer {{platformApiKey}}
 
 > {%
     client.test("returns 200 with the club", () => {
         client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.id === client.global.get("clubId"), "wrong id");
-    });
-%}
-
-### Read an existing user's clubs, to add the new club to them
-# PATCH /api/users/:id replaces the user's whole club list, so the next request
-# sends their current clubs plus the new one. Sending only the new club would
-# drop their other clubs, and "Delete a club" below would then delete them too.
-GET {{host}}/api/users/{{existingUserId}}
-Authorization: Bearer {{adminApiKey}}
-
-> {%
-    client.test("returns 200 with a club user", () => {
-        client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.role !== "Super Admin", "super admins don't belong to clubs");
-    });
-    client.global.set("existingUserDefaultClubId", response.body.clubs[0]?.id ?? "");
-    const clubIds = [...new Set([...response.body.clubs.map((c) => c.id), client.global.get("clubId")])];
-    client.global.set("existingUserClubIds", JSON.stringify(clubIds));
-%}
-
-### Add the existing user to the new club (it goes last, so their default club stays first)
-PATCH {{host}}/api/users/{{existingUserId}}
-Authorization: Bearer {{adminApiKey}}
-Content-Type: application/json
-
-{
-  "clubIds": {{existingUserClubIds}}
-}
-
-> {%
-    client.test("returns 200 with the new club added", () => {
-        client.assert(response.status === 200, "status " + response.status);
-        const ids = response.body.clubs.map((c) => c.id);
-        client.assert(ids.includes(client.global.get("clubId")), "not a club member");
-        client.assert(ids[0] === client.global.get("existingUserDefaultClubId"), "default club changed");
+        client.assert(response.body.id === request.environment.get("clubId"), "wrong id");
     });
 %}
 
 ### Rename a club (PATCH takes any subset of name and status)
-PATCH {{host}}/api/clubs/{{clubId}}
-Authorization: Bearer {{adminApiKey}}
+PATCH {{host}}/api/platform/clubs/{{clubId}}
+Authorization: Bearer {{platformApiKey}}
 Content-Type: application/json
 
 {
@@ -145,8 +77,8 @@ Content-Type: application/json
 %}
 
 ### Deactivate a club
-PATCH {{host}}/api/clubs/{{clubId}}
-Authorization: Bearer {{adminApiKey}}
+PATCH {{host}}/api/platform/clubs/{{clubId}}
+Authorization: Bearer {{platformApiKey}}
 Content-Type: application/json
 
 {
@@ -160,20 +92,20 @@ Content-Type: application/json
     });
 %}
 
-### Delete a club (409 for the Default Club)
-DELETE {{host}}/api/clubs/{{clubId}}
-Authorization: Bearer {{adminApiKey}}
+### Delete a club (409 for the Default Club, and while a member has no other club)
+DELETE {{host}}/api/platform/clubs/{{clubId}}
+Authorization: Bearer {{platformApiKey}}
 
 > {%
     client.test("returns 200 with the deleted id", () => {
         client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.id === client.global.get("clubId"), "wrong id");
+        client.assert(response.body.id === request.environment.get("clubId"), "wrong id");
     });
 %}
 
 ### Get the deleted club (404)
-GET {{host}}/api/clubs/{{clubId}}
-Authorization: Bearer {{adminApiKey}}
+GET {{host}}/api/platform/clubs/{{clubId}}
+Authorization: Bearer {{platformApiKey}}
 
 > {%
     client.test("returns 404", () => {
@@ -181,24 +113,11 @@ Authorization: Bearer {{adminApiKey}}
     });
 %}
 
-### Get the deleted club's user (404: it belonged to no other club, so it was deleted too)
-GET {{host}}/api/users/{{userId}}
-Authorization: Bearer {{adminApiKey}}
+### Without the platform key (404, as if the API didn't exist)
+GET {{host}}/api/platform/clubs
 
 > {%
     client.test("returns 404", () => {
         client.assert(response.status === 404, "status " + response.status);
-    });
-%}
-
-### Get the existing user (still there, without the deleted club)
-GET {{host}}/api/users/{{existingUserId}}
-Authorization: Bearer {{adminApiKey}}
-
-> {%
-    client.test("returns 200 without the deleted club", () => {
-        client.assert(response.status === 200, "status " + response.status);
-        const ids = response.body.clubs.map((c) => c.id);
-        client.assert(!ids.includes(client.global.get("clubId")), "still in the deleted club");
     });
 %}

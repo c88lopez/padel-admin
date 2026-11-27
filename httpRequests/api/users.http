@@ -1,16 +1,27 @@
 # Requests for the users REST API (GET/POST /api/users, GET/PATCH/DELETE
-# /api/users/:id). Environments, hosts and the {{adminApiKey}} secret are set up
-# as described at the top of clubs.http.
+# /api/users/:id). Environments and hosts are set up as described at the top of
+# clubs.http. The key is ADMIN_API_KEY, set as "adminApiKey" in
+# http-client.private.env.json: from .env for local, or for k8s:
+#   kubectl -n padel-admin get secret padel-admin-deps -o jsonpath='{.data.ADMIN_API_KEY}' | base64 -d
 #
 # A user's clubs are an ordered list: send "clubIds" and the response has
 # "clubs" ([{id, name}]). The first club is the user's default, the one they act
-# in after logging in. Every user except a Super Admin needs at least one club.
+# in after logging in. Every user needs at least one club.
 # PATCH replaces the whole list; clubs the user already had keep their place
 # and new ones go last. PATCH can't change the password or the status.
 #
+# No request depends on another one's response: everything comes from the
+# environment, so set these in http-client.private.env.json before running a
+# request that needs them:
+#   userId       the user to read, update, add to a club and delete ("Create a
+#                user" logs the id of the one it creates, or use an existing one)
+#   userEmail    an email that's already taken (the user's, also logged)
+#   userClubIds  the user's club ids, a JSON array, default club first:
+#                the list "Add a user to a club" sends ("Read a user's clubs"
+#                logs the current one)
 # Users are created in {{homeClubId}}, the Default Club unless the env file says
-# otherwise. "Create a user" stores the new user's id in {{createdUserId}},
-# which the requests after it use, so run it first.
+# otherwise. The update and delete requests change {{userId}} for real, so point
+# it at a throwaway user.
 
 ### List all users
 GET {{host}}/api/users
@@ -43,8 +54,8 @@ Content-Type: application/json
         client.assert(response.body.clubs[0].id === request.environment.get("homeClubId"), "wrong club");
         client.assert(response.body.status === "active", "user is not active");
     });
-    client.global.set("createdUserId", response.body.id);
-    client.global.set("createdUserEmail", response.body.email);
+    client.log("userId: " + response.body.id);
+    client.log("userEmail: " + response.body.email);
 %}
 
 ### Create a user with a taken email (fails: no 409 mapping, so it's a 500)
@@ -54,7 +65,7 @@ Content-Type: application/json
 
 {
   "name": "HTTP Client Duplicate",
-  "email": "{{createdUserEmail}}",
+  "email": "{{userEmail}}",
   "role": "Manager",
   "password": "{{userPassword}}",
   "clubIds": ["{{homeClubId}}"]
@@ -67,7 +78,7 @@ Content-Type: application/json
     });
 %}
 
-### Create a user without a club (fails with a 500: only a Super Admin can have none)
+### Create a user without a club (fails with a 500: every user needs one)
 POST {{host}}/api/users
 Authorization: Bearer {{adminApiKey}}
 Content-Type: application/json
@@ -86,18 +97,18 @@ Content-Type: application/json
 %}
 
 ### Get one user
-GET {{host}}/api/users/{{createdUserId}}
+GET {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 
 > {%
     client.test("returns 200 with the user", () => {
         client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.id === client.global.get("createdUserId"), "wrong id");
+        client.assert(response.body.id === request.environment.get("userId"), "wrong id");
     });
 %}
 
 ### Update a user's name and role (PATCH takes any subset of name, email, role, clubIds)
-PATCH {{host}}/api/users/{{createdUserId}}
+PATCH {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 Content-Type: application/json
 
@@ -111,12 +122,13 @@ Content-Type: application/json
         client.assert(response.status === 200, "status " + response.status);
         client.assert(response.body.name.endsWith("(renamed)"), "name unchanged");
         client.assert(response.body.role === "Admin", "role unchanged");
-        client.assert(response.body.clubs[0].id === request.environment.get("homeClubId"), "clubs changed");
+        const defaultClubId = JSON.parse(request.environment.get("userClubIds") ?? "[]")[0];
+        client.assert(!defaultClubId || response.body.clubs[0].id === defaultClubId, "clubs changed");
     });
 %}
 
 ### Send the removed "clubId" field (400: the body is checked strictly)
-PATCH {{host}}/api/users/{{createdUserId}}
+PATCH {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 Content-Type: application/json
 
@@ -131,7 +143,7 @@ Content-Type: application/json
 %}
 
 ### Change a user's email
-PATCH {{host}}/api/users/{{createdUserId}}
+PATCH {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 Content-Type: application/json
 
@@ -146,19 +158,58 @@ Content-Type: application/json
     });
 %}
 
+### Read a user's clubs, to put in userClubIds
+# Adding a user to a club is a PATCH of their whole club list. This logs the
+# current one, to copy into "userClubIds" before adding the new club to it.
+GET {{host}}/api/users/{{userId}}
+Authorization: Bearer {{adminApiKey}}
+
+> {%
+    client.test("returns 200 with the user's clubs", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        client.assert(response.body.clubs.length > 0, "user has no club");
+    });
+    client.log("userClubIds: " + JSON.stringify(response.body.clubs.map((c) => c.id)));
+%}
+
+### Add a user to a club (send their whole club list, the new club included)
+# PATCH replaces the list, so put every club the user should keep in
+# {{userClubIds}} (a JSON array, default club first) along with the new one.
+# It's a string in the env file, e.g. "[\"id1\", \"id2\"]": scripts only see
+# string env values, and an array comes back as null. Repeated ids are sent once.
+< {%
+    request.variables.set("clubIds", JSON.stringify([...new Set(JSON.parse(request.environment.get("userClubIds")))]));
+%}
+PATCH {{host}}/api/users/{{userId}}
+Authorization: Bearer {{adminApiKey}}
+Content-Type: application/json
+
+{
+  "clubIds": {{clubIds}}
+}
+
+> {%
+    client.test("returns 200 with exactly the sent clubs", () => {
+        client.assert(response.status === 200, "status " + response.status);
+        const sent = new Set(JSON.parse(request.environment.get("userClubIds")));
+        const ids = response.body.clubs.map((c) => c.id);
+        client.assert(ids.length === sent.size && ids.every((id) => sent.has(id)), "clubs differ from userClubIds");
+    });
+%}
+
 ### Delete a user
-DELETE {{host}}/api/users/{{createdUserId}}
+DELETE {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 
 > {%
     client.test("returns 200 with the deleted id", () => {
         client.assert(response.status === 200, "status " + response.status);
-        client.assert(response.body.id === client.global.get("createdUserId"), "wrong id");
+        client.assert(response.body.id === request.environment.get("userId"), "wrong id");
     });
 %}
 
 ### Get the deleted user (404)
-GET {{host}}/api/users/{{createdUserId}}
+GET {{host}}/api/users/{{userId}}
 Authorization: Bearer {{adminApiKey}}
 
 > {%

@@ -35,26 +35,16 @@ import {
 } from "@/components/ui/select"
 import { ROLE_DESCRIPTIONS, USER_ROLES, roleLabel } from "@/lib/users"
 import type { UserRole } from "@/lib/users"
-import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import { useAppSettings } from "@/lib/app-settings"
 import { errorMessage } from "@/lib/errors"
 
 export { ROLE_DESCRIPTIONS, USER_ROLES }
 export type { UserRole }
 
-type DrawerRole = UserRole | typeof SUPER_ADMIN_ROLE
-
-function describeRole(role: string | undefined): string | undefined {
-  if (!role) return undefined
-  if (role === SUPER_ADMIN_ROLE)
-    return "Acceso a toda la plataforma y todos los clubes. No está ligado a un solo club."
-  return ROLE_DESCRIPTIONS[role as UserRole]
-}
-
 type FormInput = {
   name: string
   email: string
-  role?: DrawerRole
+  role?: UserRole
   password?: string
   clubIds?: string[]
 }
@@ -62,7 +52,7 @@ type FormInput = {
 export interface UserFormData {
   name: string
   email: string
-  role: DrawerRole
+  role: UserRole
   password?: string
   clubIds?: string[]
 }
@@ -70,8 +60,6 @@ export interface UserFormData {
 interface Props {
   trigger?: React.ReactNode
   user?: UserFormData
-  /** When true, the actor may assign the Super Admin role. */
-  canManageClubs?: boolean
   /** When true, show the club multi-select so the user can be assigned clubs. */
   canAssignClubs?: boolean
   /** Clubs available for assignment. */
@@ -84,7 +72,6 @@ interface Props {
 export function NewUserDrawer({
   trigger,
   user,
-  canManageClubs = false,
   canAssignClubs = false,
   clubs = [],
   open: controlledOpen,
@@ -100,15 +87,11 @@ export function NewUserDrawer({
   const { security } = useAppSettings()
   const minLength = security.passwordMinLength
 
-  const roleOptions: DrawerRole[] = canManageClubs
-    ? [...USER_ROLES, SUPER_ADMIN_ROLE]
-    : [...USER_ROLES]
-
   const schema = useMemo(() => {
     const base = {
       name: z.string().min(1, "El nombre es obligatorio"),
       email: z.string().email("Correo electrónico no válido"),
-      role: z.enum(roleOptions as [string, ...string[]], {
+      role: z.enum(USER_ROLES, {
         error: "El rol es obligatorio",
       }),
       clubIds: z.array(z.string()).optional(),
@@ -121,22 +104,19 @@ export function NewUserDrawer({
             .string()
             .min(minLength, `Al menos ${minLength} caracteres`),
         })
-    // A non-super-admin user must belong to at least one club.
+    // Every user must belong to at least one club.
     if (!canAssignClubs) return obj
-    return obj.refine(
-      (v) => v.role === SUPER_ADMIN_ROLE || (v.clubIds?.length ?? 0) > 0,
-      {
-        message: "Selecciona un club",
-        path: ["clubIds"],
-      }
-    )
-  }, [isEditing, minLength, canAssignClubs, roleOptions])
+    return obj.refine((v) => (v.clubIds?.length ?? 0) > 0, {
+      message: "Selecciona un club",
+      path: ["clubIds"],
+    })
+  }, [isEditing, minLength, canAssignClubs])
 
   // New users start at the configured default role (Settings → Users → Security).
   const blankUser = {
     name: "",
     email: "",
-    role: security.defaultRole as DrawerRole,
+    role: security.defaultRole,
     password: "",
     clubIds: [] as string[],
   }
@@ -145,8 +125,6 @@ export function NewUserDrawer({
     resolver: zodFormResolver<FormInput>(schema),
     defaultValues: user ?? blankUser,
   })
-
-  const selectedRole = form.watch("role")
 
   useEffect(() => {
     if (open) {
@@ -235,7 +213,7 @@ export function NewUserDrawer({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roleOptions.map((role) => (
+                      {USER_ROLES.map((role) => (
                         <SelectItem key={role} value={role}>
                           {roleLabel(role)}
                         </SelectItem>
@@ -244,7 +222,7 @@ export function NewUserDrawer({
                   </Select>
                   {field.value && (
                     <FormDescription>
-                      {describeRole(field.value)}
+                      {ROLE_DESCRIPTIONS[field.value]}
                     </FormDescription>
                   )}
                   <FormMessage />
@@ -252,7 +230,7 @@ export function NewUserDrawer({
               )}
             />
 
-            {canAssignClubs && selectedRole !== SUPER_ADMIN_ROLE && (
+            {canAssignClubs && (
               <FormField
                 control={form.control}
                 name="clubIds"

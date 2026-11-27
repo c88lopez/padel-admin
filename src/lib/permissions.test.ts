@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { can } from "./permissions"
+import { can, PERMISSIONS } from "./permissions"
 
 describe("can", () => {
   it("grants Owner and Admin full access", () => {
@@ -38,5 +38,13 @@ describe("can", () => {
     expect(can(null, "players:manage")).toBe(false)
     expect(can("", "players:manage")).toBe(false)
     expect(can("Intern", "players:manage")).toBe(false)
+  })
+
+  it("has no role that bypasses the matrix", () => {
+    // The removed platform role, and any other unknown one, gets nothing.
+    for (const permission of PERMISSIONS) {
+      expect(can("Super Admin", permission)).toBe(false)
+    }
+    expect(PERMISSIONS).not.toContain("clubs:manage")
   })
 })

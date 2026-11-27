@@ -101,8 +101,8 @@ test("admin can create, edit, archive, and delete a user", async ({ page }) => {
   await dialog.getByLabel("Nombre completo").fill(name)
   await dialog.getByLabel("Correo electrónico").fill(email)
   await dialog.getByLabel("Contraseña temporal").fill("Sup3rSecret1")
-  // Non-super-admin users must belong to a club; select the first if the field
-  // is shown (depends on the actor's club access).
+  // Every user must belong to a club; select the first if the field is shown
+  // (depends on the actor's club access).
   const clubButtons = dialog.locator("button[aria-pressed]")
   if (await clubButtons.count()) await clubButtons.first().click()
   await dialog.getByRole("button", { name: "Agregar usuario" }).click()
@@ -138,4 +138,29 @@ test("admin can create, edit, archive, and delete a user", async ({ page }) => {
   await expect(
     page.getByRole("cell", { name: email, exact: true })
   ).toHaveCount(0)
+})
+
+test("an Owner manages only their own clubs' users", async ({ page }) => {
+  await page.goto("/settings/users")
+  await waitForHydration(page)
+
+  // Clubs are provisioned through the platform API, never from Settings.
+  await expect(page.getByRole("link", { name: "Clubes" })).toHaveCount(0)
+
+  const dialog = await openDrawer(page, "Nuevo usuario")
+  await dialog.getByRole("combobox").click()
+  await expect(page.getByRole("option")).toHaveText([
+    "Owner",
+    "Admin",
+    "Manager",
+    "Entrenador",
+    "Recepcionista",
+  ])
+  await page.keyboard.press("Escape")
+
+  // The seeded Owner belongs to the Default Club and North Branch only.
+  await expect(dialog.locator("button[aria-pressed]")).toHaveText([
+    "Default Club",
+    "North Branch",
+  ])
 })

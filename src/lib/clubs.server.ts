@@ -1,20 +1,35 @@
-import { asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, ne, notExists, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
+import { z } from "zod"
 import { db } from "@/db"
 import { withClubScope } from "@/db/tenant"
 import { club, clubMember } from "@/db/schema"
-import { deleteUsersWithoutClubs } from "@/lib/club-members.server"
 import { seedDefaultSpaces } from "@/lib/spaces.server"
 import { ensureDefaultActivities } from "@/lib/activities.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
 
 // Pure data-access helpers for clubs (no auth). Kept in a server-only module so
-// the Postgres driver (`pg`) never leaks into the client bundle. Shared by the
-// TanStack server functions in clubs.functions.ts (which add session/permission
-// checks) and the REST routes under src/routes/api/clubs (API-key/session).
+// the Postgres driver (`pg`) never leaks into the client bundle. Club
+// provisioning is only reachable through the hidden platform API
+// (src/routes/api/platform/clubs, PLATFORM_API_KEY).
 
 // Slug reserved for the Default Club created by migration 0004. It must always
 // exist (it owns the originally-migrated data), so it cannot be deleted.
 export const DEFAULT_CLUB_SLUG = "default"
+
+// Request bodies for the platform API's club endpoints. POST takes a full club,
+// PATCH any subset of its fields.
+export const clubInput = z.object({
+  name: z.string().trim().min(1),
+  status: z.enum(["active", "inactive"]).default("active"),
+})
+
+export const clubPatchInput = z
+  .object({
+    name: z.string().trim().min(1),
+    status: z.enum(["active", "inactive"]),
+  })
+  .partial()
 
 export interface ClubRecord {
   id: string
@@ -98,7 +113,7 @@ export async function createClubRecord(data: ClubInput): Promise<ClubRecord> {
     .values({ name: data.name, slug, status: data.status })
     .returning({ id: club.id })
   // Give every new club its default activity, bookable courts and reservation
-  // rules, as that club: the request acts within the creator's active club.
+  // rules, as that club, since row-level security only shows a club its rows.
   await withClubScope(created.id, async () => {
     await ensureDefaultActivities(created.id)
     await seedDefaultSpaces(created.id)
@@ -144,18 +159,33 @@ export async function deleteClubRecord(id: string): Promise<{ id: string }> {
   if (rows[0].slug === DEFAULT_CLUB_SLUG) {
     throw new Error("The Default Club cannot be deleted.")
   }
-  // FK cascades remove all of the club's data and memberships. Members who
-  // belong to other clubs keep them; the rest are deleted with the club.
+  // FK cascades remove all of the club's data and memberships. Every user needs
+  // a club, so the delete is refused while a member belongs to no other one:
+  // move them to another club or delete them first.
   await db.transaction(async (tx) => {
-    const members = await tx
+    const other = alias(clubMember, "other")
+    const stranded = await tx
       .select({ userId: clubMember.userId })
       .from(clubMember)
-      .where(eq(clubMember.clubId, id))
+      .where(
+        and(
+          eq(clubMember.clubId, id),
+          notExists(
+            tx
+              .select({ one: sql`1` })
+              .from(other)
+              .where(
+                and(eq(other.userId, clubMember.userId), ne(other.clubId, id))
+              )
+          )
+        )
+      )
+    if (stranded.length > 0) {
+      throw new Error(
+        `The club cannot be deleted while ${stranded.length} member(s) belong to no other club.`
+      )
+    }
     await tx.delete(club).where(eq(club.id, id))
-    await deleteUsersWithoutClubs(
-      members.map((m) => m.userId),
-      tx
-    )
   })
   return { id }
 }

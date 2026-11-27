@@ -28,7 +28,6 @@ import { Route as AuthenticatedInventoryDashboardRouteImport } from './routes/_a
 import { Route as AuthenticatedInventorySalesLogRouteImport } from './routes/_authenticated/inventory/sales-log'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsActivitiesRouteImport } from './routes/_authenticated/settings/activities'
-import { Route as AuthenticatedSettingsClubsRouteImport } from './routes/_authenticated/settings/clubs'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings/general'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsReservationsRouteImport } from './routes/_authenticated/settings/reservations'
@@ -36,10 +35,10 @@ import { Route as AuthenticatedSettingsSpacesRouteImport } from './routes/_authe
 import { Route as AuthenticatedSettingsUiRouteImport } from './routes/_authenticated/settings/ui'
 import { Route as AuthenticatedSettingsUsersRouteImport } from './routes/_authenticated/settings/users'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as ApiClubsIndexRouteImport } from './routes/api/clubs/index'
-import { Route as ApiClubsIdRouteImport } from './routes/api/clubs/$id'
 import { Route as ApiUsersIndexRouteImport } from './routes/api/users/index'
 import { Route as ApiUsersIdRouteImport } from './routes/api/users/$id'
+import { Route as ApiPlatformClubsIndexRouteImport } from './routes/api/platform/clubs/index'
+import { Route as ApiPlatformClubsClubIdIndexRouteImport } from './routes/api/platform/clubs/$clubId/index'
 import { Route as ApiPlatformClubsClubIdActivitiesIndexRouteImport } from './routes/api/platform/clubs/$clubId/activities/index'
 import { Route as ApiPlatformClubsClubIdActivitiesTemplateKeyRouteImport } from './routes/api/platform/clubs/$clubId/activities/$templateKey'
 
@@ -146,12 +145,6 @@ const AuthenticatedSettingsActivitiesRoute =
     path: '/activities',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsClubsRoute =
-  AuthenticatedSettingsClubsRouteImport.update({
-    id: '/clubs',
-    path: '/clubs',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
 const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
@@ -192,16 +185,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiClubsIndexRoute = ApiClubsIndexRouteImport.update({
-  id: '/api/clubs/',
-  path: '/api/clubs/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiClubsIdRoute = ApiClubsIdRouteImport.update({
-  id: '/api/clubs/$id',
-  path: '/api/clubs/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiUsersIndexRoute = ApiUsersIndexRouteImport.update({
   id: '/api/users/',
   path: '/api/users/',
@@ -212,6 +195,17 @@ const ApiUsersIdRoute = ApiUsersIdRouteImport.update({
   path: '/api/users/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPlatformClubsIndexRoute = ApiPlatformClubsIndexRouteImport.update({
+  id: '/api/platform/clubs/',
+  path: '/api/platform/clubs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlatformClubsClubIdIndexRoute =
+  ApiPlatformClubsClubIdIndexRouteImport.update({
+    id: '/api/platform/clubs/$clubId/',
+    path: '/api/platform/clubs/$clubId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPlatformClubsClubIdActivitiesIndexRoute =
   ApiPlatformClubsClubIdActivitiesIndexRouteImport.update({
     id: '/api/platform/clubs/$clubId/activities/',
@@ -241,7 +235,6 @@ export interface FileRoutesByFullPath {
   '/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
   '/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
-  '/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
@@ -249,13 +242,13 @@ export interface FileRoutesByFullPath {
   '/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/clubs/$id': typeof ApiClubsIdRoute
   '/api/users/$id': typeof ApiUsersIdRoute
   '/coaches/': typeof AuthenticatedCoachesIndexRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/api/clubs/': typeof ApiClubsIndexRoute
   '/api/users/': typeof ApiUsersIndexRoute
+  '/api/platform/clubs/': typeof ApiPlatformClubsIndexRoute
+  '/api/platform/clubs/$clubId/': typeof ApiPlatformClubsClubIdIndexRoute
   '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
   '/api/platform/clubs/$clubId/activities/': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
@@ -274,7 +267,6 @@ export interface FileRoutesByTo {
   '/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
   '/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
-  '/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
@@ -282,13 +274,13 @@ export interface FileRoutesByTo {
   '/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/clubs/$id': typeof ApiClubsIdRoute
   '/api/users/$id': typeof ApiUsersIdRoute
   '/coaches': typeof AuthenticatedCoachesIndexRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
-  '/api/clubs': typeof ApiClubsIndexRoute
   '/api/users': typeof ApiUsersIndexRoute
+  '/api/platform/clubs': typeof ApiPlatformClubsIndexRoute
+  '/api/platform/clubs/$clubId': typeof ApiPlatformClubsClubIdIndexRoute
   '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
   '/api/platform/clubs/$clubId/activities': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
@@ -310,7 +302,6 @@ export interface FileRoutesById {
   '/_authenticated/inventory/dashboard': typeof AuthenticatedInventoryDashboardRoute
   '/_authenticated/inventory/sales-log': typeof AuthenticatedInventorySalesLogRoute
   '/_authenticated/settings/activities': typeof AuthenticatedSettingsActivitiesRoute
-  '/_authenticated/settings/clubs': typeof AuthenticatedSettingsClubsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/reservations': typeof AuthenticatedSettingsReservationsRoute
@@ -318,13 +309,13 @@ export interface FileRoutesById {
   '/_authenticated/settings/ui': typeof AuthenticatedSettingsUiRoute
   '/_authenticated/settings/users': typeof AuthenticatedSettingsUsersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/clubs/$id': typeof ApiClubsIdRoute
   '/api/users/$id': typeof ApiUsersIdRoute
   '/_authenticated/coaches/': typeof AuthenticatedCoachesIndexRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/api/clubs/': typeof ApiClubsIndexRoute
   '/api/users/': typeof ApiUsersIndexRoute
+  '/api/platform/clubs/': typeof ApiPlatformClubsIndexRoute
+  '/api/platform/clubs/$clubId/': typeof ApiPlatformClubsClubIdIndexRoute
   '/api/platform/clubs/$clubId/activities/$templateKey': typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
   '/api/platform/clubs/$clubId/activities/': typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
@@ -346,7 +337,6 @@ export interface FileRouteTypes {
     | '/inventory/dashboard'
     | '/inventory/sales-log'
     | '/settings/activities'
-    | '/settings/clubs'
     | '/settings/general'
     | '/settings/notifications'
     | '/settings/reservations'
@@ -354,13 +344,13 @@ export interface FileRouteTypes {
     | '/settings/ui'
     | '/settings/users'
     | '/api/auth/$'
-    | '/api/clubs/$id'
     | '/api/users/$id'
     | '/coaches/'
     | '/inventory/'
     | '/settings/'
-    | '/api/clubs/'
     | '/api/users/'
+    | '/api/platform/clubs/'
+    | '/api/platform/clubs/$clubId/'
     | '/api/platform/clubs/$clubId/activities/$templateKey'
     | '/api/platform/clubs/$clubId/activities/'
   fileRoutesByTo: FileRoutesByTo
@@ -379,7 +369,6 @@ export interface FileRouteTypes {
     | '/inventory/dashboard'
     | '/inventory/sales-log'
     | '/settings/activities'
-    | '/settings/clubs'
     | '/settings/general'
     | '/settings/notifications'
     | '/settings/reservations'
@@ -387,13 +376,13 @@ export interface FileRouteTypes {
     | '/settings/ui'
     | '/settings/users'
     | '/api/auth/$'
-    | '/api/clubs/$id'
     | '/api/users/$id'
     | '/coaches'
     | '/inventory'
     | '/settings'
-    | '/api/clubs'
     | '/api/users'
+    | '/api/platform/clubs'
+    | '/api/platform/clubs/$clubId'
     | '/api/platform/clubs/$clubId/activities/$templateKey'
     | '/api/platform/clubs/$clubId/activities'
   id:
@@ -414,7 +403,6 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory/dashboard'
     | '/_authenticated/inventory/sales-log'
     | '/_authenticated/settings/activities'
-    | '/_authenticated/settings/clubs'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/reservations'
@@ -422,13 +410,13 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/ui'
     | '/_authenticated/settings/users'
     | '/api/auth/$'
-    | '/api/clubs/$id'
     | '/api/users/$id'
     | '/_authenticated/coaches/'
     | '/_authenticated/inventory/'
     | '/_authenticated/settings/'
-    | '/api/clubs/'
     | '/api/users/'
+    | '/api/platform/clubs/'
+    | '/api/platform/clubs/$clubId/'
     | '/api/platform/clubs/$clubId/activities/$templateKey'
     | '/api/platform/clubs/$clubId/activities/'
   fileRoutesById: FileRoutesById
@@ -442,10 +430,10 @@ export interface RootRouteChildren {
   ApiReadyzRoute: typeof ApiReadyzRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiClubsIdRoute: typeof ApiClubsIdRoute
   ApiUsersIdRoute: typeof ApiUsersIdRoute
-  ApiClubsIndexRoute: typeof ApiClubsIndexRoute
   ApiUsersIndexRoute: typeof ApiUsersIndexRoute
+  ApiPlatformClubsIndexRoute: typeof ApiPlatformClubsIndexRoute
+  ApiPlatformClubsClubIdIndexRoute: typeof ApiPlatformClubsClubIdIndexRoute
   ApiPlatformClubsClubIdActivitiesTemplateKeyRoute: typeof ApiPlatformClubsClubIdActivitiesTemplateKeyRoute
   ApiPlatformClubsClubIdActivitiesIndexRoute: typeof ApiPlatformClubsClubIdActivitiesIndexRoute
 }
@@ -585,13 +573,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsActivitiesRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/settings/clubs': {
-      id: '/_authenticated/settings/clubs'
-      path: '/clubs'
-      fullPath: '/settings/clubs'
-      preLoaderRoute: typeof AuthenticatedSettingsClubsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
-    }
     '/_authenticated/settings/general': {
       id: '/_authenticated/settings/general'
       path: '/general'
@@ -641,20 +622,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/clubs/': {
-      id: '/api/clubs/'
-      path: '/api/clubs'
-      fullPath: '/api/clubs/'
-      preLoaderRoute: typeof ApiClubsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/clubs/$id': {
-      id: '/api/clubs/$id'
-      path: '/api/clubs/$id'
-      fullPath: '/api/clubs/$id'
-      preLoaderRoute: typeof ApiClubsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/users/': {
       id: '/api/users/'
       path: '/api/users'
@@ -667,6 +634,20 @@ declare module '@tanstack/react-router' {
       path: '/api/users/$id'
       fullPath: '/api/users/$id'
       preLoaderRoute: typeof ApiUsersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/platform/clubs/': {
+      id: '/api/platform/clubs/'
+      path: '/api/platform/clubs'
+      fullPath: '/api/platform/clubs/'
+      preLoaderRoute: typeof ApiPlatformClubsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/platform/clubs/$clubId/': {
+      id: '/api/platform/clubs/$clubId/'
+      path: '/api/platform/clubs/$clubId'
+      fullPath: '/api/platform/clubs/$clubId/'
+      preLoaderRoute: typeof ApiPlatformClubsClubIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/platform/clubs/$clubId/activities/': {
@@ -688,7 +669,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsActivitiesRoute: typeof AuthenticatedSettingsActivitiesRoute
-  AuthenticatedSettingsClubsRoute: typeof AuthenticatedSettingsClubsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsReservationsRoute: typeof AuthenticatedSettingsReservationsRoute
@@ -700,7 +680,6 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsActivitiesRoute: AuthenticatedSettingsActivitiesRoute,
-  AuthenticatedSettingsClubsRoute: AuthenticatedSettingsClubsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
@@ -756,10 +735,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReadyzRoute: ApiReadyzRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiClubsIdRoute: ApiClubsIdRoute,
   ApiUsersIdRoute: ApiUsersIdRoute,
-  ApiClubsIndexRoute: ApiClubsIndexRoute,
   ApiUsersIndexRoute: ApiUsersIndexRoute,
+  ApiPlatformClubsIndexRoute: ApiPlatformClubsIndexRoute,
+  ApiPlatformClubsClubIdIndexRoute: ApiPlatformClubsClubIdIndexRoute,
   ApiPlatformClubsClubIdActivitiesTemplateKeyRoute:
     ApiPlatformClubsClubIdActivitiesTemplateKeyRoute,
   ApiPlatformClubsClubIdActivitiesIndexRoute:

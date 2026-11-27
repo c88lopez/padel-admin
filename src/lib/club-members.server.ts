@@ -1,12 +1,9 @@
-import { and, asc, eq, inArray, ne, notInArray } from "drizzle-orm"
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm"
 import { db } from "@/db"
-import { club, clubMember, user } from "@/db/schema"
-import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
+import { club, clubMember } from "@/db/schema"
 
 // Data access for the clubs a user belongs to (club_member rows). A user's clubs
 // are an ordered list: the earliest membership is their default club.
-
-type Executor = Pick<typeof db, "select" | "delete">
 
 export interface MemberClub {
   id: string
@@ -80,29 +77,4 @@ export async function setMemberships(
       }))
     )
   }
-}
-
-/**
- * Deletes the given users that no longer belong to any club, except
- * super-admins (who never do). Used after a club is deleted, since a club user
- * without a club can't do anything.
- */
-export async function deleteUsersWithoutClubs(
-  userIds: string[],
-  executor: Executor = db
-): Promise<void> {
-  if (userIds.length === 0) return
-  const stillMembers = executor
-    .select({ userId: clubMember.userId })
-    .from(clubMember)
-    .where(inArray(clubMember.userId, userIds))
-  await executor
-    .delete(user)
-    .where(
-      and(
-        inArray(user.id, userIds),
-        notInArray(user.id, stillMembers),
-        ne(user.role, SUPER_ADMIN_ROLE)
-      )
-    )
 }
