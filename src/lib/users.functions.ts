@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "@/db"
-import { account, club, clubMember, user } from "@/db/schema"
+import { account, clubMember, user } from "@/db/schema"
 import { auth } from "@/lib/auth"
 import { requirePermission, resolveActiveClubId } from "@/lib/auth.server"
 import {
@@ -10,13 +10,10 @@ import {
   listMemberClubs,
   setMemberships,
 } from "@/lib/club-members.server"
-import { can, SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import { USER_ROLES } from "@/lib/users"
 import { AppError } from "@/lib/errors"
 
-// Super Admin is assignable only by other super-admins; the schema accepts it
-// and the handlers enforce who may use it.
-const roleSchema = z.enum([...USER_ROLES, SUPER_ADMIN_ROLE])
+const roleSchema = z.enum(USER_ROLES)
 
 const createInput = z.object({
   name: z.string().min(1),
@@ -57,31 +54,18 @@ export const userApiPatchInput = z
   })
   .strict()
 
-interface Actor {
-  role?: string | null
-}
-
-// The clubs a user ends up in. Only super-admins may assign the Super Admin
-// role, which belongs to no club. Managers (Owner/Admin) may assign any club so
-// they can run several. Without `clubIds` the user keeps `current`, or, when
+// The clubs a user ends up in. Managers (Owner/Admin) may only hand out clubs
+// they belong to themselves (`actorClubIds`), so they can run several but never
+// reach another tenant. The target's clubs outside the manager's reach
+// (`current` minus `actorClubIds`) can't be added or removed from here, so
+// they're always kept. Without `clubIds` the user keeps `current`, or, when
 // that's empty, gets the manager's active club.
 async function resolveClubIds(
-  actor: Actor,
+  actorClubIds: string[],
   activeClubId: string | null,
-  role: string,
   clubIds: string[] | undefined,
   current: string[]
 ): Promise<string[]> {
-  if (role === SUPER_ADMIN_ROLE) {
-    if (!can(actor.role, "clubs:manage")) {
-      throw new AppError(
-        "errors.user.cannotAssignSuperAdmin",
-        "No puedes asignar el rol de Super Admin."
-      )
-    }
-    return []
-  }
-
   let ids = clubIds && clubIds.length > 0 ? [...new Set(clubIds)] : current
   if (ids.length === 0) {
     if (!activeClubId)
@@ -92,27 +76,23 @@ async function resolveClubIds(
     ids = [activeClubId]
   }
 
-  const found = await db
-    .select({ id: club.id })
-    .from(club)
-    .where(inArray(club.id, ids))
-  if (found.length !== ids.length) {
+  const reachable = new Set(actorClubIds)
+  const kept = new Set(current)
+  if (ids.some((id) => !reachable.has(id) && !kept.has(id))) {
     throw new AppError(
       "errors.user.invalidClub",
       "Selección de club no válida."
     )
   }
-  return ids
+  const outOfReach = current.filter((id) => !reachable.has(id))
+  return [...new Set([...ids, ...outOfReach])]
 }
 
 // Ensures a club manager only touches users of the club they're acting in.
-// Super-admins are unrestricted.
 async function assertManageable(
-  actor: Actor,
   activeClubId: string | null,
   targetId: string
 ): Promise<void> {
-  if (can(actor.role, "clubs:manage")) return
   const rows = await db
     .select({ userId: clubMember.userId })
     .from(clubMember)
@@ -140,8 +120,9 @@ async function hashPassword(password: string): Promise<string> {
 
 export const listUsers = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requirePermission("users:manage")
-  const isSuper = can(session.user.role, "clubs:manage")
-  const base = db
+  const activeClubId = (await resolveActiveClubId(session.user)) ?? ""
+  // Managers only see the active club's users.
+  const rows = await db
     .select({
       id: user.id,
       name: user.name,
@@ -151,24 +132,16 @@ export const listUsers = createServerFn({ method: "GET" }).handler(async () => {
       createdAt: user.createdAt,
     })
     .from(user)
-  // Super-admins manage everyone; club managers only the active club's users.
-  const scoped = isSuper
-    ? base
-    : base.where(
-        inArray(
-          user.id,
-          db
-            .select({ userId: clubMember.userId })
-            .from(clubMember)
-            .where(
-              eq(
-                clubMember.clubId,
-                (await resolveActiveClubId(session.user)) ?? ""
-              )
-            )
-        )
+    .where(
+      inArray(
+        user.id,
+        db
+          .select({ userId: clubMember.userId })
+          .from(clubMember)
+          .where(eq(clubMember.clubId, activeClubId))
       )
-  const rows = await scoped.orderBy(asc(user.createdAt))
+    )
+    .orderBy(asc(user.createdAt))
   const clubs = await listMemberClubs(rows.map((r) => r.id))
   return rows.map((r) => ({ ...r, clubs: clubs.get(r.id) ?? [] }))
 })
@@ -178,9 +151,8 @@ export const createUser = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     const clubIds = await resolveClubIds(
-      session.user,
+      await listMemberClubIds(session.user.id),
       await resolveActiveClubId(session.user),
-      data.role,
       data.clubIds,
       []
     )
@@ -227,12 +199,11 @@ export const updateUser = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
     const activeClubId = await resolveActiveClubId(session.user)
-    await assertManageable(session.user, activeClubId, data.id)
+    await assertManageable(activeClubId, data.id)
 
     const clubIds = await resolveClubIds(
-      session.user,
+      await listMemberClubIds(session.user.id),
       activeClubId,
-      data.role,
       data.clubIds,
       await listMemberClubIds(data.id)
     )
@@ -266,11 +237,7 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(
-      session.user,
-      await resolveActiveClubId(session.user),
-      data.id
-    )
+    await assertManageable(await resolveActiveClubId(session.user), data.id)
     const tempPassword = generateTempPassword()
     const hashed = await hashPassword(tempPassword)
     const updated = await db
@@ -293,11 +260,7 @@ export const setUserArchived = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(
-      session.user,
-      await resolveActiveClubId(session.user),
-      data.id
-    )
+    await assertManageable(await resolveActiveClubId(session.user), data.id)
     if (data.archived && data.id === session.user.id) {
       throw new AppError(
         "errors.user.cannotArchiveSelf",
@@ -318,11 +281,7 @@ export const deleteUser = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const session = await requirePermission("users:manage")
-    await assertManageable(
-      session.user,
-      await resolveActiveClubId(session.user),
-      data.id
-    )
+    await assertManageable(await resolveActiveClubId(session.user), data.id)
     if (data.id === session.user.id) {
       throw new AppError(
         "errors.user.cannotDeleteSelf",

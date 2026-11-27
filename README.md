@@ -50,22 +50,23 @@ Schema changes go through migrations: `bun run db:generate`, commit the SQL in `
 
 Authentication is handled by Better Auth. Sessions, users, accounts, and password hashes are stored in Postgres.
 
-The seed (`bun run db:seed`) only bootstraps a clean app: the Default Club (with its default activity, four padel courts and reservation settings), its Owner account and the platform super admin. No players, reservations, inventory or other business data.
+The seed (`bun run db:seed`) only bootstraps a clean app: the Default Club (with its default activity, four padel courts and reservation settings), and its Owner account. No players, reservations, inventory or other business data.
 
-`make seed` (once, on a new cluster; it's the one local target that uses the deployed app's database user) runs it on the deployed app's database, as `admin@club.test` and `super@club.test` with generated passwords kept in the cluster (`make admin-password`).
+`make seed` (once, on a new cluster; it's the one local target that uses the deployed app's database user) runs it on the deployed app's database, as `admin@club.test` with a generated password kept in the cluster (`make admin-password`).
 
-`make dev-reset` runs it on `padel_admin_dev` with these logins:
+`make dev-reset` runs it on `padel_admin_dev` with this login:
 
 - **Club owner**: `admin@club.test` / `admin1234`
-- **Platform super admin**: `super@club.test` / `super1234`
 
 The E2E runs use the demo seed (`bun run db:seed:demo`) instead, which adds a second club (North Branch), team members and sample data as test fixtures.
 
-You can override seed credentials with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`, `SEED_SUPERADMIN_EMAIL`, and `SEED_SUPERADMIN_PASSWORD`.
+You can override seed credentials with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and `SEED_ADMIN_NAME`.
 
 ### Data Model
 
-Most app data is scoped to a club. Each club user belongs to one or more clubs and starts in the first one (their default club), switching to the others from the sidebar. The `Super Admin` role belongs to no club and can operate across all of them.
+Most app data is scoped to a club. Each club user belongs to one or more clubs and starts in the first one (their default club), switching to the others from the sidebar. No user reaches beyond their clubs: Owners and Admins only add users to clubs they belong to themselves.
+
+Clubs are created, renamed and deleted only by the app's owners, through the hidden platform API (`GET/POST /api/platform/clubs`, `GET/PATCH/DELETE /api/platform/clubs/:clubId`, `Bearer PLATFORM_API_KEY`, 404 without it). Creating a club also gives it its default activity, spaces and reservation settings. Deleting one removes all of its data, and answers 409 while a member belongs to no other club. Requests are in `httpRequests/api/clubs.http`.
 
 Core tables include:
 
@@ -112,12 +113,11 @@ All app routes live under the `_authenticated` layout (redirects to `/login` whe
 | `/settings/reservations`  | Reservation rules, hours, and booking limits                       |
 | `/settings/notifications` | Notification preferences                                           |
 | `/settings/users`         | User management                                                    |
-| `/settings/clubs`         | Club management for super admins                                   |
 | `/settings/ui`            | Appearance and accent settings                                     |
 
 ## Current Capabilities
 
-- Role-based access control for users, settings, players, reservations, inventory, coaches, and club provisioning
+- Role-based access control for users, settings, players, reservations, inventory, and coaches
 - Multi-club support with a club switcher for users who can access more than one club
 - Server-side validation and club scoping for reads and writes
 - Reservation conflict detection, court availability checks, opening hours, advance booking limits, and cancellation cutoff rules

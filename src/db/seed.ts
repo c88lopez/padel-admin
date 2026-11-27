@@ -32,7 +32,6 @@ import { appErrorPayload } from "@/lib/errors"
 import { isoWeekday } from "@/lib/recurrence"
 import { createPlayerRecord } from "@/lib/players.server"
 import { seedDefaultReservationSettings } from "@/lib/reservation-settings.server"
-import { SUPER_ADMIN_ROLE } from "@/lib/permissions"
 import {
   seedPlayers,
   reservationSeeds,
@@ -64,9 +63,6 @@ const NORTH_CLUB_ID = "00000000-0000-0000-0000-000000000002"
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@club.test"
 const password = process.env.SEED_ADMIN_PASSWORD ?? "admin1234"
 const name = process.env.SEED_ADMIN_NAME ?? "Club Admin"
-
-const superEmail = process.env.SEED_SUPERADMIN_EMAIL ?? "super@club.test"
-const superPassword = process.env.SEED_SUPERADMIN_PASSWORD ?? "super1234"
 
 // Creates a club (if missing) with its default activities, spaces (e.g. four
 // padel courts) and reservation settings. Idempotent.
@@ -116,8 +112,7 @@ async function seedNorthBranch() {
 
 // Adds the user to a club (their default club when it's their first).
 // Idempotent.
-async function ensureMembership(userEmail: string, clubId: string | null) {
-  if (!clubId) return
+async function ensureMembership(userEmail: string, clubId: string) {
   const rows = await db
     .select({ id: user.id })
     .from(user)
@@ -130,28 +125,13 @@ async function ensureMembership(userEmail: string, clubId: string | null) {
     .onConflictDoNothing()
 }
 
-async function seedSuperAdmin() {
-  const added = await ensureUser({
-    email: superEmail,
-    name: "Platform Super Admin",
-    password: superPassword,
-    role: SUPER_ADMIN_ROLE,
-    clubId: null,
-  })
-  console.log(
-    added
-      ? `✓ Seeded super admin: ${superEmail} / ${superPassword}`
-      : `• Super admin ${superEmail} already exists, skipping.`
-  )
-}
-
 async function ensureUser(opts: {
   email: string
   name: string
   password: string
   role: string
   status?: string
-  clubId?: string | null
+  clubId?: string
 }) {
   const existing = await db
     .select({ id: user.id })
@@ -162,7 +142,6 @@ async function ensureUser(opts: {
   await seedAuth.api.signUpEmail({
     body: { email: opts.email, password: opts.password, name: opts.name },
   })
-  const clubId = opts.clubId === undefined ? DEFAULT_CLUB_ID : opts.clubId
   await db
     .update(user)
     .set({
@@ -170,7 +149,7 @@ async function ensureUser(opts: {
       status: opts.status ?? "active",
     })
     .where(eq(user.email, opts.email))
-  await ensureMembership(opts.email, clubId)
+  await ensureMembership(opts.email, opts.clubId ?? DEFAULT_CLUB_ID)
   return true
 }
 
@@ -396,8 +375,8 @@ async function seedTournaments() {
 }
 
 // The default `db:seed` only bootstraps what the app needs to start in a clean
-// state: the Default Club (with its default courts and settings), its Owner
-// login and the platform super admin. No business data.
+// state: the Default Club (with its default courts and settings) and its Owner
+// login. No business data.
 //
 // `--demo` (i.e. `bun run db:seed:demo`, used by the E2E suite) adds a second
 // club, team users and sample players/reservations/inventory/coaching.
@@ -409,7 +388,6 @@ async function main() {
     // seeding a fresh database too.
     await ensureClub(DEFAULT_CLUB_ID, "Default Club", "default")
     await seedAdmin()
-    await seedSuperAdmin()
     if (includeDemo) {
       await seedNorthBranch()
       await seedTeam()

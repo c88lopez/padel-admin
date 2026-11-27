@@ -12,19 +12,13 @@ export const PERMISSIONS = [
   "inventory:manage",
   "coaches:manage",
   "tournaments:manage",
-  // Platform-level: provisioning clubs and assigning users across clubs.
-  "clubs:manage",
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
 
-// Club-scoped roles get everything except platform-level club provisioning.
-const ALL: readonly Permission[] = PERMISSIONS.filter(
-  (p) => p !== "clubs:manage"
-)
-
-/** Platform super-admin role. Operates across all clubs; not assignable to club staff. */
-export const SUPER_ADMIN_ROLE = "Super Admin"
+// Every role belongs to a club, so no role reaches beyond it. Club provisioning
+// is done through the hidden platform API, never by a user.
+const ALL: readonly Permission[] = PERMISSIONS
 
 // What each role is allowed to do. Owner/Admin are full-access; the rest follow
 // the role descriptions in users.ts.
@@ -48,8 +42,6 @@ export function can(
   permission: Permission
 ): boolean {
   if (!role) return false
-  // Super-admin can do anything, including platform-level club management.
-  if (role === SUPER_ADMIN_ROLE) return true
   if (!(role in ROLE_PERMISSIONS)) return false
   return ROLE_PERMISSIONS[role as UserRole].includes(permission)
 }

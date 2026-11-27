@@ -3,8 +3,7 @@ import { user } from "./auth"
 import { club } from "./club"
 import { utcNow } from "./timestamps"
 
-// The clubs a user belongs to. Every user except a platform super-admin has at
-// least one; super-admins have none and operate across all clubs. The earliest
+// The clubs a user belongs to. Every user has at least one. The earliest
 // membership (created_at, then club_id) is the user's default club, the one they
 // act within until they switch.
 export const clubMember = pgTable(

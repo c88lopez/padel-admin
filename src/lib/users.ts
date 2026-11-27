@@ -24,8 +24,7 @@ const ROLE_LABELS = {
   Manager: "Manager",
   Coach: "Entrenador",
   "Front Desk": "Recepcionista",
-  "Super Admin": "Super Admin",
-} as const satisfies Record<UserRole | "Super Admin", string>
+} as const satisfies Record<UserRole, string>
 
 /** Spanish display label for a stored role value (unknown values pass through). */
 export function roleLabel(role: string): string {

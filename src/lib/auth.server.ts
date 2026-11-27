@@ -1,12 +1,9 @@
 import { getCookie, getRequest } from "@tanstack/react-start/server"
-import { asc, eq } from "drizzle-orm"
-import { db } from "@/db"
 import { setRequestClub } from "@/db/tenant"
-import { club } from "@/db/schema"
 import { auth } from "@/lib/auth"
 import { chooseActiveClub } from "@/lib/active-club"
 import { listMemberClubIds } from "@/lib/club-members.server"
-import { can, SUPER_ADMIN_ROLE } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 import type { Permission } from "@/lib/permissions"
 import { AppError } from "@/lib/errors"
 
@@ -44,47 +41,22 @@ export async function requirePermission(permission: Permission) {
 }
 
 /**
- * Resolves the club the current request acts within:
- * - club users: the club chosen via the active-club cookie when they belong to
- *   it, otherwise their default club (their first). Null when they belong to
- *   none, so a club user never falls through to the super-admin scope below.
- * - super-admins: the club chosen via the active-club cookie, falling back to
- *   the first club alphabetically so every page has a concrete scope.
+ * Resolves the club the current request acts within: the club chosen via the
+ * active-club cookie when the user belongs to it, otherwise their default club
+ * (their first). Null when they belong to none, so every page fails closed.
  *
  * Also scopes the rest of the request to that club for row-level security
  * (src/db/tenant.ts): club-scoped tables only show its rows from here on.
  */
 export async function resolveActiveClubId(user: {
   id: string
-  role?: string | null
 }): Promise<string | null> {
-  const clubId = await chooseClubId(user)
+  const clubId = chooseActiveClub(
+    await listMemberClubIds(user.id),
+    getCookie(ACTIVE_CLUB_COOKIE)
+  )
   if (clubId) setRequestClub(clubId)
   return clubId
-}
-
-async function chooseClubId(user: {
-  id: string
-  role?: string | null
-}): Promise<string | null> {
-  const selected = getCookie(ACTIVE_CLUB_COOKIE)
-  if (user.role !== SUPER_ADMIN_ROLE) {
-    return chooseActiveClub(await listMemberClubIds(user.id), selected)
-  }
-  if (selected) {
-    const rows = await db
-      .select({ id: club.id })
-      .from(club)
-      .where(eq(club.id, selected))
-      .limit(1)
-    if (rows.length > 0) return rows[0].id
-  }
-  const first = await db
-    .select({ id: club.id })
-    .from(club)
-    .orderBy(asc(club.name))
-    .limit(1)
-  return first[0]?.id ?? null
 }
 
 /**

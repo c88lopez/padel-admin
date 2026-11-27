@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { clubPatchInput } from "@/lib/clubs.functions"
 import {
+  clubPatchInput,
   deleteClubRecord,
   getClubRecord,
   updateClubRecord,
@@ -9,22 +9,24 @@ import {
   ApiError,
   apiErrorResponse,
   readJsonBody,
-  requireApiAccess,
+  requirePlatformKey,
 } from "@/lib/api-auth"
 
-type Ctx = { request: Request; params: { id: string } }
+type Ctx = { request: Request; params: { clubId: string } }
 
-// REST endpoints for a single club:
-//   GET    /api/clubs/:id  — fetch one club
-//   PATCH  /api/clubs/:id  — update name/status (partial)
-//   DELETE /api/clubs/:id  — delete a club (Default Club is protected)
-export const Route = createFileRoute("/api/clubs/$id")({
+// Hidden platform API (app owners only, PLATFORM_API_KEY):
+//   GET    /api/platform/clubs/:clubId — fetch one club
+//   PATCH  /api/platform/clubs/:clubId — update name/status (partial)
+//   DELETE /api/platform/clubs/:clubId — delete a club and all of its data.
+//          409 for the Default Club, and while a member belongs to no other
+//          club (every user needs one).
+export const Route = createFileRoute("/api/platform/clubs/$clubId/")({
   server: {
     handlers: {
       GET: async ({ request, params }: Ctx) => {
         try {
-          await requireApiAccess(request, "clubs:manage")
-          const record = await getClubRecord(params.id)
+          requirePlatformKey(request)
+          const record = await getClubRecord(params.clubId)
           if (!record) throw new ApiError(404, "Club not found.")
           return Response.json(record)
         } catch (error) {
@@ -33,9 +35,12 @@ export const Route = createFileRoute("/api/clubs/$id")({
       },
       PATCH: async ({ request, params }: Ctx) => {
         try {
-          await requireApiAccess(request, "clubs:manage")
+          requirePlatformKey(request)
           const data = clubPatchInput.parse(await readJsonBody(request))
-          const updated = await updateClubRecord({ id: params.id, ...data })
+          const updated = await updateClubRecord({
+            id: params.clubId,
+            ...data,
+          })
           return Response.json(updated)
         } catch (error) {
           return apiErrorResponse(error)
@@ -43,8 +48,8 @@ export const Route = createFileRoute("/api/clubs/$id")({
       },
       DELETE: async ({ request, params }: Ctx) => {
         try {
-          await requireApiAccess(request, "clubs:manage")
-          return Response.json(await deleteClubRecord(params.id))
+          requirePlatformKey(request)
+          return Response.json(await deleteClubRecord(params.clubId))
         } catch (error) {
           return apiErrorResponse(error)
         }

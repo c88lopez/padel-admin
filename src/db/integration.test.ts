@@ -224,8 +224,8 @@ describe.skipIf(!TEST_URL)("database integration", () => {
       expect(await listMemberClubIds(id)).toEqual([CLUB_ID])
     })
 
-    it("deleting a club deletes only the members left without a club", async () => {
-      const { createClubRecord, deleteClubRecord } =
+    it("refuses to delete a club while a member belongs to no other club", async () => {
+      const { createClubRecord, deleteClubRecord, getClubRecord } =
         await import("@/lib/clubs.server")
       const { listMemberClubIds } = await import("@/lib/club-members.server")
       const doomed = await createClubRecord({
@@ -238,13 +238,15 @@ describe.skipIf(!TEST_URL)("database integration", () => {
         CLUB_ID,
       ])
 
-      await deleteClubRecord(doomed.id)
+      await expect(deleteClubRecord(doomed.id)).rejects.toThrow(
+        /cannot be deleted while 1 member/
+      )
+      expect(await getClubRecord(doomed.id)).not.toBeNull()
+      expect(await listMemberClubIds(onlyThere)).toEqual([doomed.id])
 
-      const remaining = await db
-        .select({ id: user.id })
-        .from(user)
-        .where(eq(user.id, onlyThere))
-      expect(remaining).toHaveLength(0)
+      await db.delete(user).where(eq(user.id, onlyThere))
+      await deleteClubRecord(doomed.id)
+      expect(await getClubRecord(doomed.id)).toBeNull()
       expect(await listMemberClubIds(alsoElsewhere)).toEqual([CLUB_ID])
     })
   })

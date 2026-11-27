@@ -50,7 +50,6 @@ import {
   useAppSettingsHydrated,
 } from "@/lib/app-settings"
 import type { SecuritySettings } from "@/lib/app-settings"
-import { can } from "@/lib/permissions"
 import { listClubOptions } from "@/lib/clubs.functions"
 import { errorMessage } from "@/lib/errors"
 import {
@@ -67,10 +66,9 @@ type ClubOption = { id: string; name: string }
 export const Route = createFileRoute("/_authenticated/settings/users")({
   beforeLoad: ({ context }) =>
     ensurePermission(context.user.role, "users:manage"),
-  loader: async ({ context }) => {
-    const canManageClubs = can(context.user.role, "clubs:manage")
+  loader: async () => {
     const [users, clubs] = await Promise.all([listUsers(), listClubOptions()])
-    return { users, clubs, canManageClubs }
+    return { users, clubs }
   },
   component: UsersSettingsPage,
 })
@@ -81,19 +79,11 @@ interface User {
   email: string
   role: UserRole
   status: string
-  // Default club first. Empty only for platform super-admins.
+  // Default club first.
   clubs: { id: string; name: string }[]
 }
 
-function UserActions({
-  user,
-  clubs,
-  canManageClubs,
-}: {
-  user: User
-  clubs: ClubOption[]
-  canManageClubs: boolean
-}) {
+function UserActions({ user, clubs }: { user: User; clubs: ClubOption[] }) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -158,7 +148,6 @@ function UserActions({
           role: user.role,
           clubIds: user.clubs.map((c) => c.id),
         }}
-        canManageClubs={canManageClubs}
         canAssignClubs={clubs.length > 0}
         clubs={clubs}
         open={editOpen}
@@ -378,10 +367,7 @@ function SecuritySection() {
   )
 }
 
-function buildColumns(
-  clubs: ClubOption[],
-  canManageClubs: boolean
-): ColumnDef<User>[] {
+function buildColumns(clubs: ClubOption[]): ColumnDef<User>[] {
   return [
     {
       accessorKey: "name",
@@ -425,49 +411,24 @@ function buildColumns(
           </Badge>
         ),
     },
-    ...(canManageClubs
-      ? [
-          {
-            id: "clubs",
-            accessorFn: (u) => u.clubs.map((c) => c.name).join(", "),
-            header: "Club",
-            cell: ({ row }) => (
-              <span className="text-muted-foreground">
-                {row.original.clubs.length > 0
-                  ? row.original.clubs.map((c) => c.name).join(", ")
-                  : "— Plataforma —"}
-              </span>
-            ),
-          } satisfies ColumnDef<User>,
-        ]
-      : []),
     {
       id: "actions",
       enableSorting: false,
       meta: { className: "text-right" },
-      cell: ({ row }) => (
-        <UserActions
-          user={row.original}
-          clubs={clubs}
-          canManageClubs={canManageClubs}
-        />
-      ),
+      cell: ({ row }) => <UserActions user={row.original} clubs={clubs} />,
     },
   ]
 }
 
 function UsersSettingsPage() {
   const router = useRouter()
-  const { users: rawUsers, clubs, canManageClubs } = Route.useLoaderData()
+  const { users: rawUsers, clubs } = Route.useLoaderData()
   const users: User[] = rawUsers.map((u) => ({
     ...u,
     role: u.role as UserRole,
   }))
 
-  const columns = useMemo(
-    () => buildColumns(clubs, canManageClubs),
-    [clubs, canManageClubs]
-  )
+  const columns = useMemo(() => buildColumns(clubs), [clubs])
 
   return (
     <div className="flex flex-col gap-4">
@@ -485,7 +446,6 @@ function UsersSettingsPage() {
         exportFileName="users"
         action={
           <NewUserDrawer
-            canManageClubs={canManageClubs}
             canAssignClubs={clubs.length > 0}
             clubs={clubs}
             onSave={async (data) => {

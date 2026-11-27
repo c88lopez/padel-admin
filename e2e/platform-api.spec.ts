@@ -74,3 +74,105 @@ test("enforces the activity rules", async ({ request }) => {
   expect(unknownClub.status()).toBe(404)
   expect(await unknownClub.json()).toEqual({ error: "Club not found." })
 })
+
+test.describe("club endpoints", () => {
+  const CLUBS = "/api/platform/clubs"
+
+  test("hide without the platform key, even from a signed-in Owner", async ({
+    page,
+  }) => {
+    // page.request carries the Owner's session cookie.
+    const variants: Record<string, string>[] = [
+      {},
+      { authorization: "Bearer wrong-key" },
+    ]
+    for (const headers of variants) {
+      const calls = [
+        page.request.get(CLUBS, { headers }),
+        page.request.post(CLUBS, { headers, data: { name: "Nope" } }),
+        page.request.get(`${CLUBS}/${CLUB_ID}`, { headers }),
+        page.request.patch(`${CLUBS}/${CLUB_ID}`, {
+          headers,
+          data: { name: "Nope" },
+        }),
+        page.request.delete(`${CLUBS}/${CLUB_ID}`, { headers }),
+      ]
+      for (const res of await Promise.all(calls)) {
+        expect(res.status()).toBe(404)
+      }
+    }
+    expect((await page.request.get("/api/clubs")).status()).toBe(404)
+  })
+
+  test("create, rename and delete a club", async ({ page, request }) => {
+    const name = `E2E Platform Club ${Date.now()}`
+    const created = await request.post(CLUBS, {
+      headers: auth,
+      data: { name },
+    })
+    expect(created.status()).toBe(201)
+    const club = (await created.json()) as { id: string; status: string }
+    expect(club).toMatchObject({ name, status: "active", memberCount: 0 })
+
+    // Provisioned with its default activity.
+    const activities = await request.get(`${CLUBS}/${club.id}/activities`, {
+      headers: auth,
+    })
+    expect((await activities.json()).activities).toContainEqual(
+      expect.objectContaining({ templateKey: "padel", active: true })
+    )
+
+    const list = await request.get(CLUBS, { headers: auth })
+    expect(await list.json()).toContainEqual(
+      expect.objectContaining({ id: club.id })
+    )
+
+    const renamed = await request.patch(`${CLUBS}/${club.id}`, {
+      headers: auth,
+      data: { name: `${name} (renamed)` },
+    })
+    expect(renamed.status()).toBe(200)
+    expect(await renamed.json()).toMatchObject({ name: `${name} (renamed)` })
+    expect(
+      (
+        await request.patch(`${CLUBS}/${club.id}`, {
+          headers: auth,
+          data: { name: "" },
+        })
+      ).status()
+    ).toBe(400)
+
+    // A member who belongs to no other club blocks the delete.
+    const member = await page.request.post("/api/users", {
+      data: {
+        name: "E2E Platform Member",
+        email: `platform-${Date.now()}@e2e.test`,
+        role: "Owner",
+        password: "Sup3rSecret1",
+        clubIds: [club.id],
+      },
+    })
+    expect(member.status()).toBe(201)
+    const memberId = ((await member.json()) as { id: string }).id
+    expect(
+      (await request.delete(`${CLUBS}/${club.id}`, { headers: auth })).status()
+    ).toBe(409)
+
+    expect((await page.request.delete(`/api/users/${memberId}`)).status()).toBe(
+      200
+    )
+    const deleted = await request.delete(`${CLUBS}/${club.id}`, {
+      headers: auth,
+    })
+    expect(deleted.status()).toBe(200)
+    expect(await deleted.json()).toEqual({ id: club.id })
+    expect(
+      (await request.get(`${CLUBS}/${club.id}`, { headers: auth })).status()
+    ).toBe(404)
+  })
+
+  test("never deletes the Default Club", async ({ request }) => {
+    const res = await request.delete(`${CLUBS}/${CLUB_ID}`, { headers: auth })
+    expect(res.status()).toBe(409)
+  })
+})
