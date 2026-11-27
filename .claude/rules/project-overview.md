@@ -33,7 +33,7 @@ Single unit test: `bun run test -- path/to/file.test.tsx`. No local database: de
 
 ## Deployment
 
-Runs in the home Kubernetes cluster at http://192.168.68.61:30084, like the workspace's other services: a merge to `main` releases `v0.x.y` (CI), Argo CD Image Updater commits the tag to `k8s/kustomization.yaml`, and Argo CD deploys it after the PreSync migrate Job. `k8s/` is the deployment; the `Makefile` has the cluster tasks (`secrets`, `status`, `logs`, `restart`).
+Runs in the home Kubernetes cluster at http://homelab.home.arpa:30084, like the workspace's other services: a merge to `main` releases `v0.x.y` (CI), Argo CD Image Updater commits the tag to `k8s/kustomization.yaml`, and Argo CD deploys it after the PreSync migrate Job. `k8s/` is the deployment; the `Makefile` has the cluster tasks (`secrets`, `status`, `logs`, `restart`).
 
 ## Layout
 
