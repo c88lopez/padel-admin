@@ -18,7 +18,7 @@ The app is currently a functional admin prototype with real Postgres persistence
 
 It runs in the home Kubernetes cluster (the `vandelay-labs` workspace), deployed like the other services there:
 
-- **App**: http://192.168.68.61:30084 (LAN only). `make admin-password` prints the Owner's login.
+- **App**: http://homelab.home.arpa:30084 (LAN only). `make admin-password` prints the Owner's login.
 - **Deploys**: every merge to `main` that changes code is released by CI (`v0.x.y`, image `ghcr.io/c88lopez/padel-admin`). Argo CD Image Updater commits the tag to `k8s/kustomization.yaml`, and Argo CD rolls it out, running pending migrations first (`k8s/jobs/migrate.yaml`). Merge with the `release:minor` label for a minor version.
 - **Database**: `padel_admin` on the cluster's shared Postgres (platform repo, `manifests/data/postgres.yaml`), through PgBouncer.
 - **Secrets**: `make secrets` creates `padel-admin-deps` (database URLs, Better Auth and API secrets, the AI Gateway key from `.env`). Generated values are kept on re-runs.

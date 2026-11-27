@@ -9,7 +9,7 @@ data:
   APP_ENV: "k8s-local"
   # Where browsers reach the app: Better Auth builds its callbacks and checks
   # request origins against it. The node's address and the Service's NodePort.
-  BETTER_AUTH_URL: "http://192.168.68.61:30084"
+  BETTER_AUTH_URL: "http://homelab.home.arpa:30084"
   # Postgres connections per pod, through PgBouncer (max_db_connections 30
   # per database): 5 x the HPA's maxReplicas stays well under it.
   DB_POOL_MAX: "5"
